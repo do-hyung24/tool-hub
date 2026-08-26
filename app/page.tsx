@@ -1,6 +1,9 @@
 import { getListings } from "@/lib/data";
 import { ListingCard } from "./_components/ListingCard";
 
+// 매물 목록은 DB에서 실시간으로 바뀌므로 빌드 타임에 정적으로 굳히지 않는다.
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const listings = await getListings();
 
