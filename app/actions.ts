@@ -1,20 +1,93 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { after } from "next/server";
-import { addListing, updateListingScanResult } from "@/lib/data";
-import { scanRepository } from "@/lib/scan";
-import { CATEGORIES, type Category } from "@/lib/types";
+import {
+  createDraftListing,
+  getListingForOwner,
+  getSellerById,
+  publishListing,
+  saveScanReport,
+  updateListingSource,
+} from "@/lib/data";
+import { getCurrentSellerId } from "@/lib/session";
+import { fetchGithubScannableFiles, GithubFetchError } from "@/lib/scan";
+import { extractScannableFiles, MAX_ZIP_UPLOAD_BYTES, ZipValidationError } from "@/lib/zipExtract";
+import { runScan } from "@/lib/scanEngine";
+import { RULE_ENGINE_VERSION } from "@/lib/detector";
+import { CATEGORIES, SOURCE_TYPES, type Category, type SourceType } from "@/lib/types";
+import type { ScannableFile } from "@/lib/scannableFile";
+
+async function collectFilesForSource(
+  sourceType: SourceType,
+  formData: FormData
+): Promise<{ files: ScannableFile[]; codeUrl: string | null }> {
+  if (sourceType === "github") {
+    const codeUrl = String(formData.get("codeUrl") ?? "").trim();
+    if (!codeUrl) {
+      throw new Error("GitHub 저장소 링크를 입력해주세요.");
+    }
+    try {
+      const files = await fetchGithubScannableFiles(codeUrl);
+      return { files, codeUrl };
+    } catch (error) {
+      if (error instanceof GithubFetchError) throw new Error(error.message);
+      throw error;
+    }
+  }
+
+  const zipFile = formData.get("zipFile");
+  if (!(zipFile instanceof File) || zipFile.size === 0) {
+    throw new Error("zip 파일을 선택해주세요.");
+  }
+  if (zipFile.size > MAX_ZIP_UPLOAD_BYTES) {
+    throw new Error(`zip 파일은 최대 ${MAX_ZIP_UPLOAD_BYTES / 1024 / 1024}MB까지 업로드할 수 있습니다.`);
+  }
+
+  try {
+    const buffer = Buffer.from(await zipFile.arrayBuffer());
+    const files = await extractScannableFiles(buffer);
+    return { files, codeUrl: null };
+  } catch (error) {
+    if (error instanceof ZipValidationError) throw new Error(error.message);
+    throw error;
+  }
+}
+
+function parseSourceType(formData: FormData): SourceType {
+  const raw = String(formData.get("sourceType") ?? "");
+  if (!SOURCE_TYPES.includes(raw as SourceType)) {
+    throw new Error("코드 입력 방식을 선택해주세요.");
+  }
+  return raw as SourceType;
+}
+
+// UI(페이지 단의 리다이렉트)와 별개로, 서버 액션은 직접 POST될 수도 있으므로
+// 로그인/권한 검증을 여기서도 반드시 다시 한다.
+async function requireSellerId(): Promise<string> {
+  const sellerId = await getCurrentSellerId();
+  if (!sellerId) {
+    throw new Error("로그인이 필요합니다.");
+  }
+  return sellerId;
+}
+
+async function requireVerifiedSellerId(): Promise<string> {
+  const sellerId = await requireSellerId();
+  const seller = await getSellerById(sellerId);
+  if (!seller?.emailVerified) {
+    throw new Error("이메일 인증이 필요합니다.");
+  }
+  return sellerId;
+}
 
 export async function createListingAction(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const price = Number(formData.get("price"));
   const category = String(formData.get("category") ?? "");
-  const codeUrl = String(formData.get("codeUrl") ?? "").trim();
 
-  if (!title || !description || !codeUrl) {
-    throw new Error("제목, 설명, 코드 링크는 필수입니다.");
+  if (!title || !description) {
+    throw new Error("제목과 설명은 필수입니다.");
   }
   if (!Number.isFinite(price) || price < 0) {
     throw new Error("가격을 올바르게 입력해주세요.");
@@ -23,20 +96,83 @@ export async function createListingAction(formData: FormData) {
     throw new Error("카테고리를 선택해주세요.");
   }
 
-  const listing = await addListing({
+  const sourceType = parseSourceType(formData);
+  const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
+  const sellerId = await requireVerifiedSellerId();
+
+  const listing = await createDraftListing({
     title,
     description,
     price,
     category: category as Category,
     codeUrl,
+    sourceType,
+    sellerId,
   });
 
-  // 스캔은 시간이 걸리므로 응답 전송 후 백그라운드에서 실행하고,
-  // 사용자는 우선 "스캔 중" 상태의 상세 페이지로 이동한다.
-  after(async () => {
-    const scanResult = await scanRepository(listing.codeUrl);
-    await updateListingScanResult(listing.id, scanResult);
+  const findings = await runScan(files);
+  const report = await saveScanReport({
+    listingId: listing.id,
+    authorId: sellerId,
+    findings,
+    ruleEngineVersion: RULE_ENGINE_VERSION,
   });
 
-  redirect(`/listings/${listing.id}`);
+  const hasUnresolvedFindings = report.findings.some((finding) =>
+    ["critical", "high", "medium"].includes(finding.severity)
+  );
+
+  if (!hasUnresolvedFindings) {
+    await publishListing(listing.id, sellerId, null);
+    redirect(`/listings/${listing.id}`);
+  }
+
+  redirect(`/listings/${listing.id}/review`);
+}
+
+export async function rescanListingAction(formData: FormData) {
+  const listingId = String(formData.get("listingId") ?? "");
+  const sellerId = await requireSellerId();
+
+  const listing = await getListingForOwner(listingId, sellerId);
+  if (!listing) {
+    throw new Error("매물을 찾을 수 없거나 접근 권한이 없습니다.");
+  }
+
+  const sourceType = parseSourceType(formData);
+  const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
+
+  await updateListingSource(listingId, { codeUrl, sourceType });
+
+  const findings = await runScan(files);
+  const report = await saveScanReport({
+    listingId,
+    authorId: sellerId,
+    findings,
+    ruleEngineVersion: RULE_ENGINE_VERSION,
+  });
+
+  const hasUnresolvedFindings = report.findings.some((finding) =>
+    ["critical", "high", "medium"].includes(finding.severity)
+  );
+
+  if (!hasUnresolvedFindings) {
+    await publishListing(listingId, sellerId, null);
+    redirect(`/listings/${listingId}`);
+  }
+
+  redirect(`/listings/${listingId}/review`);
+}
+
+export async function publishAnywayAction(formData: FormData) {
+  const listingId = String(formData.get("listingId") ?? "");
+  const disclosureNote = String(formData.get("disclosureNote") ?? "").trim();
+  const sellerId = await requireSellerId();
+
+  const published = await publishListing(listingId, sellerId, disclosureNote || null);
+  if (!published) {
+    throw new Error("매물을 찾을 수 없거나 접근 권한이 없습니다.");
+  }
+
+  redirect(`/listings/${listingId}`);
 }

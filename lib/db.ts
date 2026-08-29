@@ -1,6 +1,6 @@
 import "server-only";
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
-import type { Listing, Seller } from "./types";
+import type { Finding, Listing, Seller } from "./types";
 
 // Vercel의 Neon 연동은 DATABASE_URL과 POSTGRES_URL을 함께 넣어주므로 둘 다 확인한다.
 let sqlClient: NeonQueryFunction<false, false> | null = null;
@@ -19,10 +19,30 @@ export function getSql(): NeonQueryFunction<false, false> {
   return sqlClient;
 }
 
+// 시드 판매자는 로그인 계정이 없는 레거시 데이터입니다 (email/password 미설정).
+// 실제 회원가입으로 만들어진 계정만 로그인할 수 있습니다.
 const SEED_SELLERS: Seller[] = [
-  { id: "s1", nickname: "봇공작소", contact: "open.kakao.com/o/gBotFactory" },
-  { id: "s2", nickname: "크롤킹", contact: "crawlking@example.com" },
-  { id: "s3", nickname: "야매개발자", contact: "@yamae_dev (텔레그램)" },
+  {
+    id: "s1",
+    nickname: "봇공작소",
+    contact: "open.kakao.com/o/gBotFactory",
+    email: null,
+    emailVerified: false,
+  },
+  {
+    id: "s2",
+    nickname: "크롤킹",
+    contact: "crawlking@example.com",
+    email: null,
+    emailVerified: false,
+  },
+  {
+    id: "s3",
+    nickname: "야매개발자",
+    contact: "@yamae_dev (텔레그램)",
+    email: null,
+    emailVerified: false,
+  },
 ];
 
 const SEED_LISTINGS: Listing[] = [
@@ -34,15 +54,11 @@ const SEED_LISTINGS: Listing[] = [
     price: 30000,
     category: "알림/모니터링 봇",
     codeUrl: "https://github.com/example/coupang-price-bot",
-    scanResult: {
-      hasHardcodedSecret: false,
-      hasVulnerableDependency: false,
-      scannedAt: "2026-08-20T09:00:00.000Z",
-      passed: true,
-      findings: [],
-      suggestions: [],
-    },
-    isVerified: true,
+    sourceType: "github",
+    published: true,
+    scanStatus: "completed",
+    disclosureNote: null,
+    hasUnresolvedFindings: false,
     createdAt: "2026-08-20T09:00:00.000Z",
     sellerId: "s1",
   },
@@ -54,15 +70,12 @@ const SEED_LISTINGS: Listing[] = [
     price: 50000,
     category: "크롤러/스크래퍼",
     codeUrl: "https://github.com/example/naver-cafe-crawler",
-    scanResult: {
-      hasHardcodedSecret: true,
-      hasVulnerableDependency: false,
-      scannedAt: "2026-08-18T09:00:00.000Z",
-      passed: false,
-      findings: ["설정 파일에 네이버 API 키가 하드코딩되어 있습니다."],
-      suggestions: ["API 키는 환경변수로 분리하고, 저장소에는 예시 값만 남겨주세요."],
-    },
-    isVerified: false,
+    sourceType: "github",
+    published: true,
+    scanStatus: "completed",
+    disclosureNote:
+      "설정 파일의 API 키는 예시용 더미 값입니다. 실제 사용 전 본인 키로 교체해주세요.",
+    hasUnresolvedFindings: true,
     createdAt: "2026-08-18T09:00:00.000Z",
     sellerId: "s2",
   },
@@ -74,23 +87,50 @@ const SEED_LISTINGS: Listing[] = [
     price: 20000,
     category: "업무 자동화(RPA)",
     codeUrl: "https://github.com/example/excel-report-macro",
-    scanResult: {
-      hasHardcodedSecret: false,
-      hasVulnerableDependency: false,
-      scannedAt: "2026-08-22T09:00:00.000Z",
-      passed: true,
-      findings: [],
-      suggestions: [],
-    },
-    isVerified: true,
+    sourceType: "github",
+    published: true,
+    scanStatus: "completed",
+    disclosureNote: null,
+    hasUnresolvedFindings: false,
     createdAt: "2026-08-22T09:00:00.000Z",
     sellerId: "s3",
   },
 ];
 
+// l2는 발견된 문제(시크릿 하드코딩)를 안고도 판매자가 그대로 게시하기로 선택한
+// 예시 데이터입니다. 리포트 화면 데모용으로 함께 시드합니다.
+const SEED_SCAN_REPORTS: Array<{
+  id: string;
+  listingId: string;
+  authorId: string;
+  findings: Finding[];
+  ruleEngineVersion: string;
+  createdAt: string;
+}> = [
+  {
+    id: "sr-l2-1",
+    listingId: "l2",
+    authorId: "s2",
+    ruleEngineVersion: "rule-engine-2026-08-27-v1",
+    createdAt: "2026-08-18T09:00:00.000Z",
+    findings: [
+      {
+        id: "f-l2-1",
+        severity: "critical",
+        confidence: "high",
+        type: "hardcoded-secret",
+        filePath: "config.py",
+        location: "12번째 줄",
+        maskedEvidence: "AIz***...f2a",
+        description: "Google API 키로 보이는 문자열이 하드코딩되어 있습니다.",
+      },
+    ],
+  },
+];
+
 let initPromise: Promise<void> | null = null;
 
-// 앱이 처음 DB에 접근할 때 딱 한 번만 테이블 생성 + 시드 삽입을 수행한다.
+// 앱이 처음 DB에 접근할 때 딱 한 번만 스키마 생성/마이그레이션 + 시드 삽입을 수행한다.
 // 서버 인스턴스가 살아있는 동안은 이 Promise가 캐시되어 재실행되지 않는다.
 export function ensureInitialized(): Promise<void> {
   if (!initPromise) {
@@ -109,9 +149,34 @@ async function initialize(): Promise<void> {
     CREATE TABLE IF NOT EXISTS sellers (
       id TEXT PRIMARY KEY,
       nickname TEXT NOT NULL,
-      contact TEXT NOT NULL
+      contact TEXT NOT NULL,
+      email TEXT,
+      password_hash TEXT,
+      email_verified BOOLEAN NOT NULL DEFAULT FALSE
     )
   `;
+
+  // 기존(구버전) sellers 테이블에 로그인 관련 컬럼을 추가한다. 이미 새 스키마로
+  // 생성된 DB에서는 no-op이다.
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS email TEXT`;
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS password_hash TEXT`;
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sellers_email ON sellers (email)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      token TEXT PRIMARY KEY,
+      seller_id TEXT NOT NULL REFERENCES sellers(id),
+      code TEXT NOT NULL DEFAULT '',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `;
+  // 기존(구버전) 테이블에 코드 입력 인증용 컬럼을 추가한다.
+  await sql`ALTER TABLE email_verification_tokens ADD COLUMN IF NOT EXISTS code TEXT NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE email_verification_tokens ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_verification_tokens_seller ON email_verification_tokens(seller_id)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS listings (
@@ -120,13 +185,39 @@ async function initialize(): Promise<void> {
       description TEXT NOT NULL,
       price INTEGER NOT NULL,
       category TEXT NOT NULL,
-      code_url TEXT NOT NULL,
-      scan_result JSONB,
-      is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      code_url TEXT,
+      source_type TEXT NOT NULL DEFAULT 'github',
+      published BOOLEAN NOT NULL DEFAULT FALSE,
+      scan_status TEXT NOT NULL DEFAULT 'pending',
+      disclosure_note TEXT,
+      has_unresolved_findings BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TEXT NOT NULL,
       seller_id TEXT NOT NULL REFERENCES sellers(id)
     )
   `;
+
+  // 기존(구버전) listings 테이블을 새 스펙에 맞게 이관한다. 이미 새 스키마로
+  // 생성된 DB에서는 전부 no-op이다.
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'github'`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS published BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS scan_status TEXT NOT NULL DEFAULT 'pending'`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS disclosure_note TEXT`;
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS has_unresolved_findings BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE listings ALTER COLUMN code_url DROP NOT NULL`;
+  await sql`ALTER TABLE listings DROP COLUMN IF EXISTS scan_result`;
+  await sql`ALTER TABLE listings DROP COLUMN IF EXISTS is_verified`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS scan_reports (
+      id TEXT PRIMARY KEY,
+      listing_id TEXT NOT NULL REFERENCES listings(id),
+      author_id TEXT NOT NULL REFERENCES sellers(id),
+      findings JSONB NOT NULL,
+      rule_engine_version TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_scan_reports_listing ON scan_reports(listing_id)`;
 
   for (const seller of SEED_SELLERS) {
     await sql`
@@ -139,14 +230,31 @@ async function initialize(): Promise<void> {
   for (const listing of SEED_LISTINGS) {
     await sql`
       INSERT INTO listings (
-        id, title, description, price, category, code_url,
-        scan_result, is_verified, created_at, seller_id
+        id, title, description, price, category, code_url, source_type,
+        published, scan_status, disclosure_note, has_unresolved_findings,
+        created_at, seller_id
       )
       VALUES (
         ${listing.id}, ${listing.title}, ${listing.description}, ${listing.price},
-        ${listing.category}, ${listing.codeUrl},
-        ${listing.scanResult ? JSON.stringify(listing.scanResult) : null},
-        ${listing.isVerified}, ${listing.createdAt}, ${listing.sellerId}
+        ${listing.category}, ${listing.codeUrl}, ${listing.sourceType},
+        ${listing.published}, ${listing.scanStatus}, ${listing.disclosureNote},
+        ${listing.hasUnresolvedFindings}, ${listing.createdAt}, ${listing.sellerId}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        source_type = EXCLUDED.source_type,
+        published = EXCLUDED.published,
+        scan_status = EXCLUDED.scan_status,
+        disclosure_note = EXCLUDED.disclosure_note,
+        has_unresolved_findings = EXCLUDED.has_unresolved_findings
+    `;
+  }
+
+  for (const report of SEED_SCAN_REPORTS) {
+    await sql`
+      INSERT INTO scan_reports (id, listing_id, author_id, findings, rule_engine_version, created_at)
+      VALUES (
+        ${report.id}, ${report.listingId}, ${report.authorId},
+        ${JSON.stringify(report.findings)}, ${report.ruleEngineVersion}, ${report.createdAt}
       )
       ON CONFLICT (id) DO NOTHING
     `;

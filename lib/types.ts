@@ -1,16 +1,9 @@
-export type ScanResult = {
-  hasHardcodedSecret: boolean;
-  hasVulnerableDependency: boolean;
-  scannedAt: string;
-  passed: boolean;
-  findings: string[];
-  suggestions: string[];
-};
-
 export type Seller = {
   id: string;
   nickname: string;
   contact: string;
+  email: string | null;
+  emailVerified: boolean;
 };
 
 export const CATEGORIES = [
@@ -24,15 +17,52 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+export const SOURCE_TYPES = ["github", "zip"] as const;
+export type SourceType = (typeof SOURCE_TYPES)[number];
+
+export type ScanStatus = "pending" | "completed";
+
 export type Listing = {
   id: string;
   title: string;
   description: string;
   price: number;
   category: Category;
-  codeUrl: string;
-  scanResult: ScanResult | null;
-  isVerified: boolean;
+  codeUrl: string | null;
+  sourceType: SourceType;
+  published: boolean;
+  scanStatus: ScanStatus;
+  disclosureNote: string | null;
+  hasUnresolvedFindings: boolean;
   createdAt: string;
   sellerId: string;
+};
+
+export const SEVERITIES = ["critical", "high", "medium", "low", "informational"] as const;
+export type Severity = (typeof SEVERITIES)[number];
+
+// Medium 이상은 게시 전 작성자 확인이 필요한 등급입니다.
+export const BLOCKING_SEVERITIES: Severity[] = ["critical", "high", "medium"];
+
+export const CONFIDENCE_LEVELS = ["high", "medium", "low"] as const;
+export type Confidence = (typeof CONFIDENCE_LEVELS)[number];
+
+export type Finding = {
+  id: string;
+  severity: Severity;
+  confidence: Confidence;
+  type: string;
+  filePath: string;
+  location: string | null;
+  maskedEvidence: string | null;
+  description: string;
+};
+
+export type ScanReport = {
+  id: string;
+  listingId: string;
+  authorId: string;
+  findings: Finding[];
+  createdAt: string;
+  ruleEngineVersion: string;
 };
