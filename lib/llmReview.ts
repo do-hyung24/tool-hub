@@ -35,6 +35,9 @@ export async function reviewAmbiguousFindings(
 ): Promise<RawFinding[]> {
   const ambiguous = findings.filter((finding) => finding.needsLlmReview);
   if (ambiguous.length === 0) return findings;
+  // 1차 스프린트는 룰기반 탐지만 제공한다. LLM 하이브리드는 스텁 상태이며
+  // ENABLE_LLM_HYBRID=true로 명시적으로 켜기 전까지는 API를 호출하지 않는다.
+  if (process.env.ENABLE_LLM_HYBRID !== "true") return findings;
   if (!process.env.ANTHROPIC_API_KEY) return findings;
 
   const filesByPath = new Map(files.map((file) => [file.path, file]));
