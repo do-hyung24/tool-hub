@@ -10,6 +10,7 @@ import {
   createSeller,
   getSellerByEmail,
   getSellerById,
+  getSellerByNickname,
   verifyEmailCode,
 } from "@/lib/data";
 import { hashPassword } from "@/lib/password";
@@ -23,6 +24,36 @@ async function getOrigin(): Promise<string> {
   const proto =
     headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;
+}
+
+// 회원가입 폼의 "중복확인" 버튼에서 호출한다. 제출 전에 미리 확인만 할 뿐,
+// signupAction의 최종 검증(아래)을 대체하지 않는다 - 클라이언트 체크를
+// 우회해도 서버에서 다시 막힌다.
+export type AvailabilityResult =
+  | { status: "available" }
+  | { status: "taken" }
+  | { status: "invalid"; message: string };
+
+export async function checkEmailAvailabilityAction(
+  rawEmail: string
+): Promise<AvailabilityResult> {
+  const email = rawEmail.trim().toLowerCase();
+  if (!EMAIL_REGEX.test(email)) {
+    return { status: "invalid", message: "올바른 이메일 형식이 아닙니다." };
+  }
+  const existing = await getSellerByEmail(email);
+  return existing ? { status: "taken" } : { status: "available" };
+}
+
+export async function checkNicknameAvailabilityAction(
+  rawNickname: string
+): Promise<AvailabilityResult> {
+  const nickname = rawNickname.trim();
+  if (!nickname) {
+    return { status: "invalid", message: "닉네임을 입력해주세요." };
+  }
+  const existing = await getSellerByNickname(nickname);
+  return existing ? { status: "taken" } : { status: "available" };
 }
 
 export async function signupAction(formData: FormData) {
@@ -40,9 +71,13 @@ export async function signupAction(formData: FormData) {
     throw new Error("닉네임을 입력해주세요.");
   }
 
-  const existing = await getSellerByEmail(email);
-  if (existing) {
+  const existingEmail = await getSellerByEmail(email);
+  if (existingEmail) {
     throw new Error("이미 가입된 이메일입니다.");
+  }
+  const existingNickname = await getSellerByNickname(nickname);
+  if (existingNickname) {
+    throw new Error("이미 사용 중인 닉네임입니다.");
   }
 
   const passwordHash = await hashPassword(password);
@@ -51,7 +86,7 @@ export async function signupAction(formData: FormData) {
   try {
     seller = await createSeller({ email, passwordHash, nickname });
   } catch {
-    throw new Error("이미 가입된 이메일이거나, 계정을 만들지 못했습니다.");
+    throw new Error("이미 가입된 이메일이거나 닉네임이거나, 계정을 만들지 못했습니다.");
   }
 
   const { token, code } = await createEmailVerificationToken(seller.id);

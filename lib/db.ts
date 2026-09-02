@@ -162,6 +162,7 @@ async function initialize(): Promise<void> {
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS password_hash TEXT`;
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sellers_email ON sellers (email)`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sellers_nickname ON sellers (nickname)`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS email_verification_tokens (

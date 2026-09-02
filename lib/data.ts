@@ -136,6 +136,16 @@ export async function getSellerByEmail(email: string): Promise<Seller | null> {
   return rows[0] ? rowToSeller(rows[0]) : null;
 }
 
+export async function getSellerByNickname(nickname: string): Promise<Seller | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id, nickname, contact, email, email_verified
+    FROM sellers WHERE nickname = ${nickname.trim()}
+  `) as SellerRow[];
+  return rows[0] ? rowToSeller(rows[0]) : null;
+}
+
 // 회원가입으로 새 판매자 계정을 만든다. 연락처(contact)는 아직 별도 입력을 받지
 // 않으므로 우선 이메일을 기본값으로 채워두고, 프로필 수정 기능은 이후 과제로 남긴다.
 export async function createSeller(input: {
