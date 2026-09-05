@@ -57,6 +57,33 @@ const KNOWN_SECRET_PATTERNS: SecretPattern[] = [
   },
 ];
 
+// 데이터가 유출될 수 있는 하드코딩된 외부 전송지. 알림 등 정상 용도로도 쓰일 수
+// 있어 needsLlmReview로 문맥 확인이 필요한 항목으로 분류한다. URL 자체가 웹훅
+// 토큰/봇 토큰을 담고 있어 시크릿과 동일하게 마스킹한다.
+const EXFILTRATION_ENDPOINT_PATTERNS: SecretPattern[] = [
+  {
+    type: "data-exfiltration",
+    severity: "high",
+    confidence: "medium",
+    label: "Discord 웹훅 URL",
+    regex: /https:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+/g,
+  },
+  {
+    type: "data-exfiltration",
+    severity: "high",
+    confidence: "medium",
+    label: "Telegram Bot API URL",
+    regex: /https:\/\/api\.telegram\.org\/bot[0-9]+:[A-Za-z0-9_-]+/g,
+  },
+  {
+    type: "data-exfiltration",
+    severity: "high",
+    confidence: "medium",
+    label: "ngrok/webhook.site 등 임시 터널 URL",
+    regex: /https:\/\/[a-z0-9-]+\.ngrok(?:-free)?\.(?:io|app)\b|https:\/\/webhook\.site\/[A-Za-z0-9-]+/gi,
+  },
+];
+
 // 애매한 경우: 고엔트로피 문자열 리터럴. 실제 시크릿일 수도, 해시/UUID/난독화된
 // 식별자 같은 오탐일 수도 있어 needsLlmReview로 표시한다.
 const HIGH_ENTROPY_LITERAL_REGEX = /["']([A-Za-z0-9+/_=-]{20,})["']/g;
@@ -68,6 +95,7 @@ const DANGEROUS_FUNCTION_PATTERNS: Array<{
   type: string;
   label: string;
   regex: RegExp;
+  excludeIfContains?: RegExp;
 }> = [
   { type: "dangerous-eval", label: "eval() 호출", regex: /\beval\s*\(/g },
   { type: "dangerous-eval", label: "new Function() 동적 코드 생성", regex: /\bnew\s+Function\s*\(/g },
@@ -91,6 +119,42 @@ const DANGEROUS_FUNCTION_PATTERNS: Array<{
     type: "dangerous-shell",
     label: "다운로드한 스크립트를 바로 셸로 실행하는 패턴",
     regex: /\b(curl|wget)\b[^\n]*\|\s*(sh|bash|zsh)\b/g,
+  },
+  {
+    type: "insecure-tls",
+    label: "TLS 인증서 검증 비활성화(rejectUnauthorized: false)",
+    regex: /\brejectUnauthorized\s*:\s*false\b/gi,
+  },
+  {
+    type: "insecure-tls",
+    label: "NODE_TLS_REJECT_UNAUTHORIZED 환경변수로 TLS 검증 비활성화",
+    regex: /\bNODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0['"]?/g,
+  },
+  {
+    type: "insecure-tls",
+    label: "Python 요청에서 TLS 인증서 검증 비활성화(verify=False)",
+    regex: /\brequests\.\w+\([^;\n]*\bverify\s*=\s*False\b[^;\n]*\)/g,
+  },
+  {
+    type: "insecure-tls",
+    label: "Python ssl 모듈로 인증서 검증 우회",
+    regex: /\bssl\._create_unverified_context\s*\(/g,
+  },
+  {
+    type: "insecure-deserialization",
+    label: "pickle을 이용한 안전하지 않은 역직렬화",
+    regex: /\bpickle\.loads?\s*\(/g,
+  },
+  {
+    type: "insecure-deserialization",
+    label: "marshal을 이용한 안전하지 않은 역직렬화",
+    regex: /\bmarshal\.loads?\s*\(/g,
+  },
+  {
+    type: "insecure-deserialization",
+    label: "안전하지 않은 로더로 yaml.load() 호출",
+    regex: /\byaml\.load\s*\([^)]*\)/g,
+    excludeIfContains: /SafeLoader/,
   },
 ];
 
@@ -154,6 +218,28 @@ function detectKnownSecrets(file: ScannableFile): RawFinding[] {
   return findings;
 }
 
+function detectExfiltrationEndpoints(file: ScannableFile): RawFinding[] {
+  const findings: RawFinding[] = [];
+  for (const pattern of EXFILTRATION_ENDPOINT_PATTERNS) {
+    for (const match of findAllMatches(file.content, pattern.regex)) {
+      const lineNumber = lineNumberAt(file.content, match.index);
+      findings.push({
+        id: randomUUID(),
+        severity: pattern.severity,
+        confidence: pattern.confidence,
+        type: pattern.type,
+        filePath: file.path,
+        location: `${lineNumber}번째 줄`,
+        maskedEvidence: maskSecretValue(match[0]),
+        description: `${pattern.label}로 데이터를 전송하는 패턴이 발견되었습니다. 알림 등 정상 용도일 수 있어 문맥 확인이 필요합니다.`,
+        needsLlmReview: true,
+        lineNumber,
+      });
+    }
+  }
+  return findings;
+}
+
 function detectHighEntropyLiterals(
   file: ScannableFile,
   alreadyMatchedRanges: Array<[number, number]>
@@ -191,6 +277,7 @@ function detectDangerousFunctions(file: ScannableFile): RawFinding[] {
   const findings: RawFinding[] = [];
   for (const pattern of DANGEROUS_FUNCTION_PATTERNS) {
     for (const match of findAllMatches(file.content, pattern.regex)) {
+      if (pattern.excludeIfContains?.test(match[0])) continue;
       const lineNumber = lineNumberAt(file.content, match.index);
       findings.push({
         id: randomUUID(),
@@ -233,8 +320,10 @@ export function detectFindings(files: ScannableFile[]): RawFinding[] {
     const knownSecrets = detectKnownSecrets(file);
     findings.push(...knownSecrets);
 
+    findings.push(...detectExfiltrationEndpoints(file));
+
     const knownRanges: Array<[number, number]> = [];
-    for (const pattern of KNOWN_SECRET_PATTERNS) {
+    for (const pattern of [...KNOWN_SECRET_PATTERNS, ...EXFILTRATION_ENDPOINT_PATTERNS]) {
       for (const match of findAllMatches(file.content, pattern.regex)) {
         knownRanges.push([match.index, match.index + match[0].length]);
       }

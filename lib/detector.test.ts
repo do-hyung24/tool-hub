@@ -117,6 +117,108 @@ describe("detectFindings - dangerous function calls", () => {
   });
 });
 
+describe("detectFindings - insecure TLS verification", () => {
+  it("flags Node rejectUnauthorized: false", () => {
+    const findings = detectFindings([
+      file(`https.request({ hostname, rejectUnauthorized: false });`),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ type: "insecure-tls", needsLlmReview: true })
+    );
+  });
+
+  it("flags NODE_TLS_REJECT_UNAUTHORIZED=0", () => {
+    const findings = detectFindings([
+      file(`process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";`),
+    ]);
+    expect(findings.some((f) => f.type === "insecure-tls")).toBe(true);
+  });
+
+  it("flags Python requests call with verify=False", () => {
+    const findings = detectFindings([
+      file(`requests.get(url, verify=False)`, "script.py"),
+    ]);
+    expect(findings.some((f) => f.type === "insecure-tls")).toBe(true);
+  });
+
+  it("flags Python ssl._create_unverified_context", () => {
+    const findings = detectFindings([
+      file(`ctx = ssl._create_unverified_context()`, "script.py"),
+    ]);
+    expect(findings.some((f) => f.type === "insecure-tls")).toBe(true);
+  });
+});
+
+describe("detectFindings - insecure deserialization", () => {
+  it("flags pickle.loads()", () => {
+    const findings = detectFindings([
+      file(`data = pickle.loads(raw_bytes)`, "script.py"),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ type: "insecure-deserialization", needsLlmReview: true })
+    );
+  });
+
+  it("flags marshal.loads()", () => {
+    const findings = detectFindings([
+      file(`data = marshal.loads(raw_bytes)`, "script.py"),
+    ]);
+    expect(findings.some((f) => f.type === "insecure-deserialization")).toBe(true);
+  });
+
+  it("flags yaml.load() without a safe loader", () => {
+    const findings = detectFindings([
+      file(`data = yaml.load(stream)`, "script.py"),
+    ]);
+    expect(findings.some((f) => f.type === "insecure-deserialization")).toBe(true);
+  });
+
+  it("does not flag yaml.load() when using SafeLoader", () => {
+    const findings = detectFindings([
+      file(`data = yaml.load(stream, Loader=yaml.SafeLoader)`, "script.py"),
+    ]);
+    expect(findings.some((f) => f.type === "insecure-deserialization")).toBe(false);
+  });
+});
+
+describe("detectFindings - data exfiltration endpoints", () => {
+  it("flags a Discord webhook URL", () => {
+    const findings = detectFindings([
+      file(`const hook = "https://discord.com/api/webhooks/123456/${"a".repeat(20)}";`),
+    ]);
+    expect(findings).toContainEqual(
+      expect.objectContaining({ type: "data-exfiltration", needsLlmReview: true })
+    );
+  });
+
+  it("flags a Telegram bot API URL", () => {
+    const findings = detectFindings([
+      file(`const url = "https://api.telegram.org/bot123456:${"a".repeat(20)}/sendMessage";`),
+    ]);
+    expect(findings.some((f) => f.type === "data-exfiltration")).toBe(true);
+  });
+
+  it("flags an ngrok tunnel URL", () => {
+    const findings = detectFindings([
+      file(`const target = "https://my-tunnel.ngrok-free.app/collect";`),
+    ]);
+    expect(findings.some((f) => f.type === "data-exfiltration")).toBe(true);
+  });
+
+  it("masks the matched URL instead of exposing it in full", () => {
+    const url = `https://discord.com/api/webhooks/123456/${"a".repeat(20)}`;
+    const findings = detectFindings([file(`const hook = "${url}";`)]);
+    const finding = findings.find((f) => f.type === "data-exfiltration");
+    expect(finding?.maskedEvidence).not.toContain(url);
+  });
+
+  it("does not double-report a webhook URL as a high-entropy literal", () => {
+    const url = `https://discord.com/api/webhooks/123456/${"a".repeat(20)}`;
+    const findings = detectFindings([file(`const hook = "${url}";`)]);
+    expect(findings.filter((f) => f.type === "high-entropy-literal")).toHaveLength(0);
+  });
+});
+
 describe("maskSecretValue", () => {
   it("fully masks values of 8 characters or fewer", () => {
     expect(maskSecretValue("short12")).toBe("*******");
