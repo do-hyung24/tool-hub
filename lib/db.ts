@@ -161,6 +161,27 @@ async function initialize(): Promise<void> {
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS email TEXT`;
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS password_hash TEXT`;
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`;
+
+  // 유니크 인덱스를 걸기 전, 이미 중복된 값이 있으면 인덱스 생성 자체가 실패해
+  // 이후 모든 요청에서 ensureInitialized()가 계속 예외를 던지는 전면 장애로
+  // 이어진다. 나중 것부터 접미사를 붙여 결정적으로 정리한 뒤 인덱스를 만든다.
+  // (email은 NULL을 허용하고, NULL끼리는 유니크 인덱스에서 충돌하지 않으므로 제외.)
+  await sql`
+    UPDATE sellers SET email = sellers.email || '-' || ranked.rn
+    FROM (
+      SELECT id, row_number() OVER (PARTITION BY email ORDER BY id) AS rn
+      FROM sellers WHERE email IS NOT NULL
+    ) AS ranked
+    WHERE sellers.id = ranked.id AND ranked.rn > 1
+  `;
+  await sql`
+    UPDATE sellers SET nickname = sellers.nickname || '-' || ranked.rn
+    FROM (
+      SELECT id, row_number() OVER (PARTITION BY nickname ORDER BY id) AS rn
+      FROM sellers
+    ) AS ranked
+    WHERE sellers.id = ranked.id AND ranked.rn > 1
+  `;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sellers_email ON sellers (email)`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_sellers_nickname ON sellers (nickname)`;
 

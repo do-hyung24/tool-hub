@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   checkEmailAvailabilityAction,
   checkNicknameAvailabilityAction,
@@ -59,12 +59,22 @@ export function SignupForm() {
   const [nicknameInvalidMessage, setNicknameInvalidMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
+  // 비동기 중복확인이 끝났을 때 "그 사이에 입력값이 바뀌었는지"를 판단하려면
+  // 항상 최신 값을 담고 있는 ref가 필요하다. state(email/nickname)는 이 함수가
+  // 생성된 시점의 렌더에 고정되어 있어, 클로저 안에서 비교해도 매번 자기
+  // 자신과 비교하는 셈이 되어 값이 바뀐 것을 절대 감지하지 못한다. 렌더 중에는
+  // ref를 갱신할 수 없으므로(react-hooks/refs), 변경 이벤트 핸들러에서 같이 갱신한다.
+  const emailRef = useRef(email);
+  const nicknameRef = useRef(nickname);
+
   function handleEmailChange(value: string) {
+    emailRef.current = value;
     setEmail(value);
     setEmailStatus((prev) => (prev === "unchecked" ? "unchecked" : "stale"));
   }
 
   function handleNicknameChange(value: string) {
+    nicknameRef.current = value;
     setNickname(value);
     setNicknameStatus((prev) => (prev === "unchecked" ? "unchecked" : "stale"));
   }
@@ -74,7 +84,7 @@ export function SignupForm() {
     setEmailStatus("checking");
     startTransition(async () => {
       const result = await checkEmailAvailabilityAction(value);
-      if (value !== email) return; // 확인하는 동안 값이 또 바뀌었으면 결과를 버린다.
+      if (value !== emailRef.current) return; // 확인하는 동안 값이 또 바뀌었으면 결과를 버린다.
       setEmailInvalidMessage(result.status === "invalid" ? result.message : null);
       setEmailStatus(result.status);
     });
@@ -85,7 +95,7 @@ export function SignupForm() {
     setNicknameStatus("checking");
     startTransition(async () => {
       const result = await checkNicknameAvailabilityAction(value);
-      if (value !== nickname) return;
+      if (value !== nicknameRef.current) return;
       setNicknameInvalidMessage(result.status === "invalid" ? result.message : null);
       setNicknameStatus(result.status);
     });
