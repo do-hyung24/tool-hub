@@ -179,6 +179,13 @@ describe("detectFindings - insecure deserialization", () => {
     ]);
     expect(findings.some((f) => f.type === "insecure-deserialization")).toBe(false);
   });
+
+  it("does not flag yaml.load() with SafeLoader when the call has a nested paren", () => {
+    const findings = detectFindings([
+      file(`data = yaml.load(open(path), Loader=yaml.SafeLoader)`, "script.py"),
+    ]);
+    expect(findings.some((f) => f.type === "insecure-deserialization")).toBe(false);
+  });
 });
 
 describe("detectFindings - data exfiltration endpoints", () => {
@@ -238,6 +245,11 @@ describe("redactSecrets", () => {
   it("masks a high-entropy literal found in free text", () => {
     const text = `token = "aZ9xQk2mP7wLtR4vB8nC"`;
     expect(redactSecrets(text)).not.toContain("aZ9xQk2mP7wLtR4vB8nC");
+  });
+
+  it("masks a data exfiltration endpoint URL found in free text", () => {
+    const url = `https://discord.com/api/webhooks/123456/${"a".repeat(20)}`;
+    expect(redactSecrets(`hook: ${url}`)).not.toContain(url);
   });
 
   it("leaves ordinary text unchanged", () => {

@@ -95,7 +95,6 @@ const DANGEROUS_FUNCTION_PATTERNS: Array<{
   type: string;
   label: string;
   regex: RegExp;
-  excludeIfContains?: RegExp;
 }> = [
   { type: "dangerous-eval", label: "eval() 호출", regex: /\beval\s*\(/g },
   { type: "dangerous-eval", label: "new Function() 동적 코드 생성", regex: /\bnew\s+Function\s*\(/g },
@@ -150,12 +149,6 @@ const DANGEROUS_FUNCTION_PATTERNS: Array<{
     label: "marshal을 이용한 안전하지 않은 역직렬화",
     regex: /\bmarshal\.loads?\s*\(/g,
   },
-  {
-    type: "insecure-deserialization",
-    label: "안전하지 않은 로더로 yaml.load() 호출",
-    regex: /\byaml\.load\s*\([^)]*\)/g,
-    excludeIfContains: /SafeLoader/,
-  },
 ];
 
 function shannonEntropy(value: string): number {
@@ -196,10 +189,22 @@ function findAllMatches(content: string, regex: RegExp): RegExpExecArray[] {
   return matches;
 }
 
-function detectKnownSecrets(file: ScannableFile): RawFinding[] {
+type PatternMatchResult = { findings: RawFinding[]; ranges: Array<[number, number]> };
+
+// KNOWN_SECRET_PATTERNS/EXFILTRATION_ENDPOINT_PATTERNS 둘 다 "패턴 배열을 돌며
+// maskedEvidence가 있는 finding을 만든다"는 동일한 모양이라 로직을 공유한다.
+// 매치 범위(ranges)를 여기서 함께 반환해서, 호출부가 고엔트로피 리터럴과의
+// 중복 제외 검사를 위해 정규식을 다시 돌릴 필요가 없게 한다.
+function detectFromSecretPatterns(
+  file: ScannableFile,
+  patterns: SecretPattern[],
+  options: { needsLlmReview: boolean; describe: (label: string) => string }
+): PatternMatchResult {
   const findings: RawFinding[] = [];
-  for (const pattern of KNOWN_SECRET_PATTERNS) {
+  const ranges: Array<[number, number]> = [];
+  for (const pattern of patterns) {
     for (const match of findAllMatches(file.content, pattern.regex)) {
+      ranges.push([match.index, match.index + match[0].length]);
       const lineNumber = lineNumberAt(file.content, match.index);
       findings.push({
         id: randomUUID(),
@@ -209,35 +214,28 @@ function detectKnownSecrets(file: ScannableFile): RawFinding[] {
         filePath: file.path,
         location: `${lineNumber}번째 줄`,
         maskedEvidence: maskSecretValue(match[0]),
-        description: `${pattern.label}로 보이는 문자열이 발견되었습니다.`,
-        needsLlmReview: false,
+        description: options.describe(pattern.label),
+        needsLlmReview: options.needsLlmReview,
         lineNumber,
       });
     }
   }
-  return findings;
+  return { findings, ranges };
 }
 
-function detectExfiltrationEndpoints(file: ScannableFile): RawFinding[] {
-  const findings: RawFinding[] = [];
-  for (const pattern of EXFILTRATION_ENDPOINT_PATTERNS) {
-    for (const match of findAllMatches(file.content, pattern.regex)) {
-      const lineNumber = lineNumberAt(file.content, match.index);
-      findings.push({
-        id: randomUUID(),
-        severity: pattern.severity,
-        confidence: pattern.confidence,
-        type: pattern.type,
-        filePath: file.path,
-        location: `${lineNumber}번째 줄`,
-        maskedEvidence: maskSecretValue(match[0]),
-        description: `${pattern.label}로 데이터를 전송하는 패턴이 발견되었습니다. 알림 등 정상 용도일 수 있어 문맥 확인이 필요합니다.`,
-        needsLlmReview: true,
-        lineNumber,
-      });
-    }
-  }
-  return findings;
+function detectKnownSecrets(file: ScannableFile): PatternMatchResult {
+  return detectFromSecretPatterns(file, KNOWN_SECRET_PATTERNS, {
+    needsLlmReview: false,
+    describe: (label) => `${label}로 보이는 문자열이 발견되었습니다.`,
+  });
+}
+
+function detectExfiltrationEndpoints(file: ScannableFile): PatternMatchResult {
+  return detectFromSecretPatterns(file, EXFILTRATION_ENDPOINT_PATTERNS, {
+    needsLlmReview: true,
+    describe: (label) =>
+      `${label}로 데이터를 전송하는 패턴이 발견되었습니다. 알림 등 정상 용도일 수 있어 문맥 확인이 필요합니다.`,
+  });
 }
 
 function detectHighEntropyLiterals(
@@ -273,11 +271,50 @@ function detectHighEntropyLiterals(
   return findings;
 }
 
+// 괄호 안에 또 다른 함수 호출이 중첩될 수 있어([^)]* 로는 못 잡음), 여는 괄호부터
+// 깊이를 세어가며 실제로 짝이 맞는 닫는 괄호까지 호출 전체를 잘라낸다.
+function findMatchingCloseParen(content: string, openParenIndex: number): number {
+  let depth = 1;
+  let i = openParenIndex + 1;
+  while (i < content.length && depth > 0) {
+    if (content[i] === "(") depth++;
+    else if (content[i] === ")") depth--;
+    i++;
+  }
+  return i;
+}
+
+function detectInsecureYamlLoad(file: ScannableFile): RawFinding[] {
+  const findings: RawFinding[] = [];
+  const regex = /\byaml\.load\s*\(/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(file.content)) !== null) {
+    const openParenIndex = match.index + match[0].length - 1;
+    const callEnd = findMatchingCloseParen(file.content, openParenIndex);
+    const callText = file.content.slice(match.index, callEnd);
+    if (callText.includes("SafeLoader")) continue;
+
+    const lineNumber = lineNumberAt(file.content, match.index);
+    findings.push({
+      id: randomUUID(),
+      severity: "medium",
+      confidence: "low",
+      type: "insecure-deserialization",
+      filePath: file.path,
+      location: `${lineNumber}번째 줄`,
+      maskedEvidence: null,
+      description: "안전하지 않은 로더로 yaml.load() 호출 패턴이 발견되었습니다. 자동화 도구의 정상 기능일 수도 있어 문맥 확인이 필요합니다.",
+      needsLlmReview: true,
+      lineNumber,
+    });
+  }
+  return findings;
+}
+
 function detectDangerousFunctions(file: ScannableFile): RawFinding[] {
   const findings: RawFinding[] = [];
   for (const pattern of DANGEROUS_FUNCTION_PATTERNS) {
     for (const match of findAllMatches(file.content, pattern.regex)) {
-      if (pattern.excludeIfContains?.test(match[0])) continue;
       const lineNumber = lineNumberAt(file.content, match.index);
       findings.push({
         id: randomUUID(),
@@ -301,7 +338,7 @@ function detectDangerousFunctions(file: ScannableFile): RawFinding[] {
 // 마지막 방어선이다.
 export function redactSecrets(text: string): string {
   let redacted = text;
-  for (const pattern of KNOWN_SECRET_PATTERNS) {
+  for (const pattern of [...KNOWN_SECRET_PATTERNS, ...EXFILTRATION_ENDPOINT_PATTERNS]) {
     redacted = redacted.replace(pattern.regex, (matched) => maskSecretValue(matched));
   }
   redacted = redacted.replace(HIGH_ENTROPY_LITERAL_REGEX, (full, literal: string) =>
@@ -318,18 +355,13 @@ export function detectFindings(files: ScannableFile[]): RawFinding[] {
 
   for (const file of files) {
     const knownSecrets = detectKnownSecrets(file);
-    findings.push(...knownSecrets);
+    const exfiltrationEndpoints = detectExfiltrationEndpoints(file);
+    findings.push(...knownSecrets.findings, ...exfiltrationEndpoints.findings);
 
-    findings.push(...detectExfiltrationEndpoints(file));
-
-    const knownRanges: Array<[number, number]> = [];
-    for (const pattern of [...KNOWN_SECRET_PATTERNS, ...EXFILTRATION_ENDPOINT_PATTERNS]) {
-      for (const match of findAllMatches(file.content, pattern.regex)) {
-        knownRanges.push([match.index, match.index + match[0].length]);
-      }
-    }
+    const knownRanges = [...knownSecrets.ranges, ...exfiltrationEndpoints.ranges];
     findings.push(...detectHighEntropyLiterals(file, knownRanges));
     findings.push(...detectDangerousFunctions(file));
+    findings.push(...detectInsecureYamlLoad(file));
   }
 
   return findings;
