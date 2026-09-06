@@ -34,9 +34,16 @@ const SCANNABLE_EXTENSIONS = [
   ".sh",
 ];
 const IGNORED_PATH_PATTERN =
-  /(^|\/)(node_modules|\.git|dist|build|vendor|__pycache__|\.venv)\//;
+  /(^|\/)(node_modules|\.git|dist|build|vendor|__pycache__|\.venv)\//i;
 
 export class ZipValidationError extends Error {}
+
+// 기본값은 운영에서 쓰는 상한 그대로이고, 테스트에서만 작은 값으로 덮어써서
+// "예산 초과" 경계 상황을 거대한 zip 픽스처 없이 재현할 수 있게 한다.
+export type ExtractOptions = {
+  maxFileBytes?: number;
+  maxTotalBytes?: number;
+};
 
 // 경로 조작(Zip Slip) 방어: 절대경로, 드라이브 문자, ".." 세그먼트를 모두 거부한다.
 function isSafeRelativePath(rawPath: string): boolean {
@@ -95,8 +102,12 @@ function readEntryWithHardLimit(
 // - 절대 코드를 실행하지 않는다 (설치/빌드/스크립트 실행 없음).
 // - Zip Slip, 심볼릭 링크, 압축 폭탄을 방어한다.
 export async function extractScannableFiles(
-  zipBuffer: Buffer
+  zipBuffer: Buffer,
+  options: ExtractOptions = {}
 ): Promise<ScannableFile[]> {
+  const maxFileBytes = options.maxFileBytes ?? MAX_FILE_BYTES;
+  const maxTotalBytes = options.maxTotalBytes ?? MAX_TOTAL_BYTES;
+
   if (zipBuffer.length === 0) {
     throw new ZipValidationError("빈 파일입니다.");
   }
@@ -154,16 +165,26 @@ export async function extractScannableFiles(
 
       if (!isScannablePath(entry.fileName)) continue;
       // 스캔 대상이 아닌 큰 파일은 조용히 건너뛴다 (거부하지 않음).
-      if (entry.uncompressedSize > MAX_FILE_BYTES) continue;
-      if (totalBytes >= MAX_TOTAL_BYTES) break;
+      if (entry.uncompressedSize > maxFileBytes) continue;
+      if (totalBytes >= maxTotalBytes) break;
 
-      const remaining = MAX_TOTAL_BYTES - totalBytes;
-      const content = await readEntryWithHardLimit(
-        zipfile,
-        entry,
-        Math.min(MAX_FILE_BYTES, remaining)
-      );
-      totalBytes += content.length;
+      const remaining = maxTotalBytes - totalBytes;
+      let content: string;
+      try {
+        content = await readEntryWithHardLimit(
+          zipfile,
+          entry,
+          Math.min(maxFileBytes, remaining)
+        );
+      } catch (error) {
+        if (error instanceof ZipValidationError) throw error;
+        throw new ZipValidationError(
+          `압축을 해제하는 중 문제가 발생했습니다 (선언된 크기와 실제 내용이 다를 수 있습니다): ${entry.fileName}`
+        );
+      }
+      // 문자열 길이(.length)는 UTF-16 코드 유닛 수라 한글 등 멀티바이트 문자에서
+      // 실제 바이트 수를 최대 3배까지 과소 계산한다. 예산은 실제 바이트로 잰다.
+      totalBytes += Buffer.byteLength(content, "utf-8");
       files.push({ path: entry.fileName, content });
     }
 
