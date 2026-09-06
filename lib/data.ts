@@ -1,6 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { ensureInitialized, getSql } from "./db";
+import { groupFindingsForBuyer } from "./findingCategories";
+import type { PublicFindingGroup } from "./findingCategories";
 import { BLOCKING_SEVERITIES } from "./types";
 import type {
   Category,
@@ -395,6 +397,26 @@ export async function getScanReportForOwner(
     LIMIT 1
   `) as ScanReportRow[];
   return rows[0] ? rowToScanReport(rows[0]) : null;
+}
+
+// 구매자(누구나)에게 공개하는 스캔 요약. 게시된 매물만 대상으로 하고
+// (l.published = true), 판매자 전용 세부 정보(type/filePath/location/
+// maskedEvidence/description)는 groupFindingsForBuyer가 애초에 반환하지
+// 않으므로 여기서 별도로 지울 필요가 없다.
+export async function getPublicScanSummary(listingId: string): Promise<PublicFindingGroup[] | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT sr.findings
+    FROM scan_reports sr
+    JOIN listings l ON l.id = sr.listing_id
+    WHERE sr.listing_id = ${listingId} AND l.published = true
+    ORDER BY sr.created_at DESC
+    LIMIT 1
+  `) as Array<{ findings: Finding[] }>;
+  const report = rows[0];
+  if (!report) return null;
+  return groupFindingsForBuyer(report.findings);
 }
 
 // 매물을 게시한다. WHERE 절에 seller_id를 함께 걸어, 소유자가 아니면

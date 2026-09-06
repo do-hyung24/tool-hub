@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getListingById, getSellerById } from "@/lib/data";
+import { getListingById, getPublicScanSummary, getSellerById } from "@/lib/data";
 import { formatDate, formatPrice } from "@/lib/format";
+import { SecurityScanSummary } from "./SecurityScanSummary";
 
 export default async function ListingDetailPage(
   props: PageProps<"/listings/[id]">
@@ -13,6 +14,7 @@ export default async function ListingDetailPage(
   }
 
   const seller = await getSellerById(listing.sellerId);
+  const scanSummary = await getPublicScanSummary(listing.id);
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
@@ -62,6 +64,7 @@ export default async function ListingDetailPage(
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           🔍 자동 보안 스캔을 거쳤습니다
         </p>
+        {scanSummary && scanSummary.length > 0 && <SecurityScanSummary groups={scanSummary} />}
         {listing.disclosureNote && (
           <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
             <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">

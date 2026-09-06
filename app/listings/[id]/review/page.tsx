@@ -2,26 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getListingForOwner, getScanReportForOwner } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { publishAnywayAction, rescanListingAction } from "@/app/actions";
-import type { Severity } from "@/lib/types";
+import { SEVERITY_LABEL, SEVERITY_ORDER, SEVERITY_STYLE } from "@/lib/severityStyle";
 import { SourceTypeFields } from "../../new/SourceTypeFields";
-
-const SEVERITY_LABEL: Record<Severity, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-  informational: "Informational",
-};
-
-const SEVERITY_ORDER: Severity[] = ["critical", "high", "medium", "low", "informational"];
-
-const SEVERITY_STYLE: Record<Severity, string> = {
-  critical: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
-  high: "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-400",
-  medium: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-  low: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
-  informational: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
-};
 
 export default async function ListingReviewPage(
   props: PageProps<"/listings/[id]/review">
