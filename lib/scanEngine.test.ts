@@ -24,6 +24,7 @@ describe("runScan - rule-based only (LLM hybrid disabled by default)", () => {
       severity: string;
       confidence: string;
       type: string;
+      cwe: string;
       filePath: string;
       location: string | null;
       maskedEvidence: string | null;
@@ -32,6 +33,7 @@ describe("runScan - rule-based only (LLM hybrid disabled by default)", () => {
       severity: f.severity,
       confidence: f.confidence,
       type: f.type,
+      cwe: f.cwe,
       filePath: f.filePath,
       location: f.location,
       maskedEvidence: f.maskedEvidence,
@@ -40,5 +42,7 @@ describe("runScan - rule-based only (LLM hybrid disabled by default)", () => {
     expect(result.map(asComparable)).toEqual(raw.map(asComparable));
     expect(result.some((f) => f.type === "dangerous-eval")).toBe(true);
     expect(result.some((f) => f.type === "hardcoded-secret")).toBe(true);
+    expect(result.find((f) => f.type === "dangerous-eval")?.cwe).toBe("CWE-95");
+    expect(result.find((f) => f.type === "hardcoded-secret")?.cwe).toBe("CWE-798");
   });
 });

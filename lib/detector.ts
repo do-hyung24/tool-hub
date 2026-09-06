@@ -12,16 +12,21 @@ export type RawFinding = Finding & { needsLlmReview: boolean; lineNumber: number
 
 type SecretPattern = {
   type: string;
+  cwe: string;
   severity: Severity;
   confidence: Confidence;
   label: string;
   regex: RegExp;
 };
 
+// CWE-798: Use of Hard-coded Credentials.
+const HARDCODED_SECRET_CWE = "CWE-798";
+
 // 특정 서비스에 귀속되는 시크릿 패턴 - 오탐률이 낮아 확정적으로 판단한다.
 const KNOWN_SECRET_PATTERNS: SecretPattern[] = [
   {
     type: "hardcoded-secret",
+    cwe: HARDCODED_SECRET_CWE,
     severity: "critical",
     confidence: "high",
     label: "OpenAI 스타일 API 키(sk-...)",
@@ -29,6 +34,7 @@ const KNOWN_SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     type: "hardcoded-secret",
+    cwe: HARDCODED_SECRET_CWE,
     severity: "critical",
     confidence: "high",
     label: "Google API 키(AIza...)",
@@ -36,6 +42,7 @@ const KNOWN_SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     type: "hardcoded-secret",
+    cwe: HARDCODED_SECRET_CWE,
     severity: "critical",
     confidence: "high",
     label: "AWS Access Key ID",
@@ -43,6 +50,7 @@ const KNOWN_SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     type: "hardcoded-secret",
+    cwe: HARDCODED_SECRET_CWE,
     severity: "critical",
     confidence: "high",
     label: "DB 연결 문자열에 포함된 자격 증명",
@@ -50,6 +58,7 @@ const KNOWN_SECRET_PATTERNS: SecretPattern[] = [
   },
   {
     type: "hardcoded-secret",
+    cwe: HARDCODED_SECRET_CWE,
     severity: "high",
     confidence: "medium",
     label: "코드에 직접 대입된 api_key/secret/token/password",
@@ -60,9 +69,13 @@ const KNOWN_SECRET_PATTERNS: SecretPattern[] = [
 // 데이터가 유출될 수 있는 하드코딩된 외부 전송지. 알림 등 정상 용도로도 쓰일 수
 // 있어 needsLlmReview로 문맥 확인이 필요한 항목으로 분류한다. URL 자체가 웹훅
 // 토큰/봇 토큰을 담고 있어 시크릿과 동일하게 마스킹한다.
+// CWE-200: Exposure of Sensitive Information to an Unauthorized Actor.
+const DATA_EXFILTRATION_CWE = "CWE-200";
+
 const EXFILTRATION_ENDPOINT_PATTERNS: SecretPattern[] = [
   {
     type: "data-exfiltration",
+    cwe: DATA_EXFILTRATION_CWE,
     severity: "high",
     confidence: "medium",
     label: "Discord 웹훅 URL",
@@ -70,6 +83,7 @@ const EXFILTRATION_ENDPOINT_PATTERNS: SecretPattern[] = [
   },
   {
     type: "data-exfiltration",
+    cwe: DATA_EXFILTRATION_CWE,
     severity: "high",
     confidence: "medium",
     label: "Telegram Bot API URL",
@@ -77,6 +91,7 @@ const EXFILTRATION_ENDPOINT_PATTERNS: SecretPattern[] = [
   },
   {
     type: "data-exfiltration",
+    cwe: DATA_EXFILTRATION_CWE,
     severity: "high",
     confidence: "medium",
     label: "ngrok/webhook.site 등 임시 터널 URL",
@@ -91,61 +106,91 @@ const HIGH_ENTROPY_THRESHOLD = 3.5;
 
 // 위험 함수 호출 패턴. 자동화 봇의 정상 기능(예: 브라우저/셸 자동화)일 수도 있어
 // 기본적으로 문맥 판단이 필요한 항목(needsLlmReview)으로 분류한다.
+// CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection').
+const DANGEROUS_EVAL_CWE = "CWE-95";
+// CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection').
+const DANGEROUS_SHELL_CWE = "CWE-78";
+// CWE-295: Improper Certificate Validation.
+const INSECURE_TLS_CWE = "CWE-295";
+// CWE-502: Deserialization of Untrusted Data.
+const INSECURE_DESERIALIZATION_CWE = "CWE-502";
+
 const DANGEROUS_FUNCTION_PATTERNS: Array<{
   type: string;
+  cwe: string;
   label: string;
   regex: RegExp;
 }> = [
-  { type: "dangerous-eval", label: "eval() 호출", regex: /\beval\s*\(/g },
-  { type: "dangerous-eval", label: "new Function() 동적 코드 생성", regex: /\bnew\s+Function\s*\(/g },
-  { type: "dangerous-eval", label: "Python exec() 호출", regex: /\bexec\s*\(/g },
+  { type: "dangerous-eval", cwe: DANGEROUS_EVAL_CWE, label: "eval() 호출", regex: /\beval\s*\(/g },
+  {
+    type: "dangerous-eval",
+    cwe: DANGEROUS_EVAL_CWE,
+    label: "new Function() 동적 코드 생성",
+    regex: /\bnew\s+Function\s*\(/g,
+  },
+  {
+    type: "dangerous-eval",
+    cwe: DANGEROUS_EVAL_CWE,
+    label: "Python exec() 호출",
+    regex: /\bexec\s*\(/g,
+  },
   {
     type: "dangerous-shell",
+    cwe: DANGEROUS_SHELL_CWE,
     label: "child_process 모듈 사용",
     regex: /\brequire\(\s*['"]child_process['"]\s*\)|\bfrom\s+['"]child_process['"]|\bimport\s+child_process/g,
   },
   {
     type: "dangerous-shell",
+    cwe: DANGEROUS_SHELL_CWE,
     label: "외부 명령 실행 함수 호출(exec/execSync/spawn 등)",
     regex: /\b(execSync|spawnSync|spawn)\s*\(/g,
   },
   {
     type: "dangerous-shell",
+    cwe: DANGEROUS_SHELL_CWE,
     label: "Python subprocess/os.system 사용",
     regex: /\bsubprocess\.(run|call|Popen|check_output)\s*\(|\bos\.(system|popen)\s*\(/g,
   },
   {
     type: "dangerous-shell",
+    cwe: DANGEROUS_SHELL_CWE,
     label: "다운로드한 스크립트를 바로 셸로 실행하는 패턴",
     regex: /\b(curl|wget)\b[^\n]*\|\s*(sh|bash|zsh)\b/g,
   },
   {
     type: "insecure-tls",
+    cwe: INSECURE_TLS_CWE,
     label: "TLS 인증서 검증 비활성화(rejectUnauthorized: false)",
     regex: /\brejectUnauthorized\s*:\s*false\b/gi,
   },
   {
     type: "insecure-tls",
+    cwe: INSECURE_TLS_CWE,
     label: "NODE_TLS_REJECT_UNAUTHORIZED 환경변수로 TLS 검증 비활성화",
     regex: /\bNODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0['"]?/g,
   },
   {
     type: "insecure-tls",
+    cwe: INSECURE_TLS_CWE,
     label: "Python 요청에서 TLS 인증서 검증 비활성화(verify=False)",
     regex: /\brequests\.\w+\([^;\n]*\bverify\s*=\s*False\b[^;\n]*\)/g,
   },
   {
     type: "insecure-tls",
+    cwe: INSECURE_TLS_CWE,
     label: "Python ssl 모듈로 인증서 검증 우회",
     regex: /\bssl\._create_unverified_context\s*\(/g,
   },
   {
     type: "insecure-deserialization",
+    cwe: INSECURE_DESERIALIZATION_CWE,
     label: "pickle을 이용한 안전하지 않은 역직렬화",
     regex: /\bpickle\.loads?\s*\(/g,
   },
   {
     type: "insecure-deserialization",
+    cwe: INSECURE_DESERIALIZATION_CWE,
     label: "marshal을 이용한 안전하지 않은 역직렬화",
     regex: /\bmarshal\.loads?\s*\(/g,
   },
@@ -211,6 +256,7 @@ function detectFromSecretPatterns(
         severity: pattern.severity,
         confidence: pattern.confidence,
         type: pattern.type,
+        cwe: pattern.cwe,
         filePath: file.path,
         location: `${lineNumber}번째 줄`,
         maskedEvidence: maskSecretValue(match[0]),
@@ -259,6 +305,7 @@ function detectHighEntropyLiterals(
       severity: "medium",
       confidence: "low",
       type: "high-entropy-literal",
+      cwe: HARDCODED_SECRET_CWE,
       filePath: file.path,
       location: `${lineNumber}번째 줄`,
       maskedEvidence: maskSecretValue(literal),
@@ -300,6 +347,7 @@ function detectInsecureYamlLoad(file: ScannableFile): RawFinding[] {
       severity: "medium",
       confidence: "low",
       type: "insecure-deserialization",
+      cwe: INSECURE_DESERIALIZATION_CWE,
       filePath: file.path,
       location: `${lineNumber}번째 줄`,
       maskedEvidence: null,
@@ -321,6 +369,7 @@ function detectDangerousFunctions(file: ScannableFile): RawFinding[] {
         severity: "medium",
         confidence: "low",
         type: pattern.type,
+        cwe: pattern.cwe,
         filePath: file.path,
         location: `${lineNumber}번째 줄`,
         maskedEvidence: null,

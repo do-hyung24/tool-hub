@@ -21,6 +21,7 @@ function ambiguousFinding(): RawFinding {
     severity: "medium",
     confidence: "low",
     type: "dangerous-eval",
+    cwe: "CWE-95",
     filePath: "index.ts",
     location: "1번째 줄",
     maskedEvidence: null,

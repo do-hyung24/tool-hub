@@ -52,6 +52,7 @@ export type Finding = {
   severity: Severity;
   confidence: Confidence;
   type: string;
+  cwe: string;
   filePath: string;
   location: string | null;
   maskedEvidence: string | null;

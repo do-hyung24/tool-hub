@@ -119,6 +119,7 @@ const SEED_SCAN_REPORTS: Array<{
         severity: "critical",
         confidence: "high",
         type: "hardcoded-secret",
+        cwe: "CWE-798",
         filePath: "config.py",
         location: "12번째 줄",
         maskedEvidence: "AIz***...f2a",

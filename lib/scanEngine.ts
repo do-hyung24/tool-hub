@@ -11,6 +11,7 @@ function toPersistableFinding(raw: RawFinding): Finding {
     severity: raw.severity,
     confidence: raw.confidence,
     type: raw.type,
+    cwe: raw.cwe,
     filePath: raw.filePath,
     location: raw.location,
     maskedEvidence: raw.maskedEvidence,

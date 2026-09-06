@@ -57,6 +57,9 @@ export default async function ListingReviewPage(
                 <span className="text-xs text-zinc-400 dark:text-zinc-500">
                   {finding.type}
                 </span>
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                  {finding.cwe}
+                </span>
               </div>
               <p className="mt-2 text-sm text-zinc-800 dark:text-zinc-200">
                 {finding.description}

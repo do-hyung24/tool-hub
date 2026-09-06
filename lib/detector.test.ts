@@ -226,6 +226,52 @@ describe("detectFindings - data exfiltration endpoints", () => {
   });
 });
 
+describe("detectFindings - CWE mapping", () => {
+  it("tags hardcoded-secret findings with CWE-798 (Use of Hard-coded Credentials)", () => {
+    const findings = detectFindings([file(`const key = "sk-${"a".repeat(25)}";`)]);
+    expect(findings.find((f) => f.type === "hardcoded-secret")?.cwe).toBe("CWE-798");
+  });
+
+  it("tags high-entropy-literal findings with CWE-798", () => {
+    const findings = detectFindings([file(`const id = "aZ9xQk2mP7wLtR4vB8nC";`)]);
+    expect(findings.find((f) => f.type === "high-entropy-literal")?.cwe).toBe("CWE-798");
+  });
+
+  it("tags dangerous-eval findings with CWE-95 (Eval Injection)", () => {
+    const findings = detectFindings([file(`eval(userInput);`)]);
+    expect(findings.find((f) => f.type === "dangerous-eval")?.cwe).toBe("CWE-95");
+  });
+
+  it("tags dangerous-shell findings with CWE-78 (OS Command Injection)", () => {
+    const findings = detectFindings([file(`execSync('ls -la');`)]);
+    expect(findings.find((f) => f.type === "dangerous-shell")?.cwe).toBe("CWE-78");
+  });
+
+  it("tags insecure-tls findings with CWE-295 (Improper Certificate Validation)", () => {
+    const findings = detectFindings([
+      file(`https.request({ hostname, rejectUnauthorized: false });`),
+    ]);
+    expect(findings.find((f) => f.type === "insecure-tls")?.cwe).toBe("CWE-295");
+  });
+
+  it("tags insecure-deserialization findings from pickle with CWE-502 (Deserialization of Untrusted Data)", () => {
+    const findings = detectFindings([file(`data = pickle.loads(raw_bytes)`, "script.py")]);
+    expect(findings.find((f) => f.type === "insecure-deserialization")?.cwe).toBe("CWE-502");
+  });
+
+  it("tags insecure-deserialization findings from yaml.load with CWE-502", () => {
+    const findings = detectFindings([file(`data = yaml.load(stream)`, "script.py")]);
+    expect(findings.find((f) => f.type === "insecure-deserialization")?.cwe).toBe("CWE-502");
+  });
+
+  it("tags data-exfiltration findings with CWE-200 (Exposure of Sensitive Information)", () => {
+    const findings = detectFindings([
+      file(`const hook = "https://discord.com/api/webhooks/123456/${"a".repeat(20)}";`),
+    ]);
+    expect(findings.find((f) => f.type === "data-exfiltration")?.cwe).toBe("CWE-200");
+  });
+});
+
 describe("maskSecretValue", () => {
   it("fully masks values of 8 characters or fewer", () => {
     expect(maskSecretValue("short12")).toBe("*******");

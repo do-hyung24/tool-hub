@@ -6,6 +6,7 @@ function finding(overrides: Partial<Finding> & { type: string; severity: Finding
   return {
     id: overrides.id ?? "f1",
     confidence: overrides.confidence ?? "medium",
+    cwe: overrides.cwe ?? "CWE-000",
     filePath: overrides.filePath ?? "bot.py",
     location: overrides.location ?? "1번째 줄",
     maskedEvidence: overrides.maskedEvidence ?? null,
@@ -58,6 +59,14 @@ describe("groupFindingsForBuyer", () => {
     const groups = groupFindingsForBuyer([finding({ type: "hardcoded-secret", severity: "critical" })]);
     expect(groups[0]).not.toHaveProperty("type");
     expect(JSON.stringify(groups[0])).not.toContain("hardcoded-secret");
+  });
+
+  it("never exposes the CWE number - too technical for the buyer-facing summary", () => {
+    const groups = groupFindingsForBuyer([
+      finding({ type: "hardcoded-secret", cwe: "CWE-798", severity: "critical" }),
+    ]);
+    expect(groups[0]).not.toHaveProperty("cwe");
+    expect(JSON.stringify(groups[0])).not.toContain("CWE-798");
   });
 
   it("uses the declarative secret-exposure label when hardcoded-secret is present", () => {
