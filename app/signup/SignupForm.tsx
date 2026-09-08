@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import {
   checkEmailAvailabilityAction,
@@ -57,6 +58,7 @@ export function SignupForm() {
   const [nicknameStatus, setNicknameStatus] = useState<CheckStatus>("unchecked");
   const [emailInvalidMessage, setEmailInvalidMessage] = useState<string | null>(null);
   const [nicknameInvalidMessage, setNicknameInvalidMessage] = useState<string | null>(null);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [, startTransition] = useTransition();
 
   // 비동기 중복확인이 끝났을 때 "그 사이에 입력값이 바뀌었는지"를 판단하려면
@@ -101,7 +103,8 @@ export function SignupForm() {
     });
   }
 
-  const canSubmit = emailStatus === "available" && nicknameStatus === "available";
+  const canSubmit =
+    emailStatus === "available" && nicknameStatus === "available" && agreedToPrivacy;
 
   return (
     <form action={signupAction} className="mt-8 flex flex-col gap-6">
@@ -186,6 +189,27 @@ export function SignupForm() {
         />
       </div>
 
+      <div className="flex items-start gap-2">
+        <input
+          id="agreedToPrivacy"
+          name="agreedToPrivacy"
+          type="checkbox"
+          checked={agreedToPrivacy}
+          onChange={(event) => setAgreedToPrivacy(event.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-zinc-300 dark:border-zinc-700"
+        />
+        <label htmlFor="agreedToPrivacy" className="text-sm text-zinc-700 dark:text-zinc-300">
+          <Link
+            href="/privacy"
+            target="_blank"
+            className="font-medium text-zinc-900 underline dark:text-zinc-50"
+          >
+            개인정보처리방침
+          </Link>
+          에 동의합니다 (필수)
+        </label>
+      </div>
+
       <button
         type="submit"
         disabled={!canSubmit}
@@ -195,7 +219,7 @@ export function SignupForm() {
       </button>
       {!canSubmit && (
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          이메일과 닉네임 모두 중복확인을 통과해야 가입할 수 있습니다.
+          이메일/닉네임 중복확인과 개인정보처리방침 동의를 모두 완료해야 가입할 수 있습니다.
         </p>
       )}
     </form>
