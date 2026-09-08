@@ -10,9 +10,13 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    console.error(
+      "[계정 영구 삭제 배치] 인증 실패 - CRON_SECRET이 설정되지 않았거나 Authorization 헤더가 일치하지 않습니다."
+    );
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { purgedCount } = await purgeExpiredDeletedAccounts();
+  console.log(`[계정 영구 삭제 배치] ${purgedCount}개 계정을 삭제했습니다.`);
   return NextResponse.json({ purgedCount });
 }

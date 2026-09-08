@@ -68,6 +68,10 @@ async function requireSellerId(): Promise<string> {
   if (!sellerId) {
     throw new Error("로그인이 필요합니다.");
   }
+  const seller = await getSellerById(sellerId);
+  if (seller?.deletionRequestedAt) {
+    throw new Error("탈퇴 처리 중인 계정입니다.");
+  }
   return sellerId;
 }
 

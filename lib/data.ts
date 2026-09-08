@@ -44,6 +44,7 @@ type SellerRow = {
   contact: string;
   email: string | null;
   email_verified: boolean;
+  deletion_requested_at: string | null;
 };
 
 function rowToListing(row: ListingRow): Listing {
@@ -82,6 +83,7 @@ function rowToSeller(row: SellerRow): Seller {
     contact: row.contact,
     email: row.email,
     emailVerified: row.email_verified,
+    deletionRequestedAt: row.deletion_requested_at,
   };
 }
 
@@ -132,7 +134,7 @@ export async function getSellerById(id: string): Promise<Seller | null> {
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, nickname, contact, email, email_verified FROM sellers WHERE id = ${id}
+    SELECT id, nickname, contact, email, email_verified, deletion_requested_at FROM sellers WHERE id = ${id}
   `) as SellerRow[];
   return rows[0] ? rowToSeller(rows[0]) : null;
 }
@@ -173,6 +175,7 @@ export async function createSeller(input: {
     contact: input.email,
     email: input.email.trim().toLowerCase(),
     emailVerified: false,
+    deletionRequestedAt: null,
   };
 
   await sql`
@@ -519,7 +522,12 @@ export const DELETION_GRACE_PERIOD_MS = 14 * 24 * 60 * 60 * 1000; // 14일
 
 // 순수 함수로 분리해 실제 DB 연결 없이도 경계값(정확히 14일 경과 등)을 테스트할 수 있게 한다.
 export function isEligibleForPurge(deletionRequestedAt: string, now: Date = new Date()): boolean {
-  return now.getTime() - new Date(deletionRequestedAt).getTime() >= DELETION_GRACE_PERIOD_MS;
+  const requestedAtMs = new Date(deletionRequestedAt).getTime();
+  if (Number.isNaN(requestedAtMs)) {
+    console.warn(`[계정 삭제] deletion_requested_at 값을 날짜로 파싱할 수 없습니다: ${deletionRequestedAt}`);
+    return false;
+  }
+  return now.getTime() - requestedAtMs >= DELETION_GRACE_PERIOD_MS;
 }
 
 // 탈퇴 유예 기간(14일)이 지난 계정과 그 계정이 등록한 매물 데이터를 완전히(hard delete)
@@ -537,17 +545,25 @@ export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: numb
   const now = new Date();
   const targets = rows.filter((row) => isEligibleForPurge(row.deletion_requested_at, now));
 
+  let purgedCount = 0;
   for (const target of targets) {
-    await sql`
-      DELETE FROM scan_reports
-      WHERE listing_id IN (SELECT id FROM listings WHERE seller_id = ${target.id})
-         OR author_id = ${target.id}
-    `;
-    await sql`DELETE FROM listings WHERE seller_id = ${target.id}`;
-    await sql`DELETE FROM email_verification_tokens WHERE seller_id = ${target.id}`;
-    await sql`DELETE FROM password_reset_tokens WHERE seller_id = ${target.id}`;
-    await sql`DELETE FROM sellers WHERE id = ${target.id}`;
+    try {
+      await sql`
+        DELETE FROM scan_reports
+        WHERE listing_id IN (SELECT id FROM listings WHERE seller_id = ${target.id})
+           OR author_id = ${target.id}
+      `;
+      await sql`DELETE FROM listings WHERE seller_id = ${target.id}`;
+      await sql`DELETE FROM email_verification_tokens WHERE seller_id = ${target.id}`;
+      await sql`DELETE FROM password_reset_tokens WHERE seller_id = ${target.id}`;
+      await sql`DELETE FROM sellers WHERE id = ${target.id}`;
+      purgedCount += 1;
+    } catch (error) {
+      // 한 계정 삭제가 실패해도 나머지 계정 처리는 계속한다. 실패한 계정은
+      // deletion_requested_at이 그대로 남아있으므로 다음날 재시도된다.
+      console.error(`[계정 영구 삭제] seller ${target.id} 삭제 실패:`, error);
+    }
   }
 
-  return { purgedCount: targets.length };
+  return { purgedCount };
 }

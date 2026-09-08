@@ -28,6 +28,7 @@ const SEED_SELLERS: Seller[] = [
     contact: "open.kakao.com/o/gBotFactory",
     email: null,
     emailVerified: false,
+    deletionRequestedAt: null,
   },
   {
     id: "s2",
@@ -35,6 +36,7 @@ const SEED_SELLERS: Seller[] = [
     contact: "crawlking@example.com",
     email: null,
     emailVerified: false,
+    deletionRequestedAt: null,
   },
   {
     id: "s3",
@@ -42,6 +44,7 @@ const SEED_SELLERS: Seller[] = [
     contact: "@yamae_dev (텔레그램)",
     email: null,
     emailVerified: false,
+    deletionRequestedAt: null,
   },
 ];
 

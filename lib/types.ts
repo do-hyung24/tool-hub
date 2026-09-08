@@ -4,6 +4,7 @@ export type Seller = {
   contact: string;
   email: string | null;
   emailVerified: boolean;
+  deletionRequestedAt: string | null;
 };
 
 export const CATEGORIES = [
