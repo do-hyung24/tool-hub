@@ -45,3 +45,35 @@ export async function sendVerificationEmail(
     console.error("[이메일 인증] Resend 발송 실패:", error);
   }
 }
+
+export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.log(
+      `[비밀번호 재설정] RESEND_API_KEY가 설정되지 않아 실제 발송을 건너뜁니다.\n` +
+        `  받는 사람: ${to}\n` +
+        `  재설정 링크: ${resetUrl} (1시간 동안 유효)`
+    );
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: "[툴허브] 비밀번호 재설정 안내",
+      html:
+        `<p>안녕하세요, 툴허브입니다.</p>` +
+        `<p>아래 링크를 클릭해 비밀번호를 재설정해주세요 (1시간 동안 유효).</p>` +
+        `<p><a href="${resetUrl}">${resetUrl}</a></p>` +
+        `<p>본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.</p>`,
+      text:
+        `아래 링크를 열어 비밀번호를 재설정해주세요 (1시간 동안 유효):\n${resetUrl}\n\n` +
+        `본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.`,
+    });
+  } catch (error) {
+    console.error("[비밀번호 재설정] Resend 발송 실패:", error);
+  }
+}

@@ -1,5 +1,5 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { ensureInitialized, getSql } from "./db";
 import { groupFindingsForBuyer } from "./findingCategories";
 import type { PublicFindingGroup } from "./findingCategories";
@@ -276,6 +276,61 @@ export async function verifyEmailCode(
 
   await sql`DELETE FROM email_verification_tokens WHERE token = ${record.token}`;
   await markSellerEmailVerified(sellerId);
+  return "ok";
+}
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1시간
+
+function hashResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+// 비밀번호 재설정 링크에 담을 원문 토큰을 발급한다. DB에는 해시만 저장하고
+// 원문은 반환값으로만 내보내(이메일 링크에 넣는 용도), 이 함수를 호출한 쪽이
+// 직접 이메일을 보내야 한다. 같은 계정의 미사용 토큰이 남아있으면 먼저 무효화한다.
+export async function createPasswordResetToken(sellerId: string): Promise<string> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  await sql`DELETE FROM password_reset_tokens WHERE seller_id = ${sellerId} AND used_at IS NULL`;
+
+  const token = randomBytes(32).toString("hex");
+  const tokenHash = hashResetToken(token);
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString();
+  await sql`
+    INSERT INTO password_reset_tokens (token_hash, seller_id, expires_at, created_at)
+    VALUES (${tokenHash}, ${sellerId}, ${expiresAt}, ${new Date().toISOString()})
+  `;
+
+  return token;
+}
+
+export type PasswordResetResult = "ok" | "not_found" | "expired" | "used";
+
+// 토큰(원문)을 해시로 변환해 대조하고, 만료/사용 여부를 확인한 뒤 통과하면
+// 비밀번호를 갱신하고 토큰을 1회용으로 소모(used_at 기록)한다.
+export async function resetPasswordWithToken(
+  token: string,
+  newPasswordHash: string
+): Promise<PasswordResetResult> {
+  await ensureInitialized();
+  const sql = getSql();
+  const tokenHash = hashResetToken(token);
+
+  const rows = (await sql`
+    SELECT seller_id, expires_at, used_at
+    FROM password_reset_tokens WHERE token_hash = ${tokenHash}
+  `) as Array<{ seller_id: string; expires_at: string; used_at: string | null }>;
+  const record = rows[0];
+  if (!record) return "not_found";
+  if (record.used_at) return "used";
+  if (new Date(record.expires_at).getTime() < Date.now()) return "expired";
+
+  await sql`UPDATE sellers SET password_hash = ${newPasswordHash} WHERE id = ${record.seller_id}`;
+  await sql`
+    UPDATE password_reset_tokens SET used_at = ${new Date().toISOString()} WHERE token_hash = ${tokenHash}
+  `;
+
   return "ok";
 }
 

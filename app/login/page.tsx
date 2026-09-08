@@ -1,12 +1,36 @@
+"use client";
+
+import { Suspense, useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { loginAction } from "@/app/authActions";
+import { loginAction, type LoginState } from "@/app/authActions";
+
+const initialState: LoginState = {};
+
+// 비밀번호 재설정 성공 후 /login?resetSuccess=1로 돌아왔을 때만 배너를 보여준다.
+// useSearchParams는 정적 빌드 시 Suspense 경계가 필요하므로 별도로 분리한다.
+function ResetSuccessBanner() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("resetSuccess") !== "1") return null;
+  return (
+    <p className="mt-6 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+      비밀번호가 재설정되었습니다. 새 비밀번호로 로그인해주세요.
+    </p>
+  );
+}
 
 export default function LoginPage() {
+  const [state, formAction, pending] = useActionState(loginAction, initialState);
+
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-6 py-10">
       <h1 className="text-2xl font-bold">로그인</h1>
 
-      <form action={loginAction} className="mt-8 flex flex-col gap-6">
+      <Suspense fallback={null}>
+        <ResetSuccessBanner />
+      </Suspense>
+
+      <form action={formAction} className="mt-8 flex flex-col gap-6">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium">
             이메일
@@ -36,15 +60,29 @@ export default function LoginPage() {
           />
         </div>
 
+        {state.error && (
+          <p className="text-sm font-medium text-red-600 dark:text-red-400">{state.error}</p>
+        )}
+
         <button
           type="submit"
-          className="mt-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          disabled={pending}
+          className="mt-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           로그인
         </button>
       </form>
 
       <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
+        <Link
+          href="/forgot-password"
+          className="font-medium text-zinc-900 underline dark:text-zinc-50"
+        >
+          비밀번호를 잊으셨나요?
+        </Link>
+      </p>
+
+      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
         아직 계정이 없나요?{" "}
         <Link href="/signup" className="font-medium text-zinc-900 underline dark:text-zinc-50">
           회원가입

@@ -7,14 +7,16 @@ import { signIn, signOut } from "@/lib/auth";
 import { getCurrentSellerId } from "@/lib/session";
 import {
   createEmailVerificationToken,
+  createPasswordResetToken,
   createSeller,
   getSellerByEmail,
   getSellerById,
   getSellerByNickname,
+  resetPasswordWithToken,
   verifyEmailCode,
 } from "@/lib/data";
 import { hashPassword } from "@/lib/password";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -97,7 +99,12 @@ export async function signupAction(formData: FormData) {
   await signIn("credentials", { email, password, redirectTo: "/" });
 }
 
-export async function loginAction(formData: FormData) {
+export type LoginState = { error?: string };
+
+export async function loginAction(
+  _prevState: LoginState,
+  formData: FormData
+): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
@@ -105,10 +112,11 @@ export async function loginAction(formData: FormData) {
     await signIn("credentials", { email, password, redirectTo: "/" });
   } catch (error) {
     if (error instanceof AuthError) {
-      throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
+      return { error: "이메일 또는 비밀번호가 올바르지 않습니다." };
     }
     throw error;
   }
+  return {};
 }
 
 export async function logoutAction() {
@@ -154,4 +162,60 @@ export async function verifyEmailCodeAction(formData: FormData) {
   }
 
   redirect(`/verify-email?codeError=${result}`);
+}
+
+export type ForgotPasswordState = { submitted?: boolean };
+
+// 계정 존재 여부와 무관하게 항상 같은 결과를 반환한다 - 응답 차이로 계정
+// 존재 여부를 유추하지 못하게 하기 위함이다 (사용자 열거 공격 방지).
+export async function forgotPasswordAction(
+  _prevState: ForgotPasswordState,
+  formData: FormData
+): Promise<ForgotPasswordState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  const seller = await getSellerByEmail(email);
+  if (seller && seller.email) {
+    const token = await createPasswordResetToken(seller.id);
+    const origin = await getOrigin();
+    await sendPasswordResetEmail(seller.email, `${origin}/reset-password?token=${token}`);
+  }
+
+  return { submitted: true };
+}
+
+export type ResetPasswordState = { error?: string };
+
+const RESET_ERROR_MESSAGES: Record<string, string> = {
+  not_found: "유효하지 않은 재설정 링크입니다. 다시 요청해주세요.",
+  expired: "재설정 링크가 만료되었습니다. 다시 요청해주세요.",
+  used: "이미 사용된 재설정 링크입니다. 다시 요청해주세요.",
+};
+
+export async function resetPasswordAction(
+  _prevState: ResetPasswordState,
+  formData: FormData
+): Promise<ResetPasswordState> {
+  const token = String(formData.get("token") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const passwordConfirm = String(formData.get("passwordConfirm") ?? "");
+
+  if (!token) {
+    return { error: "재설정 링크가 올바르지 않습니다. 다시 요청해주세요." };
+  }
+  if (password.length < 8) {
+    return { error: "비밀번호는 8자 이상이어야 합니다." };
+  }
+  if (password !== passwordConfirm) {
+    return { error: "비밀번호가 일치하지 않습니다." };
+  }
+
+  const passwordHash = await hashPassword(password);
+  const result = await resetPasswordWithToken(token, passwordHash);
+
+  if (result === "ok") {
+    redirect("/login?resetSuccess=1");
+  }
+
+  return { error: RESET_ERROR_MESSAGES[result] ?? "비밀번호 재설정에 실패했습니다. 다시 시도해주세요." };
 }

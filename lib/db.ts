@@ -201,6 +201,20 @@ async function initialize(): Promise<void> {
   await sql`ALTER TABLE email_verification_tokens ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`;
   await sql`CREATE INDEX IF NOT EXISTS idx_verification_tokens_seller ON email_verification_tokens(seller_id)`;
 
+  // 이메일 인증 토큰과는 별개 테이블이다 - email_verification_tokens는 seller당
+  // 활성 토큰 1개만 허용(재발급 시 이전 것을 삭제)하고 원문 토큰을 그대로 저장하는데,
+  // 비밀번호 재설정은 해시만 저장해야 하고 인증 토큰 발급/삭제와 서로 간섭하면 안 된다.
+  await sql`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token_hash TEXT PRIMARY KEY,
+      seller_id TEXT NOT NULL REFERENCES sellers(id),
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_seller ON password_reset_tokens(seller_id)`;
+
   await sql`
     CREATE TABLE IF NOT EXISTS listings (
       id TEXT PRIMARY KEY,
