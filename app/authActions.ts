@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { AuthError } from "next-auth";
-import { signIn, signOut } from "@/lib/auth";
+import { AccountDeletionPendingError, signIn, signOut } from "@/lib/auth";
 import { getCurrentSellerId } from "@/lib/session";
 import {
   createEmailVerificationToken,
@@ -12,11 +12,13 @@ import {
   getSellerByEmail,
   getSellerById,
   getSellerByNickname,
+  requestAccountDeletion,
   resetPasswordWithToken,
   verifyEmailCode,
 } from "@/lib/data";
 import { hashPassword } from "@/lib/password";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
+import { SUPPORT_EMAIL } from "@/lib/constants";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -72,6 +74,10 @@ export async function signupAction(formData: FormData) {
   if (!nickname) {
     throw new Error("닉네임을 입력해주세요.");
   }
+  const agreedToPrivacy = formData.get("agreedToPrivacy") === "on";
+  if (!agreedToPrivacy) {
+    throw new Error("개인정보처리방침에 동의해야 가입할 수 있습니다.");
+  }
 
   const existingEmail = await getSellerByEmail(email);
   if (existingEmail) {
@@ -111,6 +117,11 @@ export async function loginAction(
   try {
     await signIn("credentials", { email, password, redirectTo: "/" });
   } catch (error) {
+    if (error instanceof AccountDeletionPendingError) {
+      return {
+        error: `탈퇴 처리 중인 계정입니다. 복구를 원하시면 ${SUPPORT_EMAIL}으로 문의해주세요.`,
+      };
+    }
     if (error instanceof AuthError) {
       return { error: "이메일 또는 비밀번호가 올바르지 않습니다." };
     }
@@ -121,6 +132,17 @@ export async function loginAction(
 
 export async function logoutAction() {
   await signOut({ redirectTo: "/" });
+}
+
+// 탈퇴를 접수하고, 세션을 즉시 만료시킨 뒤 안내 메시지와 함께 로그인 화면으로 보낸다.
+export async function requestAccountDeletionAction() {
+  const sellerId = await getCurrentSellerId();
+  if (!sellerId) {
+    redirect("/login");
+  }
+
+  await requestAccountDeletion(sellerId);
+  await signOut({ redirectTo: "/login?accountDeleted=1" });
 }
 
 export async function resendVerificationAction() {
