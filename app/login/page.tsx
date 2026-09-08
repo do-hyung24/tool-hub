@@ -19,6 +19,17 @@ function ResetSuccessBanner() {
   );
 }
 
+// 탈퇴 요청이 접수되어 /login?accountDeleted=1로 돌아왔을 때만 안내 배너를 보여준다.
+function AccountDeletionBanner() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("accountDeleted") !== "1") return null;
+  return (
+    <p className="mt-6 rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+      회원 탈퇴가 접수되었습니다. 계정과 매물 정보는 14일간 보관 후 삭제됩니다.
+    </p>
+  );
+}
+
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
@@ -28,6 +39,9 @@ export default function LoginPage() {
 
       <Suspense fallback={null}>
         <ResetSuccessBanner />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AccountDeletionBanner />
       </Suspense>
 
       <form action={formAction} className="mt-8 flex flex-col gap-6">
