@@ -501,3 +501,16 @@ export async function publishListing(
   `) as ListingRow[];
   return rows[0] ? rowToListing(rows[0]) : null;
 }
+
+// 회원 탈퇴를 접수한다. 이미 탈퇴가 예약된 계정이면(WHERE ... deletion_requested_at IS NULL)
+// 다시 호출해도 유예 기간 타이머가 재설정되지 않는다 - 버튼을 두 번 눌러도 삭제
+// 예정일이 계속 미뤄지는 일이 없도록 하기 위함이다.
+export async function requestAccountDeletion(sellerId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE sellers
+    SET deletion_requested_at = ${new Date().toISOString()}
+    WHERE id = ${sellerId} AND deletion_requested_at IS NULL
+  `;
+}
