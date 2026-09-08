@@ -514,3 +514,40 @@ export async function requestAccountDeletion(sellerId: string): Promise<void> {
     WHERE id = ${sellerId} AND deletion_requested_at IS NULL
   `;
 }
+
+export const DELETION_GRACE_PERIOD_MS = 14 * 24 * 60 * 60 * 1000; // 14일
+
+// 순수 함수로 분리해 실제 DB 연결 없이도 경계값(정확히 14일 경과 등)을 테스트할 수 있게 한다.
+export function isEligibleForPurge(deletionRequestedAt: string, now: Date = new Date()): boolean {
+  return now.getTime() - new Date(deletionRequestedAt).getTime() >= DELETION_GRACE_PERIOD_MS;
+}
+
+// 탈퇴 유예 기간(14일)이 지난 계정과 그 계정이 등록한 매물 데이터를 완전히(hard delete)
+// 삭제한다. FK 제약 때문에 자식 행(scan_reports, listings, 토큰들)부터 먼저 지우고
+// 마지막에 sellers 행을 지운다. 이 파일의 다른 다중 쓰기(initialize()의 시드 삽입 등)와
+// 동일하게 트랜잭션 없이 순차 실행한다.
+export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: number }> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const rows = (await sql`
+    SELECT id, deletion_requested_at FROM sellers WHERE deletion_requested_at IS NOT NULL
+  `) as Array<{ id: string; deletion_requested_at: string }>;
+
+  const now = new Date();
+  const targets = rows.filter((row) => isEligibleForPurge(row.deletion_requested_at, now));
+
+  for (const target of targets) {
+    await sql`
+      DELETE FROM scan_reports
+      WHERE listing_id IN (SELECT id FROM listings WHERE seller_id = ${target.id})
+         OR author_id = ${target.id}
+    `;
+    await sql`DELETE FROM listings WHERE seller_id = ${target.id}`;
+    await sql`DELETE FROM email_verification_tokens WHERE seller_id = ${target.id}`;
+    await sql`DELETE FROM password_reset_tokens WHERE seller_id = ${target.id}`;
+    await sql`DELETE FROM sellers WHERE id = ${target.id}`;
+  }
+
+  return { purgedCount: targets.length };
+}
