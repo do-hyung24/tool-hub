@@ -21,6 +21,12 @@ export async function AuthStatus() {
   return (
     <div className="flex items-center gap-3 text-sm">
       <span className="text-zinc-600 dark:text-zinc-300">{session.user.nickname}님</span>
+      <Link
+        href="/account/delete"
+        className="text-xs text-zinc-400 hover:underline dark:text-zinc-500"
+      >
+        회원 탈퇴
+      </Link>
       <form action={logoutAction}>
         <button
           type="submit"
