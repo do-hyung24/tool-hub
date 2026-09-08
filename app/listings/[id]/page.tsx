@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getListingById, getPublicScanSummary, getSellerById } from "@/lib/data";
 import { formatDate, formatPrice } from "@/lib/format";
-import { SecurityScanSummary } from "./SecurityScanSummary";
+import { ScanSummaryCard } from "@/app/_components/ScanSummaryCard";
 
 export default async function ListingDetailPage(
   props: PageProps<"/listings/[id]">
@@ -59,23 +59,11 @@ export default async function ListingDetailPage(
         )}
       </section>
 
-      {/* 스캔 결과와 무관하게 모든 매물에 예외 없이 노출되는 중립 고지 문구입니다. */}
-      <section className="mt-8 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          🔍 자동 보안 스캔을 거쳤습니다
-        </p>
-        {scanSummary && scanSummary.length > 0 && <SecurityScanSummary groups={scanSummary} />}
-        {listing.disclosureNote && (
-          <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-              판매자 코멘트
-            </h3>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
-              {listing.disclosureNote}
-            </p>
-          </div>
-        )}
-      </section>
+      <ScanSummaryCard
+        className="mt-8"
+        groups={scanSummary ?? []}
+        disclosureNote={listing.disclosureNote}
+      />
 
       <section className="mt-8 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
         <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">

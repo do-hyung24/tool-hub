@@ -24,3 +24,10 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* 홈 히어로의 "안전한 매물 둘러보기" 앵커 이동에만 쓰인다. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
