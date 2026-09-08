@@ -85,22 +85,31 @@ function rowToSeller(row: SellerRow): Seller {
   };
 }
 
-// 공개 매물 목록 - 게시(published)된 것만 노출한다.
+// 공개 매물 목록 - 게시(published)된 것만 노출한다. 탈퇴 처리 중인(deletion_requested_at이
+// 설정된) 판매자의 매물은 즉시 비공개 처리한다.
 export async function getListings(): Promise<Listing[]> {
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT * FROM listings WHERE published = true ORDER BY created_at DESC
+    SELECT listings.*
+    FROM listings
+    JOIN sellers ON sellers.id = listings.seller_id
+    WHERE listings.published = true AND sellers.deletion_requested_at IS NULL
+    ORDER BY listings.created_at DESC
   `) as ListingRow[];
   return rows.map(rowToListing);
 }
 
 // 공개 상세 페이지용 - 게시되지 않은(작성자 검토 중) 매물은 존재 자체를 숨긴다.
+// getListings()와 동일하게 탈퇴 처리 중인 판매자의 매물도 숨긴다.
 export async function getListingById(id: string): Promise<Listing | null> {
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT * FROM listings WHERE id = ${id} AND published = true
+    SELECT listings.*
+    FROM listings
+    JOIN sellers ON sellers.id = listings.seller_id
+    WHERE listings.id = ${id} AND listings.published = true AND sellers.deletion_requested_at IS NULL
   `) as ListingRow[];
   return rows[0] ? rowToListing(rows[0]) : null;
 }
