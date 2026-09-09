@@ -6,8 +6,8 @@ import { AuthError } from "next-auth";
 import { AccountDeletionPendingError, signIn, signOut } from "@/lib/auth";
 import { getCurrentSellerId } from "@/lib/session";
 import {
-  createEmailVerificationToken,
   createPasswordResetToken,
+  createResendVerificationToken,
   createSeller,
   getSellerByEmail,
   getSellerById,
@@ -90,18 +90,15 @@ export async function signupAction(formData: FormData) {
 
   const passwordHash = await hashPassword(password);
 
-  let seller;
   try {
-    seller = await createSeller({ email, passwordHash, nickname });
+    await createSeller({ email, passwordHash, nickname });
   } catch {
     throw new Error("이미 가입된 이메일이거나 닉네임이거나, 계정을 만들지 못했습니다.");
   }
 
-  const { token, code } = await createEmailVerificationToken(seller.id);
-  const origin = await getOrigin();
-  await sendVerificationEmail(email, code, `${origin}/api/verify-email?token=${token}`);
-
   // 미인증 계정도 로그인은 가능하므로, 가입 직후 바로 로그인 상태로 전환한다.
+  // 인증 코드 발송은 이제 /verify-email 페이지의 버튼 클릭으로만 시작된다
+  // (resendVerificationAction 참고).
   await signIn("credentials", { email, password, redirectTo: "/" });
 }
 
@@ -159,9 +156,17 @@ export async function resendVerificationAction() {
     redirect("/");
   }
 
-  const { token, code } = await createEmailVerificationToken(seller.id);
+  const result = await createResendVerificationToken(seller.id);
+  if (result.status === "rate_limited") {
+    redirect("/verify-email?resendError=cooldown");
+  }
+
   const origin = await getOrigin();
-  await sendVerificationEmail(seller.email, code, `${origin}/api/verify-email?token=${token}`);
+  await sendVerificationEmail(
+    seller.email,
+    result.code,
+    `${origin}/api/verify-email?token=${result.token}`
+  );
 
   redirect("/verify-email?sent=1");
 }

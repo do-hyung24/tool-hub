@@ -242,12 +242,19 @@ async function initialize(): Promise<void> {
       code TEXT NOT NULL DEFAULT '',
       attempts INTEGER NOT NULL DEFAULT 0,
       expires_at TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      resend_count INTEGER NOT NULL DEFAULT 0,
+      last_sent_at TEXT
     )
   `;
   // 기존(구버전) 테이블에 코드 입력 인증용 컬럼을 추가한다.
   await sql`ALTER TABLE email_verification_tokens ADD COLUMN IF NOT EXISTS code TEXT NOT NULL DEFAULT ''`;
   await sql`ALTER TABLE email_verification_tokens ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0`;
+  // 재발송 버튼 클릭 횟수/마지막 발송 시각 - 재발송 rate limit에 쓰인다
+  // (회원가입 시 자동 최초 발송은 카운트하지 않음, lib/data.ts의
+  // createResendVerificationToken 참고).
+  await sql`ALTER TABLE email_verification_tokens ADD COLUMN IF NOT EXISTS resend_count INTEGER NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE email_verification_tokens ADD COLUMN IF NOT EXISTS last_sent_at TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS idx_verification_tokens_seller ON email_verification_tokens(seller_id)`;
 
   // 이메일 인증 토큰과는 별개 테이블이다 - email_verification_tokens는 seller당

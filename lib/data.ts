@@ -225,26 +225,89 @@ function generateSixDigitCode(): string {
   return String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
 }
 
-// 인증 메일을 (재)발송할 때 이전에 발급된 토큰/코드는 모두 무효화한다.
-// 링크(token)와 6자리 코드(code)를 함께 발급해서, 이메일에서 어느 쪽을
-// 쓰든 인증할 수 있게 한다.
-export async function createEmailVerificationToken(
+const RESEND_COOLDOWN_MS = 60 * 1000; // 직전 발송으로부터 1분이 지나야 다음 발송 가능
+
+export type ResendVerificationResult =
+  | { status: "ok"; token: string; code: string; nextAllowedAt: number }
+  | { status: "rate_limited"; retryAfterMs: number };
+
+// 인증 코드 발송/재발송 전용 - 최초 발송과 재발송을 구분하지 않고 동일하게
+// 처리한다(이 사이클의 "최초 발송"은 last_sent_at이 아직 없는 상태에서의
+// 호출일 뿐이다). 이전에 발급된 토큰/코드는 매 호출마다 무효화되고 새로
+// 발급된다.
+//
+// 쿨다운 통과 여부 판단과 last_sent_at 갱신을 하나의 UPDATE로 묶어 원자적으로
+// 처리한다 - 더블클릭/여러 탭에서 거의 동시에 들어온 요청이 둘 다 갱신 전
+// 값을 읽고 통과해버리는 레이스를 막기 위함이다. WHERE 절의 조건을 만족하는
+// 행만 실제로 갱신되므로, 영향받은 행이 없으면(=조건 불만족) 그 시점의 최신
+// 상태를 다시 읽어 재시도 가능 시각을 계산한다.
+export async function createResendVerificationToken(
   sellerId: string
-): Promise<{ token: string; code: string }> {
+): Promise<ResendVerificationResult> {
   await ensureInitialized();
   const sql = getSql();
 
-  await sql`DELETE FROM email_verification_tokens WHERE seller_id = ${sellerId}`;
-
   const token = randomUUID();
   const code = generateSixDigitCode();
-  const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MS).toISOString();
-  await sql`
-    INSERT INTO email_verification_tokens (token, seller_id, code, attempts, expires_at, created_at)
-    VALUES (${token}, ${sellerId}, ${code}, 0, ${expiresAt}, ${new Date().toISOString()})
-  `;
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const expiresAt = new Date(now + VERIFICATION_TTL_MS).toISOString();
+  const cutoffIso = new Date(now - RESEND_COOLDOWN_MS).toISOString();
 
-  return { token, code };
+  const updated = (await sql`
+    UPDATE email_verification_tokens
+    SET token = ${token}, code = ${code}, attempts = 0, expires_at = ${expiresAt},
+        created_at = ${nowIso}, last_sent_at = ${nowIso}
+    WHERE seller_id = ${sellerId}
+      AND (last_sent_at IS NULL OR last_sent_at <= ${cutoffIso})
+    RETURNING token
+  `) as Array<{ token: string }>;
+
+  if (updated[0]) {
+    return { status: "ok", token, code, nextAllowedAt: now + RESEND_COOLDOWN_MS };
+  }
+
+  // WHERE 조건에 걸려 갱신되지 않은 경우 - 쿨다운 중인지, 아니면 애초에 활성
+  // 토큰 행이 없는지(예: 만료된 코드 입력으로 행이 삭제된 뒤) 구분해야 한다.
+  const rows = (await sql`
+    SELECT last_sent_at FROM email_verification_tokens WHERE seller_id = ${sellerId}
+  `) as Array<{ last_sent_at: string | null }>;
+  const prior = rows[0];
+
+  if (prior?.last_sent_at) {
+    const elapsed = Date.now() - new Date(prior.last_sent_at).getTime();
+    if (elapsed < RESEND_COOLDOWN_MS) {
+      return { status: "rate_limited", retryAfterMs: RESEND_COOLDOWN_MS - elapsed };
+    }
+  }
+
+  // 활성 토큰 행 자체가 없다 - 새 인증 사이클로 취급해 발급한다.
+  await sql`
+    INSERT INTO email_verification_tokens (token, seller_id, code, attempts, expires_at, created_at, last_sent_at)
+    VALUES (${token}, ${sellerId}, ${code}, 0, ${expiresAt}, ${nowIso}, ${nowIso})
+  `;
+  return { status: "ok", token, code, nextAllowedAt: now + RESEND_COOLDOWN_MS };
+}
+
+// /verify-email 페이지 렌더링 시점에 버튼 라벨("발송" vs "재발송")과 남은
+// 쿨다운을 서버 기준으로 계산하기 위한 조회. hasSentBefore는 last_sent_at
+// 존재 여부로만 판단하며, 발송 성공 후에는 계속 true로 남는다.
+export async function getVerificationCooldownState(
+  sellerId: string
+): Promise<{ hasSentBefore: boolean; nextAllowedAt: number | null }> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const rows = (await sql`
+    SELECT last_sent_at FROM email_verification_tokens WHERE seller_id = ${sellerId}
+  `) as Array<{ last_sent_at: string | null }>;
+  const lastSentAt = rows[0]?.last_sent_at ?? null;
+  if (!lastSentAt) {
+    return { hasSentBefore: false, nextAllowedAt: null };
+  }
+
+  const nextAllowedAt = new Date(lastSentAt).getTime() + RESEND_COOLDOWN_MS;
+  return { hasSentBefore: true, nextAllowedAt: nextAllowedAt > Date.now() ? nextAllowedAt : null };
 }
 
 // 이메일 링크를 클릭했을 때 쓰는 경로. 토큰을 검증하고 1회용으로 소모한다.
