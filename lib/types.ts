@@ -69,3 +69,14 @@ export type ScanReport = {
   createdAt: string;
   ruleEngineVersion: string;
 };
+
+export const FEEDBACK_CATEGORIES = ["버그", "기능요청", "기타"] as const;
+export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
+
+export type FeedbackVoice = {
+  id: string;
+  sellerId: string;
+  category: FeedbackCategory;
+  message: string;
+  createdAt: string;
+};

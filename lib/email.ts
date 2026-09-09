@@ -1,5 +1,6 @@
 import "server-only";
 import { Resend } from "resend";
+import { SUPPORT_EMAIL } from "./constants";
 
 // Resend에 도메인을 등록하기 전까지 쓸 수 있는 기본 발신 주소.
 // 실제 도메인을 인증했다면 RESEND_FROM_EMAIL로 덮어쓸 수 있다.
@@ -75,5 +76,48 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     });
   } catch (error) {
     console.error("[비밀번호 재설정] Resend 발송 실패:", error);
+  }
+}
+
+// 플랫폼 피드백 제출 시 관리자(SUPPORT_EMAIL)에게 알림을 보낸다. 발송 실패는
+// 호출부(app/api/feedback)에서 이미 DB 저장 이후에 호출하므로 피드백 저장 자체에
+// 영향을 주지 않는다.
+export async function sendFeedbackNotificationEmail(input: {
+  nickname: string;
+  category: string;
+  message: string;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.log(
+      `[피드백 알림] RESEND_API_KEY가 설정되지 않아 실제 발송을 건너뜁니다.\n` +
+        `  작성자: ${input.nickname}\n` +
+        `  카테고리: ${input.category}\n` +
+        `  내용: ${input.message}`
+    );
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: SUPPORT_EMAIL,
+      subject: `[툴허브] 새 피드백 도착 (${input.category})`,
+      html:
+        `<p>새로운 피드백이 접수되었습니다.</p>` +
+        `<p><strong>작성자:</strong> ${input.nickname}</p>` +
+        `<p><strong>카테고리:</strong> ${input.category}</p>` +
+        `<p><strong>내용:</strong></p>` +
+        `<p style="white-space:pre-wrap;">${input.message}</p>`,
+      text:
+        `새로운 피드백이 접수되었습니다.\n` +
+        `작성자: ${input.nickname}\n` +
+        `카테고리: ${input.category}\n` +
+        `내용:\n${input.message}`,
+    });
+  } catch (error) {
+    console.error("[피드백 알림] Resend 발송 실패:", error);
   }
 }

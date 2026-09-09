@@ -6,6 +6,8 @@ import type { PublicFindingGroup } from "./findingCategories";
 import { BLOCKING_SEVERITIES } from "./types";
 import type {
   Category,
+  FeedbackCategory,
+  FeedbackVoice,
   Finding,
   Listing,
   ScanReport,
@@ -571,6 +573,7 @@ export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: numb
       await sql`DELETE FROM listings WHERE seller_id = ${target.id}`;
       await sql`DELETE FROM email_verification_tokens WHERE seller_id = ${target.id}`;
       await sql`DELETE FROM password_reset_tokens WHERE seller_id = ${target.id}`;
+      await sql`DELETE FROM feedback_voices WHERE seller_id = ${target.id}`;
       await sql`DELETE FROM sellers WHERE id = ${target.id}`;
       purgedCount += 1;
     } catch (error) {
@@ -581,4 +584,58 @@ export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: numb
   }
 
   return { purgedCount };
+}
+
+type FeedbackVoiceRow = {
+  id: string;
+  seller_id: string;
+  category: string;
+  message: string;
+  created_at: string;
+};
+
+function rowToFeedbackVoice(row: FeedbackVoiceRow): FeedbackVoice {
+  return {
+    id: row.id,
+    sellerId: row.seller_id,
+    category: row.category as FeedbackCategory,
+    message: row.message,
+    createdAt: row.created_at,
+  };
+}
+
+// 스팸 방지(60초 재요청 제한) 판단에 쓴다 - 호출부에서 createdAt과 현재 시각을 비교한다.
+export async function getLatestFeedbackVoice(sellerId: string): Promise<FeedbackVoice | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM feedback_voices WHERE seller_id = ${sellerId}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as FeedbackVoiceRow[];
+  return rows[0] ? rowToFeedbackVoice(rows[0]) : null;
+}
+
+export async function createFeedbackVoice(input: {
+  sellerId: string;
+  category: FeedbackCategory;
+  message: string;
+}): Promise<FeedbackVoice> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const feedback: FeedbackVoice = {
+    id: randomUUID(),
+    sellerId: input.sellerId,
+    category: input.category,
+    message: input.message,
+    createdAt: new Date().toISOString(),
+  };
+
+  await sql`
+    INSERT INTO feedback_voices (id, seller_id, category, message, created_at)
+    VALUES (${feedback.id}, ${feedback.sellerId}, ${feedback.category}, ${feedback.message}, ${feedback.createdAt})
+  `;
+
+  return feedback;
 }

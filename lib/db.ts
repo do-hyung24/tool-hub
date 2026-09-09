@@ -267,6 +267,20 @@ async function initialize(): Promise<void> {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_scan_reports_listing ON scan_reports(listing_id)`;
 
+  // 플랫폼 자체(버그/기능요청/기타)에 대한 로그인 유저 피드백. 매물/거래 관련
+  // 문의와는 별개다 (app/feedback 페이지 참고).
+  await sql`
+    CREATE TABLE IF NOT EXISTS feedback_voices (
+      id TEXT PRIMARY KEY,
+      seller_id TEXT NOT NULL REFERENCES sellers(id),
+      category TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `;
+  // 유저별 최근 제출 시각 조회(60초 재요청 제한)에 쓰인다.
+  await sql`CREATE INDEX IF NOT EXISTS idx_feedback_voices_seller ON feedback_voices(seller_id, created_at DESC)`;
+
   for (const seller of SEED_SELLERS) {
     await sql`
       INSERT INTO sellers (id, nickname, contact)
