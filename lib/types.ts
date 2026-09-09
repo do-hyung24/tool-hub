@@ -80,3 +80,37 @@ export type FeedbackVoice = {
   message: string;
   createdAt: string;
 };
+
+// '공지'는 운영자 계정만 작성 가능 (app/api/community/posts에서 검증).
+export const USER_COMMUNITY_CATEGORIES = ["자유", "질문", "후기"] as const;
+export const COMMUNITY_CATEGORIES = [...USER_COMMUNITY_CATEGORIES, "공지"] as const;
+export type CommunityCategory = (typeof COMMUNITY_CATEGORIES)[number];
+
+export type CommunityPost = {
+  id: string;
+  authorSellerId: string;
+  category: CommunityCategory;
+  title: string;
+  content: string;
+  hidden: boolean;
+  createdAt: string;
+};
+
+export type CommunityPostWithAuthor = CommunityPost & {
+  authorNickname: string;
+  authorProfileImageUrl: string | null;
+};
+
+export type CommunityComment = {
+  id: string;
+  postId: string;
+  authorSellerId: string;
+  content: string;
+  hidden: boolean;
+  createdAt: string;
+};
+
+export type CommunityCommentWithAuthor = CommunityComment & {
+  authorNickname: string;
+  authorProfileImageUrl: string | null;
+};

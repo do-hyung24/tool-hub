@@ -4,8 +4,14 @@ import { ensureInitialized, getSql } from "./db";
 import { groupFindingsForBuyer } from "./findingCategories";
 import type { PublicFindingGroup } from "./findingCategories";
 import { BLOCKING_SEVERITIES } from "./types";
+import { SUPPORT_EMAIL } from "./constants";
 import type {
   Category,
+  CommunityCategory,
+  CommunityComment,
+  CommunityCommentWithAuthor,
+  CommunityPost,
+  CommunityPostWithAuthor,
   FeedbackCategory,
   FeedbackVoice,
   Finding,
@@ -574,6 +580,25 @@ export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: numb
       await sql`DELETE FROM email_verification_tokens WHERE seller_id = ${target.id}`;
       await sql`DELETE FROM password_reset_tokens WHERE seller_id = ${target.id}`;
       await sql`DELETE FROM feedback_voices WHERE seller_id = ${target.id}`;
+      // 커뮤니티: 이 유저가 남긴 신고 → 이 유저의 댓글에 달린 신고 → 이 유저의 댓글 →
+      // 이 유저 글에 달린 다른 사람 댓글 → 이 유저 글에 대한 신고 → 이 유저의 글, 순서로
+      // 자식부터 지운다 (FK 제약 순서 준수).
+      await sql`DELETE FROM community_comment_reports WHERE reporter_seller_id = ${target.id}`;
+      await sql`
+        DELETE FROM community_comment_reports
+        WHERE comment_id IN (SELECT id FROM community_comments WHERE author_seller_id = ${target.id})
+      `;
+      await sql`DELETE FROM community_comments WHERE author_seller_id = ${target.id}`;
+      await sql`
+        DELETE FROM community_comments
+        WHERE post_id IN (SELECT id FROM community_posts WHERE author_seller_id = ${target.id})
+      `;
+      await sql`DELETE FROM community_post_reports WHERE reporter_seller_id = ${target.id}`;
+      await sql`
+        DELETE FROM community_post_reports
+        WHERE post_id IN (SELECT id FROM community_posts WHERE author_seller_id = ${target.id})
+      `;
+      await sql`DELETE FROM community_posts WHERE author_seller_id = ${target.id}`;
       await sql`DELETE FROM sellers WHERE id = ${target.id}`;
       purgedCount += 1;
     } catch (error) {
@@ -638,4 +663,289 @@ export async function createFeedbackVoice(input: {
   `;
 
   return feedback;
+}
+
+// 커뮤니티 '공지' 카테고리는 이 계정(SUPPORT_EMAIL로 가입된 운영자 seller)만 쓸 수 있다.
+// 고정된 seller_id 대신 이메일로 판단해, 운영자 계정이 재생성돼도 코드 변경 없이 동작한다.
+export async function isOperatorSeller(sellerId: string): Promise<boolean> {
+  const seller = await getSellerById(sellerId);
+  return seller?.email === SUPPORT_EMAIL;
+}
+
+type CommunityPostRow = {
+  id: string;
+  author_seller_id: string;
+  category: string;
+  title: string;
+  content: string;
+  hidden: boolean;
+  created_at: string;
+  author_nickname: string;
+  author_profile_image_url: string | null;
+};
+
+function rowToCommunityPostWithAuthor(row: CommunityPostRow): CommunityPostWithAuthor {
+  return {
+    id: row.id,
+    authorSellerId: row.author_seller_id,
+    category: row.category as CommunityCategory,
+    title: row.title,
+    content: row.content,
+    hidden: row.hidden,
+    createdAt: row.created_at,
+    authorNickname: row.author_nickname,
+    authorProfileImageUrl: row.author_profile_image_url,
+  };
+}
+
+export async function createCommunityPost(input: {
+  authorSellerId: string;
+  category: CommunityCategory;
+  title: string;
+  content: string;
+}): Promise<CommunityPost> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const post: CommunityPost = {
+    id: randomUUID(),
+    authorSellerId: input.authorSellerId,
+    category: input.category,
+    title: input.title,
+    content: input.content,
+    hidden: false,
+    createdAt: new Date().toISOString(),
+  };
+
+  await sql`
+    INSERT INTO community_posts (id, author_seller_id, category, title, content, hidden, created_at)
+    VALUES (
+      ${post.id}, ${post.authorSellerId}, ${post.category}, ${post.title},
+      ${post.content}, ${post.hidden}, ${post.createdAt}
+    )
+  `;
+
+  return post;
+}
+
+// hidden=false인 글만 노출한다 (신고 누적으로 자동 숨김된 글 제외).
+export async function listCommunityPosts(input: {
+  category: CommunityCategory | null;
+  page: number;
+  pageSize: number;
+}): Promise<{ posts: CommunityPostWithAuthor[]; total: number }> {
+  await ensureInitialized();
+  const sql = getSql();
+  const offset = (input.page - 1) * input.pageSize;
+
+  const [rows, countRows] = input.category
+    ? await Promise.all([
+        sql`
+          SELECT community_posts.*, sellers.nickname AS author_nickname,
+                 sellers.profile_image_url AS author_profile_image_url
+          FROM community_posts
+          JOIN sellers ON sellers.id = community_posts.author_seller_id
+          WHERE community_posts.hidden = false AND community_posts.category = ${input.category}
+          ORDER BY community_posts.created_at DESC
+          LIMIT ${input.pageSize} OFFSET ${offset}
+        `,
+        sql`
+          SELECT COUNT(*) AS count FROM community_posts
+          WHERE hidden = false AND category = ${input.category}
+        `,
+      ])
+    : await Promise.all([
+        sql`
+          SELECT community_posts.*, sellers.nickname AS author_nickname,
+                 sellers.profile_image_url AS author_profile_image_url
+          FROM community_posts
+          JOIN sellers ON sellers.id = community_posts.author_seller_id
+          WHERE community_posts.hidden = false
+          ORDER BY community_posts.created_at DESC
+          LIMIT ${input.pageSize} OFFSET ${offset}
+        `,
+        sql`SELECT COUNT(*) AS count FROM community_posts WHERE hidden = false`,
+      ]);
+
+  return {
+    posts: (rows as CommunityPostRow[]).map(rowToCommunityPostWithAuthor),
+    total: Number((countRows as Array<{ count: string }>)[0]?.count ?? 0),
+  };
+}
+
+export async function getCommunityPostById(id: string): Promise<CommunityPostWithAuthor | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT community_posts.*, sellers.nickname AS author_nickname,
+           sellers.profile_image_url AS author_profile_image_url
+    FROM community_posts
+    JOIN sellers ON sellers.id = community_posts.author_seller_id
+    WHERE community_posts.id = ${id}
+  `) as CommunityPostRow[];
+  return rows[0] ? rowToCommunityPostWithAuthor(rows[0]) : null;
+}
+
+type CommunityCommentRow = {
+  id: string;
+  post_id: string;
+  author_seller_id: string;
+  content: string;
+  hidden: boolean;
+  created_at: string;
+  author_nickname: string;
+  author_profile_image_url: string | null;
+};
+
+function rowToCommunityCommentWithAuthor(row: CommunityCommentRow): CommunityCommentWithAuthor {
+  return {
+    id: row.id,
+    postId: row.post_id,
+    authorSellerId: row.author_seller_id,
+    content: row.content,
+    hidden: row.hidden,
+    createdAt: row.created_at,
+    authorNickname: row.author_nickname,
+    authorProfileImageUrl: row.author_profile_image_url,
+  };
+}
+
+export async function createCommunityComment(input: {
+  postId: string;
+  authorSellerId: string;
+  content: string;
+}): Promise<CommunityComment> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const comment: CommunityComment = {
+    id: randomUUID(),
+    postId: input.postId,
+    authorSellerId: input.authorSellerId,
+    content: input.content,
+    hidden: false,
+    createdAt: new Date().toISOString(),
+  };
+
+  await sql`
+    INSERT INTO community_comments (id, post_id, author_seller_id, content, hidden, created_at)
+    VALUES (${comment.id}, ${comment.postId}, ${comment.authorSellerId}, ${comment.content}, ${comment.hidden}, ${comment.createdAt})
+  `;
+
+  return comment;
+}
+
+// hidden=false인 댓글만 노출한다 (신고 누적으로 자동 숨김된 댓글 제외).
+export async function listCommunityCommentsForPost(
+  postId: string
+): Promise<CommunityCommentWithAuthor[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT community_comments.*, sellers.nickname AS author_nickname,
+           sellers.profile_image_url AS author_profile_image_url
+    FROM community_comments
+    JOIN sellers ON sellers.id = community_comments.author_seller_id
+    WHERE community_comments.post_id = ${postId} AND community_comments.hidden = false
+    ORDER BY community_comments.created_at ASC
+  `) as CommunityCommentRow[];
+  return rows.map(rowToCommunityCommentWithAuthor);
+}
+
+export async function hasReportedCommunityPost(
+  postId: string,
+  reporterSellerId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id FROM community_post_reports
+    WHERE post_id = ${postId} AND reporter_seller_id = ${reporterSellerId}
+  `) as Array<{ id: string }>;
+  return rows.length > 0;
+}
+
+// 게시글/댓글 공통 자동 숨김 임계값.
+const REPORT_AUTO_HIDE_THRESHOLD = 5;
+
+export type ReportCommunityPostResult = "ok" | "already_reported";
+
+// 중복 신고는 (post_id, reporter_seller_id) 유니크 인덱스로 막는다. 새 신고가
+// 실제로 반영되면 그 글의 누적 신고 수를 세어 5건 이상이면 자동으로 숨긴다.
+export async function reportCommunityPost(input: {
+  postId: string;
+  reporterSellerId: string;
+}): Promise<ReportCommunityPostResult> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const inserted = (await sql`
+    INSERT INTO community_post_reports (id, post_id, reporter_seller_id, created_at)
+    VALUES (${randomUUID()}, ${input.postId}, ${input.reporterSellerId}, ${new Date().toISOString()})
+    ON CONFLICT (post_id, reporter_seller_id) DO NOTHING
+    RETURNING id
+  `) as Array<{ id: string }>;
+
+  if (inserted.length === 0) {
+    return "already_reported";
+  }
+
+  const countRows = (await sql`
+    SELECT COUNT(*) AS count FROM community_post_reports WHERE post_id = ${input.postId}
+  `) as Array<{ count: string }>;
+
+  if (Number(countRows[0]?.count ?? 0) >= REPORT_AUTO_HIDE_THRESHOLD) {
+    await sql`UPDATE community_posts SET hidden = true WHERE id = ${input.postId}`;
+  }
+
+  return "ok";
+}
+
+// 이 사용자가 이미 신고한 댓글 id만 골라 반환한다 (상세 페이지에서 댓글별
+// 신고 버튼 비활성화 여부를 한 번의 쿼리로 판단하기 위함, N+1 방지).
+export async function getReportedCommentIds(
+  commentIds: string[],
+  reporterSellerId: string
+): Promise<Set<string>> {
+  if (commentIds.length === 0) return new Set();
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT comment_id FROM community_comment_reports
+    WHERE reporter_seller_id = ${reporterSellerId} AND comment_id = ANY(${commentIds})
+  `) as Array<{ comment_id: string }>;
+  return new Set(rows.map((row) => row.comment_id));
+}
+
+export type ReportCommunityCommentResult = "ok" | "already_reported";
+
+// 게시글과 동일하게, 새 신고가 실제로 반영되면 그 댓글의 누적 신고 수를 세어
+// 5건 이상이면 자동으로 숨긴다.
+export async function reportCommunityComment(input: {
+  commentId: string;
+  reporterSellerId: string;
+}): Promise<ReportCommunityCommentResult> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const inserted = (await sql`
+    INSERT INTO community_comment_reports (id, comment_id, reporter_seller_id, created_at)
+    VALUES (${randomUUID()}, ${input.commentId}, ${input.reporterSellerId}, ${new Date().toISOString()})
+    ON CONFLICT (comment_id, reporter_seller_id) DO NOTHING
+    RETURNING id
+  `) as Array<{ id: string }>;
+
+  if (inserted.length === 0) {
+    return "already_reported";
+  }
+
+  const countRows = (await sql`
+    SELECT COUNT(*) AS count FROM community_comment_reports WHERE comment_id = ${input.commentId}
+  `) as Array<{ count: string }>;
+
+  if (Number(countRows[0]?.count ?? 0) >= REPORT_AUTO_HIDE_THRESHOLD) {
+    await sql`UPDATE community_comments SET hidden = true WHERE id = ${input.commentId}`;
+  }
+
+  return "ok";
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import type { Finding, Listing, Seller } from "./types";
+import { SUPPORT_EMAIL } from "./constants";
 
 // Vercel의 Neon 연동은 DATABASE_URL과 POSTGRES_URL을 함께 넣어주므로 둘 다 확인한다.
 let sqlClient: NeonQueryFunction<false, false> | null = null;
@@ -132,6 +133,43 @@ const SEED_SCAN_REPORTS: Array<{
         description: "Google API 키로 보이는 문자열이 하드코딩되어 있습니다.",
       },
     ],
+  },
+];
+
+// 커뮤니티 오픈 시 운영자 명의로 등록하는 공지 2개. author_seller_id는 initialize()에서
+// SUPPORT_EMAIL로 가입된 계정을 조회해 채운다 (아래 목록엔 id가 없다).
+const SEED_COMMUNITY_POSTS: Array<{
+  id: string;
+  category: "공지";
+  title: string;
+  content: string;
+  createdAt: string;
+}> = [
+  {
+    id: "cp-welcome",
+    category: "공지",
+    title: "커뮤니티를 열었습니다",
+    createdAt: "2026-09-09T09:00:00.000Z",
+    content:
+      "안녕하세요, 툴허브입니다.\n\n" +
+      "자유롭게 소통할 수 있는 커뮤니티를 열었습니다. 자유, 질문, 후기 카테고리로 편하게 글을 남겨주세요.\n\n" +
+      "몇 가지 안내드립니다.\n" +
+      "- 특정 매물에 대한 문의는 여기가 아니라 해당 매물 페이지를 통해 판매자에게 직접 연락해주세요.\n" +
+      "- 플랫폼 자체(버그, 기능 제안 등)에 대한 의견은 '고객의 목소리' 페이지를 이용해주세요.\n" +
+      "- 다른 이용자를 배려하는 글을 부탁드립니다. 부적절한 게시물은 신고를 통해 접수됩니다.\n\n" +
+      "감사합니다.",
+  },
+  {
+    id: "cp-tool-request-preview",
+    category: "공지",
+    title: "곧 추가됩니다 - 툴 수배 게시판",
+    createdAt: "2026-09-09T09:05:00.000Z",
+    content:
+      "원하는 자동화 봇/스크립트를 직접 만들어달라고 요청할 수 있는 '툴 수배' 게시판을 준비하고 있습니다.\n\n" +
+      "예정된 방식은 다음과 같습니다.\n" +
+      "- 원하는 툴과 예산(가격)을 함께 올리면, 만들 수 있는 개발자가 선착순으로 수락해 제작을 진행합니다.\n" +
+      "- 결제는 플랫폼이 중개하지 않고 요청자와 개발자가 직접 진행합니다. 그 과정에서 발생하는 분쟁에 대해 플랫폼은 책임지지 않습니다.\n\n" +
+      "정확한 출시 일정은 아직 확정되지 않았습니다. 준비되는 대로 다시 안내드리겠습니다.",
   },
 ];
 
@@ -281,6 +319,65 @@ async function initialize(): Promise<void> {
   // 유저별 최근 제출 시각 조회(60초 재요청 제한)에 쓰인다.
   await sql`CREATE INDEX IF NOT EXISTS idx_feedback_voices_seller ON feedback_voices(seller_id, created_at DESC)`;
 
+  // 커뮤니티 게시판. category='공지'는 운영자 계정만 작성 가능(앱 레벨 검증,
+  // app/api/community/posts 참고). hidden은 신고 누적(5건)으로 자동 전환되며
+  // 별도 복구 UI 없이 필요 시 DB에서 직접 되돌린다.
+  await sql`
+    CREATE TABLE IF NOT EXISTS community_posts (
+      id TEXT PRIMARY KEY,
+      author_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      hidden BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_community_posts_created ON community_posts(created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_community_posts_category ON community_posts(category)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS community_comments (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES community_posts(id),
+      author_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      content TEXT NOT NULL,
+      hidden BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL
+    )
+  `;
+  // 이미 community_comments가 생성된(hidden 컬럼 없이 배포된) DB에도 반영되도록 한다.
+  await sql`ALTER TABLE community_comments ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_community_comments_post ON community_comments(post_id, created_at)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS community_post_reports (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES community_posts(id),
+      reporter_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_community_post_reports_unique
+      ON community_post_reports(post_id, reporter_seller_id)
+  `;
+
+  // 댓글 신고도 게시글과 동일하게 5건 누적 시 자동으로 hidden 처리된다
+  // (lib/data.ts의 reportCommunityComment 참고).
+  await sql`
+    CREATE TABLE IF NOT EXISTS community_comment_reports (
+      id TEXT PRIMARY KEY,
+      comment_id TEXT NOT NULL REFERENCES community_comments(id),
+      reporter_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_community_comment_reports_unique
+      ON community_comment_reports(comment_id, reporter_seller_id)
+  `;
+
   for (const seller of SEED_SELLERS) {
     await sql`
       INSERT INTO sellers (id, nickname, contact)
@@ -320,5 +417,25 @@ async function initialize(): Promise<void> {
       )
       ON CONFLICT (id) DO NOTHING
     `;
+  }
+
+  // 운영자(SUPPORT_EMAIL로 가입된 계정) 명의의 공지 시드 - 고정 id + ON CONFLICT DO NOTHING으로
+  // 여러 번 실행돼도 중복 삽입되지 않는다. 운영자가 아직 가입 전이면(초기 배포 등) 조용히 건너뛴다.
+  const operatorRows = (await sql`
+    SELECT id FROM sellers WHERE email = ${SUPPORT_EMAIL}
+  `) as Array<{ id: string }>;
+  const operatorId = operatorRows[0]?.id;
+
+  if (operatorId) {
+    for (const post of SEED_COMMUNITY_POSTS) {
+      await sql`
+        INSERT INTO community_posts (id, author_seller_id, category, title, content, hidden, created_at)
+        VALUES (
+          ${post.id}, ${operatorId}, ${post.category}, ${post.title},
+          ${post.content}, false, ${post.createdAt}
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
   }
 }
