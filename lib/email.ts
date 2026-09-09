@@ -2,9 +2,9 @@ import "server-only";
 import { Resend } from "resend";
 import { SUPPORT_EMAIL } from "./constants";
 
-// Resend에 도메인을 등록하기 전까지 쓸 수 있는 기본 발신 주소.
-// 실제 도메인을 인증했다면 RESEND_FROM_EMAIL로 덮어쓸 수 있다.
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "툴허브 <onboarding@resend.dev>";
+// mail.tool-hub.dev 도메인이 Resend에서 SPF/DKIM 인증 완료됨.
+// 필요 시 RESEND_FROM_EMAIL로 덮어쓸 수 있다.
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "툴허브 <noreply@mail.tool-hub.dev>";
 
 export async function sendVerificationEmail(
   to: string,
