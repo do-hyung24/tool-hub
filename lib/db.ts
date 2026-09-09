@@ -29,6 +29,7 @@ const SEED_SELLERS: Seller[] = [
     email: null,
     emailVerified: false,
     deletionRequestedAt: null,
+    profileImageUrl: null,
   },
   {
     id: "s2",
@@ -37,6 +38,7 @@ const SEED_SELLERS: Seller[] = [
     email: null,
     emailVerified: false,
     deletionRequestedAt: null,
+    profileImageUrl: null,
   },
   {
     id: "s3",
@@ -45,6 +47,7 @@ const SEED_SELLERS: Seller[] = [
     email: null,
     emailVerified: false,
     deletionRequestedAt: null,
+    profileImageUrl: null,
   },
 ];
 
@@ -168,6 +171,8 @@ async function initialize(): Promise<void> {
   // 탈퇴 요청 시각(ISO 문자열). NULL이면 정상 계정, 값이 있으면 14일 유예 기간 중이며
   // 로그인이 차단되고 매물이 공개 목록에서 즉시 숨겨진다 (lib/auth.ts, lib/data.ts 참고).
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS deletion_requested_at TEXT`;
+  // 프로필 사진의 Vercel Blob URL. NULL이면 기본 아바타를 표시한다.
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS profile_image_url TEXT`;
 
   // 유니크 인덱스를 걸기 전, 이미 중복된 값이 있으면 인덱스 생성 자체가 실패해
   // 이후 모든 요청에서 ensureInitialized()가 계속 예외를 던지는 전면 장애로

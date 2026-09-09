@@ -5,6 +5,7 @@ export type Seller = {
   email: string | null;
   emailVerified: boolean;
   deletionRequestedAt: string | null;
+  profileImageUrl: string | null;
 };
 
 export const CATEGORIES = [

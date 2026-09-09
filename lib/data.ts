@@ -45,6 +45,7 @@ type SellerRow = {
   email: string | null;
   email_verified: boolean;
   deletion_requested_at: string | null;
+  profile_image_url: string | null;
 };
 
 function rowToListing(row: ListingRow): Listing {
@@ -84,6 +85,7 @@ function rowToSeller(row: SellerRow): Seller {
     email: row.email,
     emailVerified: row.email_verified,
     deletionRequestedAt: row.deletion_requested_at,
+    profileImageUrl: row.profile_image_url ?? null,
   };
 }
 
@@ -134,7 +136,8 @@ export async function getSellerById(id: string): Promise<Seller | null> {
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, nickname, contact, email, email_verified, deletion_requested_at FROM sellers WHERE id = ${id}
+    SELECT id, nickname, contact, email, email_verified, deletion_requested_at, profile_image_url
+    FROM sellers WHERE id = ${id}
   `) as SellerRow[];
   return rows[0] ? rowToSeller(rows[0]) : null;
 }
@@ -143,7 +146,7 @@ export async function getSellerByEmail(email: string): Promise<Seller | null> {
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, nickname, contact, email, email_verified
+    SELECT id, nickname, contact, email, email_verified, profile_image_url
     FROM sellers WHERE email = ${email.trim().toLowerCase()}
   `) as SellerRow[];
   return rows[0] ? rowToSeller(rows[0]) : null;
@@ -153,7 +156,7 @@ export async function getSellerByNickname(nickname: string): Promise<Seller | nu
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, nickname, contact, email, email_verified
+    SELECT id, nickname, contact, email, email_verified, profile_image_url
     FROM sellers WHERE nickname = ${nickname.trim()}
   `) as SellerRow[];
   return rows[0] ? rowToSeller(rows[0]) : null;
@@ -176,6 +179,7 @@ export async function createSeller(input: {
     email: input.email.trim().toLowerCase(),
     emailVerified: false,
     deletionRequestedAt: null,
+    profileImageUrl: null,
   };
 
   await sql`
@@ -193,6 +197,17 @@ export async function markSellerEmailVerified(sellerId: string): Promise<void> {
   await ensureInitialized();
   const sql = getSql();
   await sql`UPDATE sellers SET email_verified = true WHERE id = ${sellerId}`;
+}
+
+// 프로필 사진 URL을 갱신한다. 호출부(API 라우트)에서 기존 profile_image_url을
+// 먼저 조회해 Blob에서 이전 파일을 삭제한 뒤 이 함수로 새 URL을 반영해야 한다.
+export async function updateSellerProfileImage(
+  sellerId: string,
+  profileImageUrl: string
+): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`UPDATE sellers SET profile_image_url = ${profileImageUrl} WHERE id = ${sellerId}`;
 }
 
 const VERIFICATION_TTL_MS = 15 * 60 * 1000; // 15분 - 직접 입력하는 코드라 짧게 잡는다.
