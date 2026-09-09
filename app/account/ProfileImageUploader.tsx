@@ -71,7 +71,7 @@ export function ProfileImageUploader({
             type="file"
             accept="image/png, image/jpeg, image/webp"
             onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
-            className="text-sm text-zinc-600 dark:text-zinc-300"
+            className="text-sm text-zinc-600 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm dark:text-zinc-300 dark:file:bg-zinc-800"
           />
           <button
             type="button"
