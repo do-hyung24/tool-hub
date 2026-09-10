@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const TITLE_MIN_LENGTH = 2;
-const CONTENT_MIN_LENGTH = 5;
+const CONTENT_MIN_LENGTH = 30;
 
 // 이 두 값은 app/api/requests/route.ts의 MAX_IMAGES / MAX_IMAGE_SIZE_BYTES /
 // ALLOWED_MIME_TYPES와 반드시 일치해야 한다(안내 문구·클라이언트 장수 제한용).
@@ -27,6 +27,11 @@ const ENVIRONMENT_CHIPS = [
 
 const ETC_MAX_LENGTH = 100;
 
+const DESCRIPTION_PLACEHOLDER = `지금 어떤 일을 손으로 하고 계신가요? (예: 매일 아침 스마트스토어 주문 내역을 엑셀로 옮겨 적습니다)
+얼마나 자주 하고, 한 번에 얼마나 걸리나요? (예: 매일 1시간)
+어떤 결과물을 받고 싶으신가요? (예: 정리된 엑셀 파일이 매일 오전 9시에 이메일로 도착)
+꼭 지켜야 할 조건이 있나요? (예: 회사 PC는 윈도우입니다)`;
+
 // KST(UTC+9) 기준 오늘 날짜를 YYYY-MM-DD로 계산한다. offsetMonths만큼 더한 날짜도 구할 수 있다.
 function getKstDateString(offsetMonths = 0): string {
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -37,6 +42,64 @@ function getKstDateString(offsetMonths = 0): string {
 function formatBudgetDisplay(rawDigits: string): string {
   if (!rawDigits) return "";
   return Number(rawDigits).toLocaleString("ko-KR");
+}
+
+// "(필수)"/"(선택사항)" 뱃지 - 필수는 선택사항과 구분되는 강조색을 쓴다.
+function FieldBadge({ required }: { required: boolean }) {
+  return (
+    <span
+      className={
+        required
+          ? "text-xs font-normal text-emerald-600 dark:text-emerald-400"
+          : "text-xs font-normal text-zinc-400 dark:text-zinc-500"
+      }
+    >
+      {required ? "(필수)" : "(선택사항)"}
+    </span>
+  );
+}
+
+// 클릭 토글형 도움말 팝오버 - 참고 영상 링크/기능 설명 두 곳에서 재사용한다.
+// 호버가 아니라 클릭으로 열고, Esc 또는 바깥 클릭으로 닫힌다.
+function HelpPopover({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex h-4 w-4 items-center justify-center rounded-full border border-zinc-300 text-[10px] leading-none text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+      >
+        ?
+      </button>
+      {open && (
+        <div className="absolute left-0 top-6 z-10 w-72 rounded-lg border border-zinc-200 bg-white p-3 text-xs leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function NewRequestForm() {
@@ -50,7 +113,6 @@ export function NewRequestForm() {
   const [etcEnabled, setEtcEnabled] = useState(false);
   const [etcText, setEtcText] = useState("");
   const [referenceVideoUrl, setReferenceVideoUrl] = useState("");
-  const [videoHelpOpen, setVideoHelpOpen] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [imageNotice, setImageNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,26 +121,8 @@ export function NewRequestForm() {
   const [minDeadline] = useState(() => getKstDateString(0));
   const [maxDeadline] = useState(() => getKstDateString(6));
 
-  const videoHelpRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!videoHelpOpen) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setVideoHelpOpen(false);
-    }
-    function handleClickOutside(event: MouseEvent) {
-      if (videoHelpRef.current && !videoHelpRef.current.contains(event.target as Node)) {
-        setVideoHelpOpen(false);
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [videoHelpOpen]);
-
+  const descriptionLength = description.trim().length;
+  const budgetMissing = budgetAmount.trim() === "" && !budgetNegotiable;
   const budgetNumericValue = budgetAmount ? Number(budgetAmount) : null;
   const showBudgetUnitWarning =
     budgetNumericValue !== null && budgetNumericValue >= 1 && budgetNumericValue < 10000;
@@ -95,6 +139,8 @@ export function NewRequestForm() {
     if (etc) parts.push(etc);
     return parts.join(", ");
   }
+
+  const requiredEnvironmentValue = buildRequiredEnvironment();
 
   function handleFilesSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const newFiles = Array.from(event.target.files ?? []);
@@ -167,7 +213,7 @@ export function NewRequestForm() {
     <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-6">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="title" className="text-sm font-medium">
-          제목
+          제목 <FieldBadge required />
         </label>
         <input
           id="title"
@@ -181,9 +227,22 @@ export function NewRequestForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="description" className="text-sm font-medium">
-          기능 설명
-        </label>
+        <div className="flex items-center gap-1.5">
+          <label htmlFor="description" className="text-sm font-medium">
+            기능 설명 <FieldBadge required />
+          </label>
+          <HelpPopover>
+            <p className="font-semibold text-zinc-700 dark:text-zinc-200">
+              이렇게 적어주시면 좋아요
+            </p>
+            <p className="mt-1.5">
+              매일 아침 네이버 스마트스토어 관리자에 들어가 전날 주문 내역을 엑셀로 내려받고,
+              상품별 수량을 합쳐 사내 재고 시트에 옮겨 적고 있습니다. 주문이 하루 50~100건이라
+              1시간 넘게 걸립니다. 이 과정을 자동으로 처리해서 매일 오전 9시에 정리된 엑셀
+              파일이 제 이메일로 도착하면 좋겠습니다. 회사 PC는 윈도우입니다.
+            </p>
+          </HelpPopover>
+        </div>
         <textarea
           id="description"
           required
@@ -191,14 +250,25 @@ export function NewRequestForm() {
           rows={8}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
+          placeholder={DESCRIPTION_PLACEHOLDER}
           className="resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <div className="flex justify-end">
+          <span
+            className={`text-xs ${
+              descriptionLength < CONTENT_MIN_LENGTH
+                ? "text-zinc-400 dark:text-zinc-500"
+                : "text-zinc-600 dark:text-zinc-300"
+            }`}
+          >
+            {descriptionLength} / 최소 {CONTENT_MIN_LENGTH}자
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="budgetAmount" className="text-sm font-medium">
-          예산{" "}
-          <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">(선택사항)</span>
+          예산 <FieldBadge required />
         </label>
         <div className="flex items-center gap-3">
           <input
@@ -220,9 +290,14 @@ export function NewRequestForm() {
             협의 가능
           </label>
         </div>
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          예산은 제안을 받은 뒤 협의할 수 있어요. 감이 안 오면 &apos;협의 가능&apos;에 체크하고
-          비워두세요.
+        <p
+          className={`text-xs ${
+            budgetMissing
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-zinc-400 dark:text-zinc-500"
+          }`}
+        >
+          금액을 적어주세요. 감이 안 오면 &apos;협의 가능&apos;에 체크하고 비워두셔도 됩니다.
         </p>
         {showBudgetUnitWarning && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -233,8 +308,7 @@ export function NewRequestForm() {
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="desiredDeadline" className="text-sm font-medium">
-          희망 완료 시점{" "}
-          <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">(선택사항)</span>
+          희망 완료 시점 <FieldBadge required={false} />
         </label>
         <input
           id="desiredDeadline"
@@ -243,14 +317,17 @@ export function NewRequestForm() {
           max={maxDeadline}
           value={desiredDeadline}
           onChange={(event) => setDesiredDeadline(event.target.value)}
-          className="w-fit rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className={`w-fit rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 ${
+            desiredDeadline === ""
+              ? "[&::-webkit-datetime-edit]:text-zinc-400 dark:[&::-webkit-datetime-edit]:text-zinc-500"
+              : "[&::-webkit-datetime-edit]:text-zinc-900 dark:[&::-webkit-datetime-edit]:text-zinc-50"
+          }`}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">
-          필요한 프로그램/환경{" "}
-          <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">(선택사항)</span>
+          필요한 프로그램/환경 <FieldBadge required />
         </label>
         <div className="flex flex-wrap gap-2">
           {ENVIRONMENT_CHIPS.map((chip) => {
@@ -297,30 +374,15 @@ export function NewRequestForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <div ref={videoHelpRef} className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
           <label htmlFor="referenceVideoUrl" className="text-sm font-medium">
-            참고 영상 링크{" "}
-            <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">
-              (선택사항)
-            </span>
+            참고 영상 링크 <FieldBadge required={false} />
           </label>
-          <div className="relative">
-            <button
-              type="button"
-              aria-expanded={videoHelpOpen}
-              onClick={() => setVideoHelpOpen((prev) => !prev)}
-              className="flex h-4 w-4 items-center justify-center rounded-full border border-zinc-300 text-[10px] leading-none text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-            >
-              ?
-            </button>
-            {videoHelpOpen && (
-              <div className="absolute left-0 top-6 z-10 w-64 rounded-lg border border-zinc-200 bg-white p-3 text-xs leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                자동화하고 싶은 업무 과정을 화면 녹화하거나 영상으로 찍어 유튜브·SNS 등 본인
-                계정에 올린 뒤 그 링크를 붙여넣어 주세요. 개발자가 작업 흐름을 훨씬 정확하게
-                파악할 수 있어 결과물이 좋아집니다.
-              </div>
-            )}
-          </div>
+          <HelpPopover>
+            자동화하고 싶은 업무 과정을 화면 녹화하거나 영상으로 찍어 유튜브·SNS 등 본인
+            계정에 올린 뒤 그 링크를 붙여넣어 주세요. 개발자가 작업 흐름을 훨씬 정확하게
+            파악할 수 있어 결과물이 좋아집니다.
+          </HelpPopover>
         </div>
         <input
           id="referenceVideoUrl"
@@ -386,8 +448,10 @@ export function NewRequestForm() {
         disabled={
           isSubmitting ||
           title.trim().length < TITLE_MIN_LENGTH ||
-          description.trim().length < CONTENT_MIN_LENGTH ||
-          images.length === 0
+          descriptionLength < CONTENT_MIN_LENGTH ||
+          images.length === 0 ||
+          budgetMissing ||
+          requiredEnvironmentValue.trim() === ""
         }
         className="w-fit rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
       >
