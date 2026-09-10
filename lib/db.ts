@@ -385,6 +385,64 @@ async function initialize(): Promise<void> {
       ON community_comment_reports(comment_id, reporter_seller_id)
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_requests (
+      id TEXT PRIMARY KEY,
+      requester_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      budget_amount INTEGER,
+      budget_negotiable BOOLEAN NOT NULL DEFAULT FALSE,
+      desired_deadline TEXT,
+      required_environment TEXT,
+      reference_video_url TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_requests_created ON tool_requests(created_at DESC)`;
+
+  // listings보다 뒤에서 생성되므로 여기서 컬럼을 추가한다(순방향 참조 회피).
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_request_id TEXT REFERENCES tool_requests(id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_request_images (
+      id TEXT PRIMARY KEY,
+      request_id TEXT NOT NULL REFERENCES tool_requests(id),
+      image_url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_request_images_request ON tool_request_images(request_id, sort_order)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_proposals (
+      id TEXT PRIMARY KEY,
+      request_id TEXT NOT NULL REFERENCES tool_requests(id),
+      seller_id TEXT NOT NULL REFERENCES sellers(id),
+      price INTEGER NOT NULL,
+      duration TEXT NOT NULL,
+      description TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      delivered_listing_id TEXT REFERENCES listings(id),
+      delivery_confirmed_at TEXT,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_proposals_request ON tool_proposals(request_id, created_at)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_proposal_messages (
+      id TEXT PRIMARY KEY,
+      proposal_id TEXT NOT NULL REFERENCES tool_proposals(id),
+      sender_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_proposal_messages_proposal ON tool_proposal_messages(proposal_id, created_at)`;
+
   for (const seller of SEED_SELLERS) {
     await sql`
       INSERT INTO sellers (id, nickname, contact)

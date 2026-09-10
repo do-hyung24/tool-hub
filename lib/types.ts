@@ -114,3 +114,64 @@ export type CommunityCommentWithAuthor = CommunityComment & {
   authorNickname: string;
   authorProfileImageUrl: string | null;
 };
+
+export const TOOL_REQUEST_STATUSES = ["open", "in_progress", "completed"] as const;
+export type ToolRequestStatus = (typeof TOOL_REQUEST_STATUSES)[number];
+
+export type ToolRequest = {
+  id: string;
+  requesterSellerId: string;
+  title: string;
+  description: string;
+  budgetAmount: number | null;
+  budgetNegotiable: boolean;
+  desiredDeadline: string | null;
+  requiredEnvironment: string | null;
+  referenceVideoUrl: string | null;
+  status: ToolRequestStatus;
+  createdAt: string;
+};
+
+export type ToolRequestWithAuthor = ToolRequest & {
+  requesterNickname: string;
+};
+
+export type ToolRequestImage = {
+  id: string;
+  requestId: string;
+  imageUrl: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
+export const TOOL_PROPOSAL_STATUSES = ["pending", "selected"] as const;
+export type ToolProposalStatus = (typeof TOOL_PROPOSAL_STATUSES)[number];
+
+export type ToolProposal = {
+  id: string;
+  requestId: string;
+  sellerId: string;
+  price: number;
+  duration: string;
+  description: string;
+  status: ToolProposalStatus;
+  deliveredListingId: string | null;
+  deliveryConfirmedAt: string | null;
+  createdAt: string;
+};
+
+export type ToolProposalWithAuthor = ToolProposal & {
+  sellerNickname: string;
+};
+
+export type ToolProposalMessage = {
+  id: string;
+  proposalId: string;
+  senderSellerId: string;
+  content: string;
+  createdAt: string;
+};
+
+export type ToolProposalMessageWithAuthor = ToolProposalMessage & {
+  senderNickname: string;
+};
