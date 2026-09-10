@@ -38,8 +38,12 @@ export default async function DeliverRequestPage(
 
   const proposals = await listToolProposalsForRequest(requestId);
   const selectedProposal = proposals.find((proposal) => proposal.status === "selected");
+  // 이미 완료(결제 확인)된 의뢰에는 완성본을 다시 제출할 수 없다 - 서버 액션 쪽
+  // requireDeliverableProposal과 동일한 기준이다.
   const canDeliver =
-    !!selectedProposal && (await canDeliverProposal(requestId, selectedProposal.id, sellerId));
+    !!selectedProposal &&
+    toolRequest.status === "in_progress" &&
+    (await canDeliverProposal(requestId, selectedProposal.id, sellerId));
 
   if (!canDeliver) {
     return (

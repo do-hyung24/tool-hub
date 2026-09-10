@@ -20,7 +20,7 @@ import { sendRequestDeliveryReadyEmail } from "@/lib/email";
 import { runScan } from "@/lib/scanEngine";
 import { RULE_ENGINE_VERSION } from "@/lib/detector";
 import { collectFilesForSource, parseSourceType } from "@/app/actions";
-import type { Finding } from "@/lib/types";
+import type { Finding, ToolRequestWithAuthor } from "@/lib/types";
 
 // app/authActions.ts의 동일 헬퍼와 같은 방식으로 요청 origin을 만든다
 // (그쪽은 export되지 않은 파일 내부 헬퍼라 여기에 동일하게 둔다).
@@ -38,11 +38,14 @@ function hasUnresolvedFindings(findings: Finding[]): boolean {
 }
 
 // UI 가드와 별개로 서버 액션은 직접 POST될 수 있으므로, 납품 권한(선택된 제안의
-// 판매자 본인인지)을 매번 다시 확인한다.
+// 판매자 본인인지)을 매번 다시 확인한다. canDeliverProposal은 제안의 status만 보므로,
+// 의뢰 자체가 아직 진행중인지(= 의뢰자가 이미 확인/결제를 마치지 않았는지)는
+// 여기서 함께 확인한다 - 완료된 의뢰에 완성본을 다시 밀어넣지 못하게 한다.
 async function requireDeliverableProposal(formData: FormData): Promise<{
   sellerId: string;
   requestId: string;
   proposalId: string;
+  toolRequest: ToolRequestWithAuthor;
 }> {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
@@ -51,12 +54,15 @@ async function requireDeliverableProposal(formData: FormData): Promise<{
 
   const requestId = String(formData.get("requestId") ?? "");
   const proposalId = String(formData.get("proposalId") ?? "");
-  const allowed = await canDeliverProposal(requestId, proposalId, sellerId);
-  if (!allowed) {
+  const [allowed, toolRequest] = await Promise.all([
+    canDeliverProposal(requestId, proposalId, sellerId),
+    getToolRequestById(requestId),
+  ]);
+  if (!allowed || !toolRequest || toolRequest.status !== "in_progress") {
     throw new Error("이 의뢰의 완성본을 제출할 권한이 없습니다.");
   }
 
-  return { sellerId, requestId, proposalId };
+  return { sellerId, requestId, proposalId, toolRequest };
 }
 
 // 스캔 게이트를 통과한 시점의 공통 처리.
@@ -80,14 +86,12 @@ async function passDeliveryGate(requestId: string, proposalId: string): Promise<
 }
 
 export async function submitDeliveryAction(formData: FormData) {
-  const { sellerId, requestId, proposalId } = await requireDeliverableProposal(formData);
+  const { sellerId, requestId, proposalId, toolRequest } =
+    await requireDeliverableProposal(formData);
 
-  const [toolRequest, proposal] = await Promise.all([
-    getToolRequestById(requestId),
-    getToolProposalById(proposalId),
-  ]);
-  if (!toolRequest || !proposal) {
-    throw new Error("의뢰 또는 제안을 찾을 수 없습니다.");
+  const proposal = await getToolProposalById(proposalId);
+  if (!proposal) {
+    throw new Error("제안을 찾을 수 없습니다.");
   }
 
   const sourceType = await parseSourceType(formData);
