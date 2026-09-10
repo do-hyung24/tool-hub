@@ -22,6 +22,13 @@ const STATUS_LABELS: Record<ToolRequestStatus, string> = {
   completed: "완료",
 };
 
+// 새 폼은 <input type="date">로 저장하지만(YYYY-MM-DD), 이전에 자유 입력으로 저장된
+// 값은 이 형식이 아닐 수 있으므로 그때는 원문 그대로 보여준다.
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+function formatDesiredDeadline(value: string): string {
+  return DATE_ONLY_PATTERN.test(value) ? formatDate(value) : value;
+}
+
 export default async function ToolRequestDetailPage(props: PageProps<"/requests/[requestId]">) {
   const { requestId } = await props.params;
 
@@ -97,7 +104,7 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
         <div>
           <dt className="text-xs text-zinc-400 dark:text-zinc-500">희망 완료 시점</dt>
           <dd className="mt-0.5 text-zinc-700 dark:text-zinc-300">
-            {toolRequest.desiredDeadline ?? "미정"}
+            {toolRequest.desiredDeadline ? formatDesiredDeadline(toolRequest.desiredDeadline) : "미정"}
           </dd>
         </div>
         <div>

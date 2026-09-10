@@ -13,6 +13,8 @@ const MAX_DIMENSION_PX = 1600; // 아바타처럼 정사각형 크롭이 아니�
 
 const TITLE_MIN_LENGTH = 2;
 const CONTENT_MIN_LENGTH = 5;
+const REQUIRED_ENVIRONMENT_MAX_LENGTH = 200;
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // 참고 영상 링크는 대략적인 URL 형태만 검증한다 - 특정 플랫폼 화이트리스트는 두지 않는다.
 function isValidHttpUrl(value: string): boolean {
@@ -22,6 +24,18 @@ function isValidHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+// KST(UTC+9) 기준 오늘/6개월 후 날짜를 YYYY-MM-DD로 계산한다. 클라이언트의
+// <input type="date"> min/max는 devtools 등으로 우회 가능하므로 서버에서도
+// 동일한 범위를 다시 검증한다.
+function getKstDeadlineBounds(): { min: string; max: string } {
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const min = kstNow.toISOString().slice(0, 10);
+  const kstMax = new Date(kstNow.getTime());
+  kstMax.setUTCMonth(kstMax.getUTCMonth() + 6);
+  const max = kstMax.toISOString().slice(0, 10);
+  return { min, max };
 }
 
 // 의뢰 이미지 한 장을 검증하고, 최대 변 길이를 유지한 webp로 재인코딩한다.
@@ -100,10 +114,28 @@ export async function POST(request: Request) {
     typeof desiredDeadlineRaw === "string" && desiredDeadlineRaw.trim() !== ""
       ? desiredDeadlineRaw.trim()
       : null;
+  if (desiredDeadline !== null) {
+    const { min, max } = getKstDeadlineBounds();
+    const isInRange =
+      DATE_ONLY_PATTERN.test(desiredDeadline) && desiredDeadline >= min && desiredDeadline <= max;
+    if (!isInRange) {
+      return NextResponse.json(
+        { error: "희망 완료 시점은 오늘부터 6개월 이내로 선택해주세요." },
+        { status: 400 }
+      );
+    }
+  }
+
   const requiredEnvironment =
     typeof requiredEnvironmentRaw === "string" && requiredEnvironmentRaw.trim() !== ""
       ? requiredEnvironmentRaw.trim()
       : null;
+  if (requiredEnvironment !== null && requiredEnvironment.length > REQUIRED_ENVIRONMENT_MAX_LENGTH) {
+    return NextResponse.json(
+      { error: `필요한 프로그램/환경은 ${REQUIRED_ENVIRONMENT_MAX_LENGTH}자 이하로 입력해주세요.` },
+      { status: 400 }
+    );
+  }
 
   let referenceVideoUrl: string | null = null;
   if (typeof referenceVideoUrlRaw === "string" && referenceVideoUrlRaw.trim() !== "") {
