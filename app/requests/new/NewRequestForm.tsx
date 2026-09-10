@@ -102,10 +102,10 @@ function HelpPopover({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function NewRequestForm() {
+export function NewRequestForm({ initialDescription = "" }: { initialDescription?: string }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(initialDescription);
   const [budgetAmount, setBudgetAmount] = useState(""); // 콤마 없는 숫자 문자열
   const [budgetNegotiable, setBudgetNegotiable] = useState(false);
   const [desiredDeadline, setDesiredDeadline] = useState("");

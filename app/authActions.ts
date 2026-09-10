@@ -19,6 +19,7 @@ import {
 import { hashPassword } from "@/lib/password";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { SUPPORT_EMAIL } from "@/lib/constants";
+import { safeNextPath } from "@/lib/safeNext";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -110,9 +111,10 @@ export async function loginAction(
 ): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const redirectTo = safeNextPath(formData.get("next"));
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/" });
+    await signIn("credentials", { email, password, redirectTo });
   } catch (error) {
     if (error instanceof AccountDeletionPendingError) {
       return {

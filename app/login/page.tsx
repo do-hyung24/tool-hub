@@ -30,6 +30,26 @@ function AccountDeletionBanner() {
   );
 }
 
+// 로그인 후 돌아갈 경로(?next=)를 hidden input으로 폼에 실어 보낸다. 실제 정제
+// (오픈 리다이렉트 방지)는 서버 액션(loginAction)에서 safeNextPath로 한다.
+function NextField() {
+  const searchParams = useSearchParams();
+  return <input type="hidden" name="next" value={searchParams.get("next") ?? ""} />;
+}
+
+// next가 있으면 회원가입 링크에도 그대로 이어 넘긴다(회원가입 자체가 next를
+// 아직 쓰지 않더라도, 로그인 화면과의 연속성을 위해 최소한으로 전달만 해둔다).
+function SignupLink() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  const href = next ? `/signup?next=${encodeURIComponent(next)}` : "/signup";
+  return (
+    <Link href={href} className="font-medium text-zinc-900 underline dark:text-zinc-50">
+      회원가입
+    </Link>
+  );
+}
+
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
@@ -45,6 +65,9 @@ export default function LoginPage() {
       </Suspense>
 
       <form action={formAction} className="mt-8 flex flex-col gap-6">
+        <Suspense fallback={null}>
+          <NextField />
+        </Suspense>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium">
             이메일
@@ -98,9 +121,15 @@ export default function LoginPage() {
 
       <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
         아직 계정이 없나요?{" "}
-        <Link href="/signup" className="font-medium text-zinc-900 underline dark:text-zinc-50">
-          회원가입
-        </Link>
+        <Suspense
+          fallback={
+            <Link href="/signup" className="font-medium text-zinc-900 underline dark:text-zinc-50">
+              회원가입
+            </Link>
+          }
+        >
+          <SignupLink />
+        </Suspense>
       </p>
     </main>
   );
