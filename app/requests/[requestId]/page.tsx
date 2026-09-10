@@ -199,6 +199,17 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
         canConfirm={isRequester}
         alreadyCompleted={toolRequest.status === "completed"}
       />
+
+      {toolRequest.status === "completed" && isSelectedSeller && (
+        <p className="mt-6">
+          <Link
+            href={`/listings/new?sourceRequestId=${encodeURIComponent(toolRequest.id)}&title=${encodeURIComponent(toolRequest.title)}&description=${encodeURIComponent(toolRequest.description)}`}
+            className="inline-block rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            매물로도 등록하기
+          </Link>
+        </p>
+      )}
     </main>
   );
 }

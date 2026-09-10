@@ -6,7 +6,14 @@ import { getCurrentSellerId } from "@/lib/session";
 import { CATEGORIES } from "@/lib/types";
 import { SourceTypeFields } from "./SourceTypeFields";
 
-export default async function NewListingPage() {
+export default async function NewListingPage(props: PageProps<"/listings/new">) {
+  const searchParams = await props.searchParams;
+  const sourceRequestId =
+    typeof searchParams.sourceRequestId === "string" ? searchParams.sourceRequestId : undefined;
+  const prefillTitle = typeof searchParams.title === "string" ? searchParams.title : undefined;
+  const prefillDescription =
+    typeof searchParams.description === "string" ? searchParams.description : undefined;
+
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
     return (
@@ -40,6 +47,7 @@ export default async function NewListingPage() {
       </p>
 
       <form action={createListingAction} className="mt-8 flex flex-col gap-6">
+        <input type="hidden" name="sourceRequestId" value={sourceRequestId ?? ""} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="title" className="text-sm font-medium">
             제목
@@ -49,6 +57,7 @@ export default async function NewListingPage() {
             name="title"
             type="text"
             required
+            defaultValue={prefillTitle}
             placeholder="예: 쿠팡 최저가 알림 봇"
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
           />
@@ -103,6 +112,7 @@ export default async function NewListingPage() {
             name="description"
             required
             rows={6}
+            defaultValue={prefillDescription}
             placeholder="어떤 문제를 해결하는 봇인지, 어떻게 설치하고 사용하는지 설명해주세요."
             className="resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
           />

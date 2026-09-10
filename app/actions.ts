@@ -5,6 +5,7 @@ import {
   createDraftListing,
   getListingForOwner,
   getSellerById,
+  hasConfirmedDeliveryForRequest,
   publishListing,
   saveScanReport,
   updateListingSource,
@@ -107,6 +108,14 @@ export async function createListingAction(formData: FormData) {
   const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
   const sellerId = await requireVerifiedSellerId();
 
+  // 클라이언트가 보낸 sourceRequestId는 그대로 신뢰하지 않는다(IDOR 방지).
+  // 이 판매자가 실제로 해당 의뢰를 납품 완료한 경우에만 매물-의뢰를 연결한다.
+  const rawSourceRequestId = String(formData.get("sourceRequestId") ?? "").trim();
+  const sourceRequestId =
+    rawSourceRequestId && (await hasConfirmedDeliveryForRequest(sellerId, rawSourceRequestId))
+      ? rawSourceRequestId
+      : null;
+
   const listing = await createDraftListing({
     title,
     description,
@@ -115,6 +124,7 @@ export async function createListingAction(formData: FormData) {
     codeUrl,
     sourceType,
     sellerId,
+    sourceRequestId,
   });
 
   const findings = await runScan(files);
