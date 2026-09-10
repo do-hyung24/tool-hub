@@ -12,7 +12,7 @@ const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_DIMENSION_PX = 1600; // 아바타처럼 정사각형 크롭이 아니라 최대 변 길이만 제한, 비율 유지
 
 const TITLE_MIN_LENGTH = 2;
-const CONTENT_MIN_LENGTH = 5;
+const CONTENT_MIN_LENGTH = 30; // 폼(app/requests/new/NewRequestForm.tsx)과 동일한 값
 const REQUIRED_ENVIRONMENT_MAX_LENGTH = 200;
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -98,8 +98,16 @@ export async function POST(request: Request) {
     );
   }
 
+  const budgetAmountProvided = typeof budgetAmountRaw === "string" && budgetAmountRaw.trim() !== "";
+  if (!budgetAmountProvided && !budgetNegotiable) {
+    return NextResponse.json(
+      { error: "예산 금액을 입력하시거나 '협의 가능'에 체크해주세요." },
+      { status: 400 }
+    );
+  }
+
   let budgetAmount: number | null = null;
-  if (typeof budgetAmountRaw === "string" && budgetAmountRaw.trim() !== "") {
+  if (budgetAmountProvided) {
     const parsed = Number(budgetAmountRaw);
     if (!Number.isFinite(parsed) || parsed < 0) {
       return NextResponse.json(
@@ -130,7 +138,13 @@ export async function POST(request: Request) {
     typeof requiredEnvironmentRaw === "string" && requiredEnvironmentRaw.trim() !== ""
       ? requiredEnvironmentRaw.trim()
       : null;
-  if (requiredEnvironment !== null && requiredEnvironment.length > REQUIRED_ENVIRONMENT_MAX_LENGTH) {
+  if (requiredEnvironment === null) {
+    return NextResponse.json(
+      { error: "필요한 프로그램/환경을 하나 이상 선택해주세요." },
+      { status: 400 }
+    );
+  }
+  if (requiredEnvironment.length > REQUIRED_ENVIRONMENT_MAX_LENGTH) {
     return NextResponse.json(
       { error: `필요한 프로그램/환경은 ${REQUIRED_ENVIRONMENT_MAX_LENGTH}자 이하로 입력해주세요.` },
       { status: 400 }
