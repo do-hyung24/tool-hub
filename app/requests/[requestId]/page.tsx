@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  canAccessProposalThread,
   getToolRequestById,
+  listToolProposalMessages,
   listToolProposalsForRequest,
   listToolRequestImages,
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, formatPrice } from "@/lib/format";
-import type { ToolRequestStatus } from "@/lib/types";
+import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
 import { ProposalForm } from "./ProposalForm";
+import { ProposalThread } from "./ProposalThread";
 import { SelectProposalButton } from "./SelectProposalButton";
 
 const STATUS_LABELS: Record<ToolRequestStatus, string> = {
@@ -34,6 +37,16 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
   const isRequester = !!sellerId && sellerId === toolRequest.requesterSellerId;
   const canSelectProposals = isRequester && toolRequest.status === "open";
   const canPropose = !!sellerId && sellerId !== toolRequest.requesterSellerId && toolRequest.status === "open";
+
+  const selectedProposal = proposals.find((proposal) => proposal.status === "selected");
+  const canAccessThread =
+    !!selectedProposal &&
+    !!sellerId &&
+    (sellerId === toolRequest.requesterSellerId || sellerId === selectedProposal.sellerId) &&
+    (await canAccessProposalThread(selectedProposal.id, sellerId));
+  const threadMessages: ToolProposalMessageWithAuthor[] = canAccessThread
+    ? await listToolProposalMessages(selectedProposal!.id)
+    : [];
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
@@ -148,6 +161,9 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
                 {canSelectProposals && !isSelected && (
                   <SelectProposalButton requestId={toolRequest.id} proposalId={proposal.id} />
                 )}
+                {isSelected && canAccessThread && (
+                  <ProposalThread proposalId={proposal.id} initialMessages={threadMessages} />
+                )}
               </li>
             );
           })}
@@ -155,8 +171,6 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
 
         {canPropose && <ProposalForm requestId={toolRequest.id} />}
       </section>
-
-      {/* Task 6: 선택된 제안의 비공개 스레드가 여기 들어감 */}
     </main>
   );
 }
