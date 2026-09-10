@@ -168,6 +168,11 @@ export async function deliverRescanAction(formData: FormData) {
   const sourceType = await parseSourceType(formData);
   const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
 
+  // submitDeliveryAction과 동일한 이유: 소스를 교체하기 전에, 이전 제출물이 남긴
+  // "확인 완료" 상태부터 되돌린다 - 새 코드가 게이트를 통과하기 전까지 의뢰자 화면에
+  // 이전 확인 상태가 남아있으면 안 된다.
+  await clearProposalDeliveryConfirmation(proposalId);
+
   await updateListingSource(listingId, { codeUrl, sourceType });
 
   const findings = await runScan(files);
