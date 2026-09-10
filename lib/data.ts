@@ -19,6 +19,15 @@ import type {
   ScanReport,
   Seller,
   SourceType,
+  ToolProposal,
+  ToolProposalMessage,
+  ToolProposalMessageWithAuthor,
+  ToolProposalStatus,
+  ToolProposalWithAuthor,
+  ToolRequest,
+  ToolRequestImage,
+  ToolRequestStatus,
+  ToolRequestWithAuthor,
 } from "./types";
 
 type ListingRow = {
@@ -35,6 +44,7 @@ type ListingRow = {
   has_unresolved_findings: boolean;
   created_at: string;
   seller_id: string;
+  source_request_id: string | null;
 };
 
 type ScanReportRow = {
@@ -71,6 +81,7 @@ function rowToListing(row: ListingRow): Listing {
     hasUnresolvedFindings: row.has_unresolved_findings,
     createdAt: row.created_at,
     sellerId: row.seller_id,
+    sourceRequestId: row.source_request_id,
   };
 }
 
@@ -442,6 +453,7 @@ export async function createDraftListing(input: {
   codeUrl: string | null;
   sourceType: SourceType;
   sellerId: string;
+  sourceRequestId?: string | null;
 }): Promise<Listing> {
   await ensureInitialized();
   const sql = getSql();
@@ -460,19 +472,21 @@ export async function createDraftListing(input: {
     hasUnresolvedFindings: false,
     createdAt: new Date().toISOString(),
     sellerId: input.sellerId,
+    sourceRequestId: input.sourceRequestId ?? null,
   };
 
   await sql`
     INSERT INTO listings (
       id, title, description, price, category, code_url, source_type,
       published, scan_status, disclosure_note, has_unresolved_findings,
-      created_at, seller_id
+      created_at, seller_id, source_request_id
     )
     VALUES (
       ${listing.id}, ${listing.title}, ${listing.description}, ${listing.price},
       ${listing.category}, ${listing.codeUrl}, ${listing.sourceType},
       ${listing.published}, ${listing.scanStatus}, ${listing.disclosureNote},
-      ${listing.hasUnresolvedFindings}, ${listing.createdAt}, ${listing.sellerId}
+      ${listing.hasUnresolvedFindings}, ${listing.createdAt}, ${listing.sellerId},
+      ${listing.sourceRequestId}
     )
   `;
 
@@ -1011,4 +1025,515 @@ export async function reportCommunityComment(input: {
   }
 
   return "ok";
+}
+
+// ============================================================
+// 툴 수배 게시판 - 의뢰(Request) CRUD
+// ============================================================
+
+type ToolRequestRow = {
+  id: string;
+  requester_seller_id: string;
+  title: string;
+  description: string;
+  budget_amount: number | null;
+  budget_negotiable: boolean;
+  desired_deadline: string | null;
+  required_environment: string | null;
+  reference_video_url: string | null;
+  status: string;
+  created_at: string;
+};
+
+function rowToToolRequest(row: ToolRequestRow): ToolRequest {
+  return {
+    id: row.id,
+    requesterSellerId: row.requester_seller_id,
+    title: row.title,
+    description: row.description,
+    budgetAmount: row.budget_amount,
+    budgetNegotiable: row.budget_negotiable,
+    desiredDeadline: row.desired_deadline,
+    requiredEnvironment: row.required_environment,
+    referenceVideoUrl: row.reference_video_url,
+    status: row.status as ToolRequestStatus,
+    createdAt: row.created_at,
+  };
+}
+
+type ToolRequestWithAuthorRow = ToolRequestRow & {
+  requester_nickname: string;
+};
+
+function rowToToolRequestWithAuthor(row: ToolRequestWithAuthorRow): ToolRequestWithAuthor {
+  return {
+    ...rowToToolRequest(row),
+    requesterNickname: row.requester_nickname,
+  };
+}
+
+export async function createToolRequest(input: {
+  requesterSellerId: string;
+  title: string;
+  description: string;
+  budgetAmount: number | null;
+  budgetNegotiable: boolean;
+  desiredDeadline: string | null;
+  requiredEnvironment: string | null;
+  referenceVideoUrl: string | null;
+}): Promise<ToolRequest> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const request: ToolRequest = {
+    id: randomUUID(),
+    requesterSellerId: input.requesterSellerId,
+    title: input.title,
+    description: input.description,
+    budgetAmount: input.budgetAmount,
+    budgetNegotiable: input.budgetNegotiable,
+    desiredDeadline: input.desiredDeadline,
+    requiredEnvironment: input.requiredEnvironment,
+    referenceVideoUrl: input.referenceVideoUrl,
+    status: "open",
+    createdAt: new Date().toISOString(),
+  };
+
+  await sql`
+    INSERT INTO tool_requests (
+      id, requester_seller_id, title, description, budget_amount, budget_negotiable,
+      desired_deadline, required_environment, reference_video_url, status, created_at
+    )
+    VALUES (
+      ${request.id}, ${request.requesterSellerId}, ${request.title}, ${request.description},
+      ${request.budgetAmount}, ${request.budgetNegotiable}, ${request.desiredDeadline},
+      ${request.requiredEnvironment}, ${request.referenceVideoUrl}, ${request.status}, ${request.createdAt}
+    )
+  `;
+
+  return request;
+}
+
+type ToolRequestImageRow = {
+  id: string;
+  request_id: string;
+  image_url: string;
+  sort_order: number;
+  created_at: string;
+};
+
+function rowToToolRequestImage(row: ToolRequestImageRow): ToolRequestImage {
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    imageUrl: row.image_url,
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+  };
+}
+
+// 여러 장을 순차 insert한다(트랜잭션 없음 - 기존 스타일). sort_order는 배열
+// 인덱스로 채운다.
+export async function addToolRequestImages(requestId: string, imageUrls: string[]): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  for (let i = 0; i < imageUrls.length; i++) {
+    await sql`
+      INSERT INTO tool_request_images (id, request_id, image_url, sort_order, created_at)
+      VALUES (${randomUUID()}, ${requestId}, ${imageUrls[i]}, ${i}, ${new Date().toISOString()})
+    `;
+  }
+}
+
+// 카테고리 필터는 없다 - 이 게시판은 단일 유형이다.
+export async function listToolRequests(input: {
+  page: number;
+  pageSize: number;
+}): Promise<{ requests: ToolRequestWithAuthor[]; total: number }> {
+  await ensureInitialized();
+  const sql = getSql();
+  const offset = (input.page - 1) * input.pageSize;
+
+  const [rows, countRows] = await Promise.all([
+    sql`
+      SELECT tool_requests.*, sellers.nickname AS requester_nickname
+      FROM tool_requests
+      JOIN sellers ON sellers.id = tool_requests.requester_seller_id
+      ORDER BY tool_requests.created_at DESC
+      LIMIT ${input.pageSize} OFFSET ${offset}
+    `,
+    sql`SELECT COUNT(*) AS count FROM tool_requests`,
+  ]);
+
+  return {
+    requests: (rows as ToolRequestWithAuthorRow[]).map(rowToToolRequestWithAuthor),
+    total: Number((countRows as Array<{ count: string }>)[0]?.count ?? 0),
+  };
+}
+
+export async function getToolRequestById(id: string): Promise<ToolRequestWithAuthor | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT tool_requests.*, sellers.nickname AS requester_nickname
+    FROM tool_requests
+    JOIN sellers ON sellers.id = tool_requests.requester_seller_id
+    WHERE tool_requests.id = ${id}
+  `) as ToolRequestWithAuthorRow[];
+  return rows[0] ? rowToToolRequestWithAuthor(rows[0]) : null;
+}
+
+export async function listToolRequestImages(requestId: string): Promise<ToolRequestImage[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM tool_request_images
+    WHERE request_id = ${requestId}
+    ORDER BY sort_order ASC
+  `) as ToolRequestImageRow[];
+  return rows.map(rowToToolRequestImage);
+}
+
+// ============================================================
+// 툴 수배 게시판 - 제안(Proposal) CRUD
+// ============================================================
+
+type ToolProposalRow = {
+  id: string;
+  request_id: string;
+  seller_id: string;
+  price: number;
+  duration: string;
+  description: string;
+  status: string;
+  delivered_listing_id: string | null;
+  delivery_confirmed_at: string | null;
+  created_at: string;
+};
+
+function rowToToolProposal(row: ToolProposalRow): ToolProposal {
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    sellerId: row.seller_id,
+    price: row.price,
+    duration: row.duration,
+    description: row.description,
+    status: row.status as ToolProposalStatus,
+    deliveredListingId: row.delivered_listing_id,
+    deliveryConfirmedAt: row.delivery_confirmed_at,
+    createdAt: row.created_at,
+  };
+}
+
+type ToolProposalWithAuthorRow = ToolProposalRow & {
+  seller_nickname: string;
+};
+
+function rowToToolProposalWithAuthor(row: ToolProposalWithAuthorRow): ToolProposalWithAuthor {
+  return {
+    ...rowToToolProposal(row),
+    sellerNickname: row.seller_nickname,
+  };
+}
+
+// 호출부(API 라우트)에서 미리 request.status === 'open' 확인 후 호출한다.
+export async function createToolProposal(input: {
+  requestId: string;
+  sellerId: string;
+  price: number;
+  duration: string;
+  description: string;
+}): Promise<ToolProposal> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const proposal: ToolProposal = {
+    id: randomUUID(),
+    requestId: input.requestId,
+    sellerId: input.sellerId,
+    price: input.price,
+    duration: input.duration,
+    description: input.description,
+    status: "pending",
+    deliveredListingId: null,
+    deliveryConfirmedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+
+  await sql`
+    INSERT INTO tool_proposals (
+      id, request_id, seller_id, price, duration, description, status,
+      delivered_listing_id, delivery_confirmed_at, created_at
+    )
+    VALUES (
+      ${proposal.id}, ${proposal.requestId}, ${proposal.sellerId}, ${proposal.price},
+      ${proposal.duration}, ${proposal.description}, ${proposal.status},
+      ${proposal.deliveredListingId}, ${proposal.deliveryConfirmedAt}, ${proposal.createdAt}
+    )
+  `;
+
+  return proposal;
+}
+
+export async function listToolProposalsForRequest(requestId: string): Promise<ToolProposalWithAuthor[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT tool_proposals.*, sellers.nickname AS seller_nickname
+    FROM tool_proposals
+    JOIN sellers ON sellers.id = tool_proposals.seller_id
+    WHERE tool_proposals.request_id = ${requestId}
+    ORDER BY tool_proposals.created_at ASC
+  `) as ToolProposalWithAuthorRow[];
+  return rows.map(rowToToolProposalWithAuthor);
+}
+
+export async function getToolProposalById(id: string): Promise<ToolProposal | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM tool_proposals WHERE id = ${id}
+  `) as ToolProposalRow[];
+  return rows[0] ? rowToToolProposal(rows[0]) : null;
+}
+
+// reportCommunityPost처럼 원자적으로 처리한다: 먼저 tool_requests를
+// status='open' -> 'in_progress'로 잠그고(0행이면 이미 처리됐거나 권한 없음 -> false),
+// 성공하면 해당 제안만 status='selected'로 바꾼다. 나머지 제안들의 status는
+// 건드리지 않는다 - UI에서 request.status !== 'open'이면 "선택 마감"으로 표시한다.
+export async function selectToolProposal(
+  requestId: string,
+  proposalId: string,
+  requesterSellerId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const lockedRows = (await sql`
+    UPDATE tool_requests
+    SET status = 'in_progress'
+    WHERE id = ${requestId} AND requester_seller_id = ${requesterSellerId} AND status = 'open'
+    RETURNING id
+  `) as Array<{ id: string }>;
+
+  if (lockedRows.length === 0) {
+    return false;
+  }
+
+  await sql`
+    UPDATE tool_proposals SET status = 'selected'
+    WHERE id = ${proposalId} AND request_id = ${requestId}
+  `;
+
+  return true;
+}
+
+// ============================================================
+// 툴 수배 게시판 - 납품/스캔 연동
+// ============================================================
+
+export async function markProposalDelivered(proposalId: string, listingId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE tool_proposals SET delivered_listing_id = ${listingId} WHERE id = ${proposalId}
+  `;
+}
+
+// 스캔 게이트 통과 후, 의뢰자에게 알림을 보내는 시점에 호출한다.
+export async function confirmProposalDelivery(proposalId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE tool_proposals SET delivery_confirmed_at = ${new Date().toISOString()} WHERE id = ${proposalId}
+  `;
+}
+
+// getPublicScanSummary와 동일 원칙(판매자 전용 세부정보는 groupFindingsForBuyer가
+// 제외)이지만, 접근 허용 기준이 listings.published가 아니라 역할이다: viewerSellerId가
+// 이 요청의 requester_seller_id이거나, status='selected' AND delivery_confirmed_at IS
+// NOT NULL인 그 제안의 seller_id인 경우에만 값을 반환하고 그 외에는 전부 null이다.
+// (다른 제안자, 다른 판매자, 비로그인 모두 null - 페이지 쪽 조건부 호출과 별개로
+// 이 함수 내부에서도 이중으로 막는다.)
+export async function getDeliveryScanSummaryForViewer(
+  requestId: string,
+  viewerSellerId: string
+): Promise<{ proposal: ToolProposal; listing: Listing; findings: PublicFindingGroup[] } | null> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const requestRows = (await sql`
+    SELECT requester_seller_id FROM tool_requests WHERE id = ${requestId}
+  `) as Array<{ requester_seller_id: string }>;
+  const requesterSellerId = requestRows[0]?.requester_seller_id;
+  if (!requesterSellerId) return null;
+
+  const proposalRows = (await sql`
+    SELECT * FROM tool_proposals
+    WHERE request_id = ${requestId} AND status = 'selected' AND delivery_confirmed_at IS NOT NULL
+    LIMIT 1
+  `) as ToolProposalRow[];
+  const proposalRow = proposalRows[0];
+  if (!proposalRow) return null;
+
+  const proposal = rowToToolProposal(proposalRow);
+
+  // 이중 접근 체크: 의뢰자 본인이거나 선택된(납품 확정된) 제안의 판매자 본인만 통과한다.
+  if (viewerSellerId !== requesterSellerId && viewerSellerId !== proposal.sellerId) {
+    return null;
+  }
+
+  if (!proposal.deliveredListingId) return null;
+
+  const listingRows = (await sql`
+    SELECT * FROM listings WHERE id = ${proposal.deliveredListingId}
+  `) as ListingRow[];
+  const listingRow = listingRows[0];
+  if (!listingRow) return null;
+  const listing = rowToListing(listingRow);
+
+  const scanRows = (await sql`
+    SELECT findings FROM scan_reports
+    WHERE listing_id = ${listing.id}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as Array<{ findings: Finding[] }>;
+  const scanReport = scanRows[0];
+  const findings = scanReport ? groupFindingsForBuyer(scanReport.findings) : [];
+
+  return { proposal, listing, findings };
+}
+
+// 더미 결제 확인 버튼용 - 원자적 가드(UPDATE ... WHERE ... AND status=... RETURNING).
+export async function completeToolRequest(
+  requestId: string,
+  requesterSellerId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE tool_requests
+    SET status = 'completed'
+    WHERE id = ${requestId} AND requester_seller_id = ${requesterSellerId} AND status = 'in_progress'
+    RETURNING id
+  `) as Array<{ id: string }>;
+  return rows.length > 0;
+}
+
+export async function canDeliverProposal(
+  requestId: string,
+  proposalId: string,
+  sellerId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id FROM tool_proposals
+    WHERE id = ${proposalId} AND request_id = ${requestId} AND seller_id = ${sellerId} AND status = 'selected'
+  `) as Array<{ id: string }>;
+  return rows.length > 0;
+}
+
+// Task 8(재등록 프리필 검증)에서 사용.
+export async function hasConfirmedDeliveryForRequest(
+  sellerId: string,
+  requestId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id FROM tool_proposals
+    WHERE request_id = ${requestId} AND seller_id = ${sellerId} AND delivered_listing_id IS NOT NULL
+  `) as Array<{ id: string }>;
+  return rows.length > 0;
+}
+
+// ============================================================
+// 툴 수배 게시판 - 비공개 스레드(제안별 1:1 메시지)
+// ============================================================
+
+export async function canAccessProposalThread(proposalId: string, sellerId: string): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT tool_proposals.id
+    FROM tool_proposals
+    JOIN tool_requests ON tool_requests.id = tool_proposals.request_id
+    WHERE tool_proposals.id = ${proposalId}
+      AND (tool_proposals.seller_id = ${sellerId} OR tool_requests.requester_seller_id = ${sellerId})
+  `) as Array<{ id: string }>;
+  return rows.length > 0;
+}
+
+type ToolProposalMessageRow = {
+  id: string;
+  proposal_id: string;
+  sender_seller_id: string;
+  content: string;
+  created_at: string;
+};
+
+function rowToToolProposalMessage(row: ToolProposalMessageRow): ToolProposalMessage {
+  return {
+    id: row.id,
+    proposalId: row.proposal_id,
+    senderSellerId: row.sender_seller_id,
+    content: row.content,
+    createdAt: row.created_at,
+  };
+}
+
+type ToolProposalMessageWithAuthorRow = ToolProposalMessageRow & {
+  sender_nickname: string;
+};
+
+function rowToToolProposalMessageWithAuthor(
+  row: ToolProposalMessageWithAuthorRow
+): ToolProposalMessageWithAuthor {
+  return {
+    ...rowToToolProposalMessage(row),
+    senderNickname: row.sender_nickname,
+  };
+}
+
+// 호출부에서 반드시 canAccessProposalThread를 먼저 확인한다(이 함수 자체는
+// 접근 체크를 하지 않는다 - listCommunityCommentsForPost와 동일한 책임 분리 스타일).
+export async function listToolProposalMessages(
+  proposalId: string
+): Promise<ToolProposalMessageWithAuthor[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT tool_proposal_messages.*, sellers.nickname AS sender_nickname
+    FROM tool_proposal_messages
+    JOIN sellers ON sellers.id = tool_proposal_messages.sender_seller_id
+    WHERE tool_proposal_messages.proposal_id = ${proposalId}
+    ORDER BY tool_proposal_messages.created_at ASC
+  `) as ToolProposalMessageWithAuthorRow[];
+  return rows.map(rowToToolProposalMessageWithAuthor);
+}
+
+export async function createToolProposalMessage(input: {
+  proposalId: string;
+  senderSellerId: string;
+  content: string;
+}): Promise<ToolProposalMessage> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const message: ToolProposalMessage = {
+    id: randomUUID(),
+    proposalId: input.proposalId,
+    senderSellerId: input.senderSellerId,
+    content: input.content,
+    createdAt: new Date().toISOString(),
+  };
+
+  await sql`
+    INSERT INTO tool_proposal_messages (id, proposal_id, sender_seller_id, content, created_at)
+    VALUES (${message.id}, ${message.proposalId}, ${message.senderSellerId}, ${message.content}, ${message.createdAt})
+  `;
+
+  return message;
 }

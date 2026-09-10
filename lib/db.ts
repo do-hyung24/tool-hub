@@ -68,6 +68,7 @@ const SEED_LISTINGS: Listing[] = [
     hasUnresolvedFindings: false,
     createdAt: "2026-08-20T09:00:00.000Z",
     sellerId: "s1",
+    sourceRequestId: null,
   },
   {
     id: "l2",
@@ -85,6 +86,7 @@ const SEED_LISTINGS: Listing[] = [
     hasUnresolvedFindings: true,
     createdAt: "2026-08-18T09:00:00.000Z",
     sellerId: "s2",
+    sourceRequestId: null,
   },
   {
     id: "l3",
@@ -101,6 +103,7 @@ const SEED_LISTINGS: Listing[] = [
     hasUnresolvedFindings: false,
     createdAt: "2026-08-22T09:00:00.000Z",
     sellerId: "s3",
+    sourceRequestId: null,
   },
 ];
 

@@ -38,6 +38,7 @@ export type Listing = {
   hasUnresolvedFindings: boolean;
   createdAt: string;
   sellerId: string;
+  sourceRequestId: string | null;
 };
 
 export const SEVERITIES = ["critical", "high", "medium", "low", "informational"] as const;
