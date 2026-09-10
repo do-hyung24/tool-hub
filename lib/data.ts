@@ -1194,6 +1194,15 @@ export async function listToolRequestImages(requestId: string): Promise<ToolRequ
   return rows.map(rowToToolRequestImage);
 }
 
+export async function getToolRequestImageById(id: string): Promise<ToolRequestImage | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM tool_request_images WHERE id = ${id}
+  `) as ToolRequestImageRow[];
+  return rows[0] ? rowToToolRequestImage(rows[0]) : null;
+}
+
 // ============================================================
 // 툴 수배 게시판 - 제안(Proposal) CRUD
 // ============================================================

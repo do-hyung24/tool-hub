@@ -150,12 +150,16 @@ export async function POST(request: Request) {
     referenceVideoUrl,
   });
 
+  // 이 환경의 Blob 스토어가 private 전용으로 구성되어 있어 access:"public" 업로드는
+  // API 레벨에서 거부된다. 그래서 private로 저장하고, 대신 인증 없는 공개 프록시
+  // (GET /api/requests/images/[imageId])가 서버에서 읽어 스트리밍해준다 - 의뢰 사진은
+  // 원래 공개 정보이므로 프록시에는 로그인/소유권 체크가 없다.
   const imageUrls: string[] = [];
   for (let i = 0; i < processedBuffers.length; i++) {
     const blob = await put(
       `request-images/${toolRequest.id}-${i}-${randomUUID()}.webp`,
       processedBuffers[i],
-      { access: "public", contentType: "image/webp" }
+      { access: "private", contentType: "image/webp" }
     );
     imageUrls.push(blob.url);
   }
