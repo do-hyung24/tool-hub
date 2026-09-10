@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "툴허브 - 바이브코딩 자동화 봇 거래 허브",
   description:
-    "개인이 만든 자동화 봇/스크립트를 다른 개인에게 직거래로 판매할 수 있는 C2C 거래 허브입니다.",
+    "필요한 자동화 툴을 설명하면 제작자가 제안하고, 완성본은 전달 전에 자동 보안 스캔을 거칩니다. 비개발자를 위한 맞춤 자동화 의뢰 플랫폼, 툴허브.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

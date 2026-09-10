@@ -1,8 +1,16 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -12,22 +20,97 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, var(--font-geist-sans), -apple-system,
+    sans-serif;
 }
 
 /* 홈 히어로의 "안전한 매물 둘러보기" 앵커 이동에만 쓰인다. */
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
+  }
+}
+
+/* ── 랜딩 전용 유틸(lp- 접두, 전역 오염 방지) ── */
+
+/* 은은한 미세 그리드 배경. 라이트 섹션 전용(선 색은 zinc-900 4% 불투명도). */
+.lp-grid-bg {
+  background-image: linear-gradient(to right, rgb(24 24 27 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(24 24 27 / 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+}
+
+/* 스크롤 진입 시 서서히 떠오르는 효과. JS(Reveal)가 .is-visible을 붙인다. */
+.lp-fade-up {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+.lp-fade-up.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 스캔 쇼케이스의 이동하는 광선. */
+@keyframes lp-scan-beam-move {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+.lp-scan-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgb(16 185 129 / 0.9) 20%,
+    rgb(16 185 129 / 0.9) 80%,
+    transparent
+  );
+  box-shadow: 0 -6px 10px rgb(16 185 129 / 0.35), 0 6px 10px rgb(16 185 129 / 0.35);
+  filter: blur(0.5px);
+  animation: lp-scan-beam-move 4.5s linear infinite;
+}
+
+/* 스캔 쇼케이스의 코드 하이라이트 라인. 배경/보더 색은 --lp-hit-bg/--lp-hit-border로,
+   지연 시간은 style.animationDelay로 각 사용처에서 인라인 지정한다. */
+@keyframes lp-scan-hit-reveal {
+  from {
+    background-color: transparent;
+    border-left-color: transparent;
+  }
+  to {
+    background-color: var(--lp-hit-bg, transparent);
+    border-left-color: var(--lp-hit-border, transparent);
+  }
+}
+.lp-scan-hit {
+  animation: lp-scan-hit-reveal 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-fade-up {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  .lp-scan-beam {
+    animation: none;
+    opacity: 0;
+  }
+  .lp-scan-hit {
+    animation: none;
+    background-color: var(--lp-hit-bg, transparent);
+    border-left-color: var(--lp-hit-border, transparent);
   }
 }
