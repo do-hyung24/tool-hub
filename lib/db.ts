@@ -165,14 +165,16 @@ const SEED_COMMUNITY_POSTS: Array<{
   {
     id: "cp-tool-request-preview",
     category: "공지",
-    title: "곧 추가됩니다 - 툴 수배 게시판",
+    title: "오픈했습니다 - 자동화 툴 의뢰 게시판",
     createdAt: "2026-09-09T09:05:00.000Z",
     content:
-      "원하는 자동화 봇/스크립트를 직접 만들어달라고 요청할 수 있는 '툴 수배' 게시판을 준비하고 있습니다.\n\n" +
-      "예정된 방식은 다음과 같습니다.\n" +
-      "- 원하는 툴과 예산(가격)을 함께 올리면, 만들 수 있는 개발자가 선착순으로 수락해 제작을 진행합니다.\n" +
-      "- 결제는 플랫폼이 중개하지 않고 요청자와 개발자가 직접 진행합니다. 그 과정에서 발생하는 분쟁에 대해 플랫폼은 책임지지 않습니다.\n\n" +
-      "정확한 출시 일정은 아직 확정되지 않았습니다. 준비되는 대로 다시 안내드리겠습니다.",
+      "원하는 자동화 봇/스크립트를 직접 만들어달라고 요청할 수 있는 '자동화 툴 의뢰' 게시판이 열렸습니다.\n\n" +
+      "이용 방법은 다음과 같습니다.\n" +
+      "- 원하는 툴 내용과 사진, 예산을 함께 올려 의뢰를 등록합니다.\n" +
+      "- 여러 개발자가 가격/기간/설명을 담아 제안을 보내오면, 의뢰자가 그중 하나를 선택합니다.\n" +
+      "- 선택 이후에는 해당 제안의 비공개 스레드에서 개발자와 세부 사항을 조율합니다.\n" +
+      "- 개발자가 완성본을 제출하면 기존 매물과 동일한 보안 스캔을 거쳐 전달되고, 의뢰자가 확인 후 결제를 완료하면 거래가 마무리됩니다.\n\n" +
+      "지금 바로 '자동화 툴 의뢰' 메뉴 또는 /requests 에서 이용해보세요.",
   },
 ];
 
@@ -496,6 +498,22 @@ async function initialize(): Promise<void> {
 
   if (operatorId) {
     for (const post of SEED_COMMUNITY_POSTS) {
+      // "cp-tool-request-preview"는 툴 의뢰 게시판 오픈 전에 이미 프로덕션에 배포되었던
+      // 예고 공지라, 문구를 갱신한 뒤에도 DO NOTHING이면 기존 행이 고쳐지지 않는다.
+      // 이 한 건만 title/content를 최신 내용으로 덮어쓰도록 upsert한다.
+      if (post.id === "cp-tool-request-preview") {
+        await sql`
+          INSERT INTO community_posts (id, author_seller_id, category, title, content, hidden, created_at)
+          VALUES (
+            ${post.id}, ${operatorId}, ${post.category}, ${post.title},
+            ${post.content}, false, ${post.createdAt}
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            title = EXCLUDED.title,
+            content = EXCLUDED.content
+        `;
+        continue;
+      }
       await sql`
         INSERT INTO community_posts (id, author_seller_id, category, title, content, hidden, created_at)
         VALUES (
