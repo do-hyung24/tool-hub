@@ -14,7 +14,7 @@
    - **이 스캔 요약 블록의 열람 권한은 의뢰 상세 페이지 자체(누구나 열람 가능, 제안을 넣으려는 다른 판매자들이 둘러보는 공개 페이지)와 별개다.** 의뢰 상세 페이지는 그대로 공개이되, 그 안의 "납품 스캔 요약" 블록만 **의뢰자 본인 OR 선택된(`tool_proposals.status='selected'`) 제안의 판매자 본인**에게만 렌더링하고, 그 외(제안을 안 넣었거나 선택되지 않은 다른 판매자, 비로그인 방문자)에게는 그 블록 자체를 아예 내려주지 않는다(조건부 렌더링이 아니라 서버 컴포넌트에서 조회 함수 자체를 그 두 역할일 때만 호출). 단, **"확인 및 결제(더미) 완료하기" 버튼은 의뢰자 본인에게만** 보인다(선택된 판매자는 요약을 볼 수는 있지만 결제 확인은 못 한다).
 3. **`sellers` 테이블을 의뢰자/판매자 공통으로 그대로 재사용**한다(스펙 지시). "구매자"라는 단어는 이 기능 전체 문구에서 쓰지 않는다.
 4. **`tool_proposals.status`만으로 선택 여부를 표현**한다(`'pending' | 'selected'`). `tool_requests.status`(`'open' | 'in_progress' | 'completed'`)와 별개 필드이며, 순환 FK(`tool_requests` ↔ `tool_proposals`)를 피하기 위해 `tool_requests`에는 "선택된 제안 id" 컬럼을 두지 않는다 — 필요하면 `tool_proposals WHERE request_id=? AND status='selected'`로 조회한다.
-5. **동영상은 링크 텍스트 1줄만** 받는다(업로드 없음). 사진은 `access:"public"` Blob(의뢰 사진은 판매자 전원에게 공개돼야 하는 정보라 private+프록시가 불필요 — 프로필 사진과 다른 이유를 반드시 이 판단대로 반영할 것).
+5. **동영상은 링크 텍스트 1줄만** 받는다(업로드 없음). 사진은 의뢰 게시판 성격상 판매자 전원에게 공개돼야 하는 정보라 원래 `access:"public"` Blob(프록시 라우트 불필요)을 의도했으나, **Task 3 구현 중 확인된 실제 환경 제약**: 이 프로젝트가 실제로 쓰는 Vercel Blob 스토어가 private 전용으로 구성되어 있어 `access:"public"`로의 업로드 자체가 API 레벨에서 거부된다(`Cannot use public access on a private store`). 따라서 저장은 `access:"private"`로 하되, 프로필 사진 프록시(`app/api/profile/image/[sellerId]/route.ts`)와 동일한 서버측 스트리밍 프록시를 하나 더 두되 **로그인/소유권 체크는 하지 않는다**(내용 자체가 공개 정보이므로) — `GET /api/requests/images/[imageId]`가 `tool_request_images`에서 `image_url`을 찾아 그대로 스트리밍하고, `Cache-Control`은 프로필 사진의 `private, no-store`가 아니라 `public, max-age=31536000, immutable`로 설정한다(매 업로드가 새 랜덤 파일명을 쓰므로 캐시 무효화 걱정 없음). `<img src>`는 이 프록시 URL을 가리킨다.
 
 **Tech Stack:** Next.js 16(App Router, Server Actions), NextAuth v5(Credentials, JWT), `@neondatabase/serverless`, `@vercel/blob`, `sharp`, `file-type`, `resend`, `vitest`.
 
@@ -25,7 +25,7 @@
 - 기존 `listings`/`community_*`/인증/세션/결제 관련 기존 동작은 **항목 0(헤더)을 제외하고** 변경하지 않는다. 특히 `getListingById`, `getListings`, `publishListing`, `createListingAction`의 기존 분기(스캔 → 없으면 자동 게시 → 있으면 review) 자체는 수정하지 않고, 새 파라미터를 **추가**하는 형태로만 확장한다.
 - 새 테이블은 `lib/db.ts`의 `initialize()` 안에 `CREATE TABLE IF NOT EXISTS`로 추가하고, 날짜 컬럼은 전부 `TEXT`(ISO 문자열)로 저장한다(이 스키마의 다른 모든 날짜 컬럼과 동일). 트랜잭션은 쓰지 않는다(이 코드베이스 전체가 순차 `await sql\`...\`` 스타일).
 - 소유권/권한 체크는 반드시 SQL `WHERE`절에 seller_id/requester_seller_id를 함께 걸어 IDOR을 막는 기존 스타일(`getListingForOwner`, `publishListing`)을 그대로 따른다. 클라이언트가 보낸 id만 믿고 권한을 우회할 수 있는 코드를 만들지 않는다.
-- 이미지 업로드는 `app/api/profile/upload-image/route.ts`의 검증 순서(SVG 차단 → 크기 제한 2MB → magic-byte 확인 → sharp 리사이즈/재인코딩)를 그대로 따르되, 다음 차이를 반영한다: 여러 장 허용, `access:"public"`(private+프록시 불필요), 리사이즈는 아바타처럼 정사각형 크롭이 아니라 원본 비율 유지 + 최대 변 길이 제한(예: 1600px) 정도로 조정.
+- 이미지 업로드는 `app/api/profile/upload-image/route.ts`의 검증 순서(SVG 차단 → 크기 제한 2MB → magic-byte 확인 → sharp 리사이즈/재인코딩)를 그대로 따르되, 다음 차이를 반영한다: 여러 장 허용, `access:"private"` + 인증 없는 공개 프록시 라우트(이 환경의 Blob 스토어가 private 전용이라 `access:"public"` 업로드가 거부됨 — 설계 결정 5 갱신 내용 참고), 리사이즈는 아바타처럼 정사각형 크롭이 아니라 원본 비율 유지 + 최대 변 길이 제한(예: 1600px) 정도로 조정.
 - Vitest는 DB/네트워크를 타는 코드를 테스트하지 않는 기존 관례(`vitest.config.ts`의 `include: ["lib/**/*.test.ts"]`, 순수 로직만 유닛테스트)를 따른다 — 이 기능도 DB 호출부는 수동 검증(dev 서버 + 실제 DB)으로 확인하고, 새로 순수 로직(예: 참고 영상 URL 형식 검증 함수)을 뽑아낸 경우에만 `*.test.ts`를 추가한다.
 - 커밋 메시지는 매 Task 끝에 아래 attribution을 포함한다:
   ```
@@ -226,10 +226,12 @@ export async function createDraftListing(input: {
 
 **Files:**
 - Create: `app/api/requests/route.ts` (POST: 의뢰 생성 + 이미지 업로드, GET 없음 — 목록은 서버 컴포넌트에서 `lib/data.ts` 직접 호출)
+- Create: `app/api/requests/images/[imageId]/route.ts` (GET: 업로드된 의뢰 사진을 인증 없이 스트리밍하는 공개 프록시 — Blob 스토어가 private 전용이라 필요, 설계 결정 5 갱신 내용 참고)
+- Modify: `lib/data.ts` (`getToolRequestImageById(id: string): Promise<ToolRequestImage | null>` 추가 — Task 2가 끝난 뒤 이 Task 진행 중 필요성이 드러난 아주 작은 추가 함수, 기존 `getToolRequestImages`류 함수들과 동일한 단순 조회 패턴)
 
 **Interfaces:**
-- Consumes: `getCurrentSellerId`, `createToolRequest`, `addToolRequestImages`(Task 2), `@vercel/blob`의 `put`, `file-type`의 `fileTypeFromBuffer`, `sharp`.
-- Produces: `POST /api/requests` — `multipart/form-data`(`title`, `description`, `budgetAmount`(선택), `budgetNegotiable`("on"/없음), `desiredDeadline`(선택), `requiredEnvironment`(선택), `referenceVideoUrl`(선택), `images`(파일, 1개 이상 반복 필드)) → `{ id: string }`.
+- Consumes: `getCurrentSellerId`, `createToolRequest`, `addToolRequestImages`, `getToolRequestImageById`(Task 2 + 이 Task에서 추가), `@vercel/blob`의 `put`/`get`, `file-type`의 `fileTypeFromBuffer`, `sharp`.
+- Produces: `POST /api/requests` — `multipart/form-data`(`title`, `description`, `budgetAmount`(선택), `budgetNegotiable`("on"/없음), `desiredDeadline`(선택), `requiredEnvironment`(선택), `referenceVideoUrl`(선택), `images`(파일, 1개 이상 반복 필드)) → `{ id: string }`. `GET /api/requests/images/[imageId]` — 로그인 여부와 무관하게 누구나 호출 가능(내용이 공개 정보이므로 소유권/인증 체크 없음), `tool_request_images`에 없는 id면 404, 있으면 이미지 바이트 스트리밍.
 
 - [ ] **Step 1: 검증 상수/헬퍼**
 
@@ -247,11 +249,13 @@ const MAX_DIMENSION_PX = 1600; // 아바타처럼 정사각형 크롭이 아니�
   3. `referenceVideoUrl` 있으면 위 URL 형식 검증, 실패 시 400.
   4. `formData.getAll("images")`로 파일 목록 획득. 0개면 400("사진을 최소 1장 첨부해주세요."), `MAX_IMAGES` 초과면 400.
   5. 각 파일에 대해 `app/api/profile/upload-image/route.ts`와 동일한 순서로 검증(SVG 거부 → 크기 → magic byte) 후 `sharp(...).resize(MAX_DIMENSION_PX, MAX_DIMENSION_PX, { fit: "inside", withoutEnlargement: true }).webp({ quality: 85 }).toBuffer()`, 하나라도 실패하면 전체 요청을 400으로 거부(아직 아무것도 DB/Blob에 쓰지 않은 시점이라 롤백 불필요).
-  6. `createToolRequest(...)`로 행 생성 → 각 처리된 이미지를 `put(\`request-images/${request.id}-${i}-${randomUUID()}.webp\`, buffer, { access: "public", contentType: "image/webp" })`로 업로드(반드시 `access:"public"` — 프로필 사진과 달리 프록시 라우트 불필요, 설계 결정 5) → 반환된 `url`들을 `addToolRequestImages(request.id, urls)`로 저장.
+  6. `createToolRequest(...)`로 행 생성 → 각 처리된 이미지를 `put(\`request-images/${request.id}-${i}-${randomUUID()}.webp\`, buffer, { access: "private", contentType: "image/webp" })`로 업로드(이 환경의 Blob 스토어가 private 전용 — `access:"public"`은 API 레벨에서 거부됨, 설계 결정 5 갱신 내용 참고) → 반환된 `url`들을 `addToolRequestImages(request.id, urls)`로 저장.
   7. `201` + `{ id: request.id }`.
 
+- [ ] **Step 2-b: `GET /api/requests/images/[imageId]/route.ts`** — `app/api/profile/image/[sellerId]/route.ts`를 템플릿으로 삼되 **로그인 체크를 넣지 않는다**(공개 정보). `getToolRequestImageById(imageId)`로 행을 찾아 없으면 404, 있으면 `get(image.imageUrl, { access: "private" })`로 읽어 스트리밍. `Cache-Control`은 `public, max-age=31536000, immutable`(프로필 사진의 `private, no-store`와 다름 — 매 업로드가 새 랜덤 파일명이라 무효화 불필요).
+- [ ] **Step 2-c: `lib/data.ts`에 `getToolRequestImageById` 추가** — 다른 단순 단건 조회 함수(`getToolProposalById` 등)와 동일한 패턴.
 - [ ] **Step 3: Typecheck**
-- [ ] **Step 4: 수동 검증** — dev 서버 기동 후 `curl -F` 또는 Task 4 폼 완성 후 브라우저로: 이미지 0장(400), SVG 업로드(400), 정상 2장 업로드 → Blob URL이 실제 `<img src>`로 바로 열리는지(프록시 없이 public 접근 확인).
+- [ ] **Step 4: 수동 검증** — dev 서버 기동 후 `curl -F`로: 이미지 0장(400), SVG 업로드(400), 정상 2장 업로드(응답은 `{ id: request.id }`만 옴). 생성된 `tool_request_images` 행들의 `id`를 확인(임시 조회 스크립트/라우트 사용 가능, 검증 후 삭제)한 뒤 `/api/requests/images/{그 id}`를 인증 쿠키 없이(`curl -s -o /dev/null -w "%{http_code}"`) 요청해 200이 오고 실제 이미지 바이트가 오는지 확인. 존재하지 않는 imageId로 요청 시 404도 확인.
 - [ ] **Step 5: Commit**
 
 ---
