@@ -1,15 +1,31 @@
 import Link from "next/link";
 
+const FOOTER_LINKS = [
+  { href: "/requests", label: "자동화 툴 의뢰" },
+  { href: "/listings", label: "마켓" },
+  { href: "/community", label: "커뮤니티" },
+  { href: "/feedback", label: "고객의 목소리" },
+  { href: "/privacy", label: "개인정보처리방침" },
+] as const;
+
 export function SiteFooter() {
   return (
-    <footer className="border-t border-zinc-200 dark:border-zinc-800">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-center px-6 py-6">
-        <Link
-          href="/feedback"
-          className="text-sm text-zinc-500 hover:underline dark:text-zinc-400"
-        >
-          고객의 목소리
-        </Link>
+    <footer className="dark border-t border-zinc-800 bg-zinc-950 text-zinc-50">
+      <div className="mx-auto w-full max-w-5xl px-6 py-10">
+        <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-lg font-bold">툴허브</p>
+            <p className="mt-1 text-sm text-zinc-400">비개발자를 위한 맞춤 자동화 의뢰 플랫폼</p>
+          </div>
+          <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400">
+            {FOOTER_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} className="hover:text-zinc-50">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <p className="mt-8 text-xs text-zinc-500">© 2026 툴허브</p>
       </div>
     </footer>
   );
