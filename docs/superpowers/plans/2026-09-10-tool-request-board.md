@@ -164,9 +164,9 @@ export type ToolProposalMessageWithAuthor = ToolProposalMessage & {
 };
 ```
 
-`Listing` 타입에 `sourceRequestId: string | null;` 필드를 추가하고(기존 필드들 사이 아무 위치), 기존 `rowToListing`/`ListingRow`(`lib/data.ts`)에서 이 필드를 빠뜨리지 않도록 Task 2에서 함께 갱신한다.
+주의: `Listing` 타입 자체에 `sourceRequestId` 필드를 추가하는 작업은 **이 Task에서 하지 않는다** — `lib/data.ts`의 `rowToListing`/`ListingRow`/`createDraftListing`을 같은 커밋에서 함께 고치지 않으면 그 순간 `rowToListing`이 `Listing` 타입을 만족하지 못해 타입 에러가 난다. 필드 추가와 매핑 갱신은 전부 Task 2에서 한 번에 한다(이 Task는 새 테이블 4개용 독립 타입만 추가).
 
-- [ ] **Step 3: Typecheck** — `npx tsc --noEmit` (아직 아무도 새 타입을 안 쓰므로 에러 없어야 함, `Listing.sourceRequestId` 추가로 인한 `rowToListing` 관련 타입 에러는 Task 2에서 해소)
+- [ ] **Step 3: Typecheck** — `npx tsc --noEmit` (새 타입은 아직 아무 파일도 참조하지 않고, `Listing` 타입은 이 Task에서 손대지 않으므로 에러 없어야 함)
 - [ ] **Step 4: Commit** (`git add lib/db.ts lib/types.ts`)
 
 ---
@@ -179,7 +179,7 @@ export type ToolProposalMessageWithAuthor = ToolProposalMessage & {
 - Consumes: Task 1의 테이블/타입.
 - Produces: 아래 함수들 — Task 3~9가 전부 이걸 통해서만 DB에 접근한다(직접 SQL 금지, 기존 관례 그대로).
 
-기존 `ListingRow`/`rowToListing`/`createDraftListing`에 `source_request_id`/`sourceRequestId`를 추가로 매핑한다(커밋 전 `getListings`/`getListingById`가 깨지지 않는지 확인).
+`lib/types.ts`의 `Listing` 타입에 `sourceRequestId: string | null;` 필드를 추가하고(기존 필드들 사이 아무 위치), 같은 커밋 안에서 `lib/data.ts`의 `ListingRow`/`rowToListing`/`createDraftListing`에 `source_request_id`/`sourceRequestId`를 추가로 매핑한다 — 타입 추가와 매핑 갱신을 분리하면 그 사이 `rowToListing`이 `Listing`을 만족하지 못해 타입 에러가 나므로 반드시 한 번에 같이 고칠 것(커밋 전 `getListings`/`getListingById`가 깨지지 않는지 확인).
 
 ```ts
 // createDraftListing 시그니처에 sourceRequestId 추가 (기존 호출부는 undefined로 자동 처리되도록 optional)
