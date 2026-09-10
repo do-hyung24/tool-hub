@@ -589,6 +589,11 @@ export async function getPublicScanSummary(listingId: string): Promise<PublicFin
 // 매물을 게시한다. WHERE 절에 seller_id를 함께 걸어, 소유자가 아니면
 // 아무 행도 바뀌지 않도록 한다 (IDOR 방지). 반환값이 null이면 소유자가 아니거나
 // 존재하지 않는 매물이라는 뜻이다.
+// 추가로, 어떤 제안의 납품물(tool_proposals.delivered_listing_id가 가리키는 행)은
+// 그 의뢰자에게만 전달되는 비공개 산출물이므로 절대 published=true가 되면 안 된다 —
+// 같은 IDOR 가드 스타일로 WHERE 절에서 막는다(0행 → null 반환). 의뢰 완료 후
+// 판매자가 마켓에 재등록하는 경우는 source_request_id만 있고 어떤 제안도 가리키지
+// 않는 별개의 새 행이므로 이 조건에 걸리지 않는다.
 export async function publishListing(
   id: string,
   sellerId: string,
@@ -600,6 +605,7 @@ export async function publishListing(
     UPDATE listings
     SET published = true, disclosure_note = ${disclosureNote}
     WHERE id = ${id} AND seller_id = ${sellerId}
+      AND NOT EXISTS (SELECT 1 FROM tool_proposals WHERE delivered_listing_id = listings.id)
     RETURNING *
   `) as ListingRow[];
   return rows[0] ? rowToListing(rows[0]) : null;
@@ -653,6 +659,55 @@ export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: numb
         WHERE listing_id IN (SELECT id FROM listings WHERE seller_id = ${target.id})
            OR author_id = ${target.id}
       `;
+      // 의뢰 게시판(tool_requests/tool_proposals/tool_request_images/tool_proposal_messages) 정리.
+      // FK가 두 방향으로 얽혀 있다(이 유저가 의뢰자로서 올린 의뢰, 판매자로서 낸 제안/납품) —
+      // 두 역할 모두를 자식 → 부모 순서로 지운다.
+
+      // 1) 이 유저 소유 리스팅이 삭제되기 전에, 그 리스팅을 가리키는 delivered_listing_id를 먼저 끊는다.
+      //    (delivered_listing_id는 항상 그 제안을 낸 판매자 본인의 리스팅을 가리키므로 seller_id=target인
+      //    제안에만 해당한다.)
+      await sql`
+        UPDATE tool_proposals SET delivered_listing_id = NULL
+        WHERE delivered_listing_id IN (SELECT id FROM listings WHERE seller_id = ${target.id})
+      `;
+
+      // 2) 이 유저가 의뢰자로 올린 의뢰가 삭제되기 전에, 그 의뢰를 가리키는 listings.source_request_id를
+      //    먼저 끊는다. (그 의뢰에 납품한 판매자가 다른 사람이면, 그 판매자의 리스팅 자체는 지우지 않고
+      //    참조만 끊는다 — 남의 리스팅을 이 유저 탈퇴 때문에 지워서는 안 된다.)
+      await sql`
+        UPDATE listings SET source_request_id = NULL
+        WHERE source_request_id IN (SELECT id FROM tool_requests WHERE requester_seller_id = ${target.id})
+      `;
+
+      // 3) 메시지(자식)부터: 이 유저가 보낸 메시지, 이 유저가 낸 제안에 달린 메시지(발신자 무관),
+      //    이 유저의 의뢰에 달린 제안들의 메시지(발신자 무관).
+      await sql`DELETE FROM tool_proposal_messages WHERE sender_seller_id = ${target.id}`;
+      await sql`
+        DELETE FROM tool_proposal_messages
+        WHERE proposal_id IN (SELECT id FROM tool_proposals WHERE seller_id = ${target.id})
+      `;
+      await sql`
+        DELETE FROM tool_proposal_messages
+        WHERE proposal_id IN (
+          SELECT id FROM tool_proposals WHERE request_id IN (
+            SELECT id FROM tool_requests WHERE requester_seller_id = ${target.id}
+          )
+        )
+      `;
+
+      // 4) 제안: 이 유저가 낸 제안, 이 유저의 의뢰에 달린 다른 사람의 제안.
+      await sql`DELETE FROM tool_proposals WHERE seller_id = ${target.id}`;
+      await sql`
+        DELETE FROM tool_proposals
+        WHERE request_id IN (SELECT id FROM tool_requests WHERE requester_seller_id = ${target.id})
+      `;
+
+      // 5) 의뢰 첨부 사진, 의뢰 본문.
+      await sql`
+        DELETE FROM tool_request_images
+        WHERE request_id IN (SELECT id FROM tool_requests WHERE requester_seller_id = ${target.id})
+      `;
+      await sql`DELETE FROM tool_requests WHERE requester_seller_id = ${target.id}`;
       await sql`DELETE FROM listings WHERE seller_id = ${target.id}`;
       await sql`DELETE FROM email_verification_tokens WHERE seller_id = ${target.id}`;
       await sql`DELETE FROM password_reset_tokens WHERE seller_id = ${target.id}`;
@@ -1356,6 +1411,17 @@ export async function confirmProposalDelivery(proposalId: string): Promise<void>
   const sql = getSql();
   await sql`
     UPDATE tool_proposals SET delivery_confirmed_at = ${new Date().toISOString()} WHERE id = ${proposalId}
+  `;
+}
+
+// 같은 의뢰에 완성본을 다시 제출하는 시점에 호출한다. delivery_confirmed_at은 한 번
+// 찍히면 남아있기 때문에, 새 제출물이 아직 스캔 게이트를 통과하지 않았는데도 의뢰자
+// 화면에 "검사 통과한 완성본"으로 보이는 일을 막으려면 제출 직전에 되돌려야 한다.
+export async function clearProposalDeliveryConfirmation(proposalId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE tool_proposals SET delivery_confirmed_at = NULL WHERE id = ${proposalId}
   `;
 }
 

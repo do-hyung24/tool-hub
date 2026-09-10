@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import {
   canDeliverProposal,
+  clearProposalDeliveryConfirmation,
   completeToolRequest,
   confirmProposalDelivery,
   createDraftListing,
@@ -93,6 +94,11 @@ export async function submitDeliveryAction(formData: FormData) {
   if (!proposal) {
     throw new Error("제안을 찾을 수 없습니다.");
   }
+
+  // 재제출인 경우, 새 완성본이 스캔 게이트를 통과하기 전까지는 의뢰자 화면에
+  // 이전 제출물의 "확인 완료" 상태가 남아있으면 안 된다(delivered_listing_id는
+  // 곧 새 리스팅으로 옮겨가므로 확인 시점 기록을 먼저 되돌린다).
+  await clearProposalDeliveryConfirmation(proposalId);
 
   const sourceType = await parseSourceType(formData);
   const { files, codeUrl } = await collectFilesForSource(sourceType, formData);

@@ -27,9 +27,31 @@ export function ConfirmDeliveryButton({
     <section className="mt-10 border-t border-zinc-200 pt-8 dark:border-zinc-800">
       <h2 className="text-sm font-semibold">완성본 도착</h2>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-        선택한 판매자가 완성본을 제출했고 자동 보안 스캔을 마쳤습니다. 이
-        완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다.
+        {canConfirm
+          ? "선택한 판매자가 완성본을 제출했고 자동 보안 스캔을 마쳤습니다. 이 완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다."
+          : "제출한 완성본이 자동 보안 스캔을 마치고 의뢰자에게 전달되었습니다. 이 완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다."}
       </p>
+
+      <div className="mt-4">
+        <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+          코드 링크
+        </h3>
+        {summary.listing.codeUrl ? (
+          <a
+            href={summary.listing.codeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-block break-all text-sm font-medium text-blue-600 underline underline-offset-2 dark:text-blue-400"
+          >
+            {summary.listing.codeUrl}
+          </a>
+        ) : (
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            zip 업로드로 제출된 완성본이라 코드 링크가 없습니다. 위 비공개
+            스레드에서 파일 전달 방법을 협의해주세요.
+          </p>
+        )}
+      </div>
 
       <ScanSummaryCard
         className="mt-4"

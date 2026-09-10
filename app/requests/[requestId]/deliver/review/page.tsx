@@ -107,7 +107,7 @@ export default async function DeliverReviewPage(
       )}
 
       <section className="mt-10 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-        <h2 className="font-semibold">수정 없이 그대로 게시하기</h2>
+        <h2 className="font-semibold">수정 없이 그대로 전달하기</h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           이대로 진행하면 의뢰자에게 완성 알림이 발송되고, 의뢰자 화면에 위 스캔
           결과 요약이 함께 표시됩니다. 완성본은 공개 마켓에는 노출되지 않습니다.
@@ -119,7 +119,7 @@ export default async function DeliverReviewPage(
             type="submit"
             className="self-start rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            그대로 게시하기
+            그대로 전달하기
           </button>
         </form>
       </section>
