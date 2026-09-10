@@ -17,7 +17,7 @@ import { RULE_ENGINE_VERSION } from "@/lib/detector";
 import { CATEGORIES, SOURCE_TYPES, type Category, type SourceType } from "@/lib/types";
 import type { ScannableFile } from "@/lib/scannableFile";
 
-async function collectFilesForSource(
+export async function collectFilesForSource(
   sourceType: SourceType,
   formData: FormData
 ): Promise<{ files: ScannableFile[]; codeUrl: string | null }> {
@@ -53,7 +53,10 @@ async function collectFilesForSource(
   }
 }
 
-function parseSourceType(formData: FormData): SourceType {
+// "use server" 파일에서는 async 함수만 export할 수 있으므로(Next 컴파일러 제약),
+// app/requestActions.ts에서 재사용하기 위해 export하면서 async로 바꾼다. 호출부가
+// 전부 async 함수 안이라 동작은 그대로다.
+export async function parseSourceType(formData: FormData): Promise<SourceType> {
   const raw = String(formData.get("sourceType") ?? "");
   if (!SOURCE_TYPES.includes(raw as SourceType)) {
     throw new Error("코드 입력 방식을 선택해주세요.");
@@ -100,7 +103,7 @@ export async function createListingAction(formData: FormData) {
     throw new Error("카테고리를 선택해주세요.");
   }
 
-  const sourceType = parseSourceType(formData);
+  const sourceType = await parseSourceType(formData);
   const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
   const sellerId = await requireVerifiedSellerId();
 
@@ -143,7 +146,7 @@ export async function rescanListingAction(formData: FormData) {
     throw new Error("매물을 찾을 수 없거나 접근 권한이 없습니다.");
   }
 
-  const sourceType = parseSourceType(formData);
+  const sourceType = await parseSourceType(formData);
   const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
 
   await updateListingSource(listingId, { codeUrl, sourceType });

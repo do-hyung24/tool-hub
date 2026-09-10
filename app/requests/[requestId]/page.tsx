@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   canAccessProposalThread,
+  getDeliveryScanSummaryForViewer,
   getToolRequestById,
   listToolProposalMessages,
   listToolProposalsForRequest,
@@ -10,6 +11,7 @@ import {
 import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, formatPrice } from "@/lib/format";
 import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
+import { ConfirmDeliveryButton } from "./ConfirmDeliveryButton";
 import { ProposalForm } from "./ProposalForm";
 import { ProposalThread } from "./ProposalThread";
 import { SelectProposalButton } from "./SelectProposalButton";
@@ -47,6 +49,16 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
   const threadMessages: ToolProposalMessageWithAuthor[] = canAccessThread
     ? await listToolProposalMessages(selectedProposal!.id)
     : [];
+
+  const isSelectedSeller = !!sellerId && sellerId === selectedProposal?.sellerId;
+  const canSubmitDelivery = isSelectedSeller && toolRequest.status === "in_progress";
+
+  // 납품 스캔 요약은 의뢰자 본인 또는 선택된 제안의 판매자 본인일 때만 조회한다
+  // (그 외 방문자에게는 조회 함수 자체를 호출하지 않는다).
+  const deliverySummary =
+    sellerId && (isRequester || isSelectedSeller)
+      ? await getDeliveryScanSummaryForViewer(toolRequest.id, sellerId)
+      : null;
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
@@ -170,7 +182,23 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
         </ul>
 
         {canPropose && <ProposalForm requestId={toolRequest.id} />}
+
+        {canSubmitDelivery && (
+          <Link
+            href={`/requests/${toolRequest.id}/deliver`}
+            className="mt-6 inline-block rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            완성본 제출하기
+          </Link>
+        )}
       </section>
+
+      <ConfirmDeliveryButton
+        requestId={toolRequest.id}
+        summary={deliverySummary}
+        canConfirm={isRequester}
+        alreadyCompleted={toolRequest.status === "completed"}
+      />
     </main>
   );
 }
