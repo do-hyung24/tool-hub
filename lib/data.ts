@@ -1409,12 +1409,14 @@ function rowToToolProposal(row: ToolProposalRow): ToolProposal {
 
 type ToolProposalWithAuthorRow = ToolProposalRow & {
   seller_nickname: string;
+  seller_profile_image_url: string | null;
 };
 
 function rowToToolProposalWithAuthor(row: ToolProposalWithAuthorRow): ToolProposalWithAuthor {
   return {
     ...rowToToolProposal(row),
     sellerNickname: row.seller_nickname,
+    sellerProfileImageUrl: row.seller_profile_image_url,
   };
 }
 
@@ -1462,7 +1464,8 @@ export async function listToolProposalsForRequest(requestId: string): Promise<To
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT tool_proposals.*, sellers.nickname AS seller_nickname
+    SELECT tool_proposals.*, sellers.nickname AS seller_nickname,
+           sellers.profile_image_url AS seller_profile_image_url
     FROM tool_proposals
     JOIN sellers ON sellers.id = tool_proposals.seller_id
     WHERE tool_proposals.request_id = ${requestId}

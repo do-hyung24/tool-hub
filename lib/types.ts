@@ -181,6 +181,7 @@ export type ToolProposal = {
 
 export type ToolProposalWithAuthor = ToolProposal & {
   sellerNickname: string;
+  sellerProfileImageUrl: string | null;
 };
 
 export type ToolProposalMessage = {

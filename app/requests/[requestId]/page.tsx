@@ -9,7 +9,7 @@ import {
   listToolRequestImages,
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
-import { formatDate, formatPrice } from "@/lib/format";
+import { formatDate, formatPrice, getProfileImageSrc } from "@/lib/format";
 import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
 import { ConfirmDeliveryButton } from "./ConfirmDeliveryButton";
 import { DeleteRequestButton } from "./DeleteRequestButton";
@@ -154,6 +154,8 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
           )}
           {proposals.map((proposal) => {
             const isSelected = proposal.status === "selected";
+            const sellerImageSrc = getProfileImageSrc(proposal.sellerId, proposal.sellerProfileImageUrl);
+            const sellerInitial = proposal.sellerNickname.trim().charAt(0) || "?";
             return (
               <li
                 key={proposal.id}
@@ -164,9 +166,24 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  <Link
+                    href={`/sellers/${proposal.sellerId}`}
+                    className="flex items-center gap-2 text-sm font-medium text-zinc-800 hover:underline dark:text-zinc-200"
+                  >
+                    {sellerImageSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={sellerImageSrc}
+                        alt=""
+                        className="h-6 w-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                        {sellerInitial}
+                      </span>
+                    )}
                     {proposal.sellerNickname}
-                  </span>
+                  </Link>
                   {isSelected && (
                     <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white dark:bg-zinc-50 dark:text-zinc-900">
                       선택됨
