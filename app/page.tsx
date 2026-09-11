@@ -49,10 +49,10 @@ const SCAN_SHOWCASE_FINDINGS: Finding[] = [
 ];
 
 const PROMISES = [
-  { label: "수수료", sentence: "플랫폼 수수료 없음" },
-  { label: "보안 스캔", sentence: "완성본과 마켓 매물 전부 자동 보안 스캔" },
-  { label: "비공개 조율", sentence: "조율 스레드는 의뢰자와 선택된 제작자만" },
-  { label: "납기", sentence: "희망 완료 시점을 최대 6개월까지 설정" },
+  { label: "수수료", sentence: "플랫폼 수수료를 받지 않습니다." },
+  { label: "보안 스캔", sentence: "모든 완성본과 매물이 자동 검사를 거칩니다." },
+  { label: "비공개 조율", sentence: "세부 협의는 의뢰자와 선택된 제작자만 봅니다." },
+  { label: "납기", sentence: "희망 완료 시점을 최대 6개월까지 지정합니다." },
 ] as const;
 
 const USE_CASES = [
@@ -177,16 +177,14 @@ export default function Home() {
         />
         <div className="relative">
           <p className="text-xs font-medium tracking-[0.04em] text-accent-soft">
-            자동화 툴 의뢰 · 제작 · 보안 검사
+            자동화 툴 의뢰 플랫폼
           </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.12] tracking-[-0.03em] break-keep sm:text-5xl lg:text-[3.5rem]">
-            반복 업무, 설명만 하세요.
-            <br />
-            제작부터 보안 검사까지 이어드립니다.
+            설명 한 줄에서, 검증된 완성본까지.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-zinc-400 lg:text-base">
-            필요한 자동화 툴을 글과 사진으로 설명하면 제작자들이 가격과 기간을 제안합니다. 완성본은
-            전달 전에 자동 보안 스캔을 거쳐 안심하고 받을 수 있습니다.
+            필요한 업무를 설명하면 제작자가 가격과 기간을 제안합니다. 완성본은 전달 전 자동 보안
+            스캔을 거칩니다.
           </p>
           <div className="mt-10">
             <HeroPrompt />
@@ -217,7 +215,7 @@ export default function Home() {
           <Reveal>
             <p className="text-xs font-medium tracking-[0.04em] text-accent">이런 일을 의뢰합니다</p>
             <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
-              설명만 하면 됩니다. 이런 식으로.
+              의뢰는 이렇게 시작됩니다
             </h2>
           </Reveal>
           <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -233,7 +231,7 @@ export default function Home() {
                   <p className="mt-2 line-clamp-2 text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
                     {useCase.sentence}
                   </p>
-                  <span className="mt-4 text-sm font-medium text-accent">이 예시로 의뢰 시작 →</span>
+                  <span className="mt-4 text-sm font-medium text-accent">이 예시로 시작 →</span>
                 </Link>
               </Reveal>
             ))}
@@ -312,7 +310,7 @@ export default function Home() {
           <Reveal>
             <p className="text-xs font-medium tracking-[0.04em] text-accent">이용 방법</p>
             <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
-              세 단계면 충분합니다
+              세 단계로 완료됩니다
             </h2>
           </Reveal>
           <div className="mt-12 grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-start">
@@ -385,7 +383,7 @@ export default function Home() {
       {/* ── G. 마켓 티저 (light, 얇은 배너) ── */}
       <section className="border-y border-zinc-950/[0.06] bg-paper-2 px-6 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="text-sm text-zinc-600">이미 만들어진 툴이 필요하다면</p>
+          <p className="text-sm text-zinc-600">완성된 툴이 필요하다면</p>
           <Link href="/listings" className="text-sm font-medium text-accent hover:opacity-80">
             마켓 둘러보기 →
           </Link>
@@ -425,10 +423,10 @@ export default function Home() {
       <section className="dark bg-ink px-6 py-20 text-center text-zinc-50 lg:py-24">
         <Reveal className="mx-auto max-w-2xl">
           <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep sm:text-4xl">
-            지금 첫 의뢰를 등록해보세요
+            첫 의뢰를 등록하세요
           </h2>
           <p className="mt-4 text-[15px] leading-[1.7] text-zinc-400 lg:text-base">
-            등록은 무료이고, 제안이 오기 전까지 비용이 없습니다.
+            등록은 무료입니다. 제안을 받기 전까지 비용은 없습니다.
           </p>
           <div className="mt-8">
             <HeroPrompt compact />

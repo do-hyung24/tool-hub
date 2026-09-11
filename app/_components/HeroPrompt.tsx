@@ -7,8 +7,7 @@ import Link from "next/link";
 const MAX_LENGTH = 400;
 const MAX_TEXTAREA_HEIGHT_PX = 72; // 대략 3줄
 const COMPACT_TEXTAREA_HEIGHT_PX = 24; // 1줄 고정(넘침 방지)
-const FULL_PLACEHOLDER = "예: 매일 아침 스마트스토어 주문을 엑셀로 정리하는 일을 자동화하고 싶어요";
-const COMPACT_PLACEHOLDER = "예: 매일 아침 주문 내역을 엑셀로 정리하고 싶어요";
+const PLACEHOLDER = "자동화할 업무를 한 줄로 적어주세요";
 
 // 이 컴포넌트는 폼 전송이나 DB 호출을 하지 않는다 - 입력한 문장을 쿼리
 // 파라미터로 실어 /requests/new로 라우팅만 한다(실제 등록은 그 페이지에서).
@@ -50,7 +49,7 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
           }}
           onKeyDown={handleKeyDown}
           maxLength={MAX_LENGTH}
-          placeholder={compact ? COMPACT_PLACEHOLDER : FULL_PLACEHOLDER}
+          placeholder={PLACEHOLDER}
           className={`flex-1 resize-none bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 ${
             compact ? "max-h-6 overflow-hidden" : "max-h-[4.5rem] overflow-y-auto"
           }`}
@@ -60,12 +59,12 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
           onClick={submit}
           className="mb-1 shrink-0 rounded-xl bg-paper px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-zinc-200"
         >
-          의뢰 시작하기
+          의뢰하기
         </button>
       </div>
       {!compact && (
         <p className="mt-3 text-center text-xs text-zinc-500">
-          등록 무료 · 제안을 받기 전까지 비용 없음 · 제작자로 참여하려면{" "}
+          등록 무료 · 제안 전까지 비용 없음 · 제작자는{" "}
           <Link href="/requests" className="text-zinc-300 hover:text-paper">
             의뢰 둘러보기
           </Link>
