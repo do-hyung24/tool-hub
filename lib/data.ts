@@ -1402,6 +1402,7 @@ type ToolProposalRow = {
   delivered_listing_id: string | null;
   delivery_confirmed_at: string | null;
   delivery_guide: string | null;
+  delivery_file_url: string | null;
   created_at: string;
 };
 
@@ -1417,6 +1418,7 @@ function rowToToolProposal(row: ToolProposalRow): ToolProposal {
     deliveredListingId: row.delivered_listing_id,
     deliveryConfirmedAt: row.delivery_confirmed_at,
     deliveryGuide: row.delivery_guide,
+    deliveryFileUrl: row.delivery_file_url,
     createdAt: row.created_at,
   };
 }
@@ -1456,6 +1458,7 @@ export async function createToolProposal(input: {
     deliveredListingId: null,
     deliveryConfirmedAt: null,
     deliveryGuide: null,
+    deliveryFileUrl: null,
     createdAt: new Date().toISOString(),
   };
 
@@ -1570,6 +1573,21 @@ export async function updateProposalDeliveryGuide(
   const sql = getSql();
   await sql`
     UPDATE tool_proposals SET delivery_guide = ${deliveryGuide} WHERE id = ${proposalId}
+  `;
+}
+
+// zip으로 제출된 완성본의 private Blob URL을 저장/갱신한다(제출·재스캔 시점마다
+// 스캔한 바로 그 파일을 가리키도록 매번 새로 저장). GitHub 제출이면 null로
+// 남는다. 이 URL은 게이트 라우트(app/api/requests/[requestId]/delivery/download)
+// 에서만 읽고, 다른 어떤 조회 함수도 이 값을 클라이언트에 직접 내려주지 않는다.
+export async function updateProposalDeliveryFile(
+  proposalId: string,
+  deliveryFileUrl: string | null
+): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE tool_proposals SET delivery_file_url = ${deliveryFileUrl} WHERE id = ${proposalId}
   `;
 }
 

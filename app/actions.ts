@@ -21,7 +21,7 @@ import type { ScannableFile } from "@/lib/scannableFile";
 export async function collectFilesForSource(
   sourceType: SourceType,
   formData: FormData
-): Promise<{ files: ScannableFile[]; codeUrl: string | null }> {
+): Promise<{ files: ScannableFile[]; codeUrl: string | null; zipBuffer: Buffer | null }> {
   if (sourceType === "github") {
     const codeUrl = String(formData.get("codeUrl") ?? "").trim();
     if (!codeUrl) {
@@ -29,7 +29,7 @@ export async function collectFilesForSource(
     }
     try {
       const files = await fetchGithubScannableFiles(codeUrl);
-      return { files, codeUrl };
+      return { files, codeUrl, zipBuffer: null };
     } catch (error) {
       if (error instanceof GithubFetchError) throw new Error(error.message);
       throw error;
@@ -47,7 +47,10 @@ export async function collectFilesForSource(
   try {
     const buffer = Buffer.from(await zipFile.arrayBuffer());
     const files = await extractScannableFiles(buffer);
-    return { files, codeUrl: null };
+    // 원본 zip 버퍼를 그대로 반환한다 - 마켓 매물 흐름(app/actions.ts 내 다른
+    // 호출부)은 이 값을 쓰지 않고, 완성본 납품 흐름(app/requestActions.ts)만
+    // private Blob에 저장해 "스캔받은 바로 그 파일"을 다운로드로 제공한다.
+    return { files, codeUrl: null, zipBuffer: buffer };
   } catch (error) {
     if (error instanceof ZipValidationError) throw new Error(error.message);
     throw error;

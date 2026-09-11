@@ -180,6 +180,7 @@ export type ToolProposal = {
   deliveredListingId: string | null;
   deliveryConfirmedAt: string | null;
   deliveryGuide: string | null;
+  deliveryFileUrl: string | null;
   createdAt: string;
 };
 

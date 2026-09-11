@@ -449,6 +449,11 @@ async function initialize(): Promise<void> {
   // FK가 아닌 단순 텍스트 컬럼이라 삭제 순서(deleteToolRequest)나 계정삭제
   // 크론에는 영향이 없다.
   await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_guide TEXT`;
+  // 완성본이 zip으로 제출된 경우, 스캔한 바로 그 zip을 private Blob에 저장한 URL.
+  // listings.code_url을 재사용하지 않는다 - 그쪽은 마켓 재등록 등 다른 경로에서도
+  // 조회/노출될 수 있는 필드라, 의뢰자 전용 다운로드 게이트로만 접근 가능한 이
+  // 파일 URL과 노출 범위를 격리해야 한다. GitHub 제출이면 NULL.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_file_url TEXT`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS tool_proposal_messages (

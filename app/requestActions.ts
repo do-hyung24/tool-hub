@@ -1,7 +1,9 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { put } from "@vercel/blob";
 import {
   canDeliverProposal,
   clearProposalDeliveryConfirmation,
@@ -15,6 +17,7 @@ import {
   markProposalDelivered,
   saveScanReport,
   updateListingSource,
+  updateProposalDeliveryFile,
   updateProposalDeliveryGuide,
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
@@ -23,6 +26,22 @@ import { runScan } from "@/lib/scanEngine";
 import { RULE_ENGINE_VERSION } from "@/lib/detector";
 import { collectFilesForSource, parseSourceType } from "@/app/actions";
 import type { Finding, ToolRequestWithAuthor } from "@/lib/types";
+
+// 완성본이 zip이면 스캔한 바로 그 버퍼를 private Blob에 저장하고 그 URL을
+// 반환한다(원본 Blob URL은 어디에도 노출하지 않고 게이트 라우트로만 접근).
+// GitHub 제출이면 null을 반환해 delivery_file_url을 비운다.
+async function storeDeliveryFileIfZip(
+  requestId: string,
+  proposalId: string,
+  zipBuffer: Buffer | null
+): Promise<string | null> {
+  if (!zipBuffer) return null;
+  const blob = await put(`deliveries/${requestId}/${proposalId}-${randomUUID()}.zip`, zipBuffer, {
+    access: "private",
+    contentType: "application/zip",
+  });
+  return blob.url;
+}
 
 // app/authActions.ts의 동일 헬퍼와 같은 방식으로 요청 origin을 만든다
 // (그쪽은 export되지 않은 파일 내부 헬퍼라 여기에 동일하게 둔다).
@@ -117,7 +136,7 @@ export async function submitDeliveryAction(formData: FormData) {
   await clearProposalDeliveryConfirmation(proposalId);
 
   const sourceType = await parseSourceType(formData);
-  const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
+  const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
 
   // 납품용 리스팅은 스캔/리뷰 로직만 재사용하는 미게시(published=false) 행이다.
   // 제목/설명은 원 의뢰에서, 가격은 선택된 제안에서 그대로 가져오고, 공개 마켓에
@@ -141,8 +160,11 @@ export async function submitDeliveryAction(formData: FormData) {
     ruleEngineVersion: RULE_ENGINE_VERSION,
   });
 
+  const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
+
   await markProposalDelivered(proposalId, listing.id);
   await updateProposalDeliveryGuide(proposalId, deliveryGuide);
+  await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
 
   if (!hasUnresolvedFindings(report.findings)) {
     await passDeliveryGate(requestId, proposalId);
@@ -185,15 +207,18 @@ export async function deliverRescanAction(formData: FormData) {
   const deliveryGuide = requireDeliveryGuide(formData);
 
   const sourceType = await parseSourceType(formData);
-  const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
+  const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
 
   // submitDeliveryAction과 동일한 이유: 소스를 교체하기 전에, 이전 제출물이 남긴
   // "확인 완료" 상태부터 되돌린다 - 새 코드가 게이트를 통과하기 전까지 의뢰자 화면에
   // 이전 확인 상태가 남아있으면 안 된다.
   await clearProposalDeliveryConfirmation(proposalId);
 
+  const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
+
   await updateListingSource(listingId, { codeUrl, sourceType });
   await updateProposalDeliveryGuide(proposalId, deliveryGuide);
+  await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
 
   const findings = await runScan(files);
   const report = await saveScanReport({
