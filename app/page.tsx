@@ -240,10 +240,13 @@ export default async function Home() {
               <div key={item.label} className="border-t border-zinc-950/[0.10] pt-5 text-center">
                 <p className="text-xs font-medium tracking-[0.04em] text-zinc-500">{item.label}</p>
                 {"big" in item ? (
-                  <>
-                    <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-900">{item.big}</p>
-                    <p className="mt-1 text-xs leading-snug text-zinc-500">{item.small}</p>
-                  </>
+                  <div className="mt-2 inline-flex flex-col items-center gap-1 rounded-xl px-4 py-2.5 ring-1 ring-zinc-950/[0.08]">
+                    <p className="flex items-center gap-1.5 text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+                      {item.big}
+                    </p>
+                    <p className="text-xs leading-snug text-zinc-500">{item.small}</p>
+                  </div>
                 ) : (
                   <p className="mt-2 text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
                     {item.sentence}
@@ -291,7 +294,7 @@ export default async function Home() {
           <Reveal>
             <p className="text-xs font-medium tracking-[0.04em] text-accent">자동 보안 스캔</p>
             <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
-              받기 전에, 코드가 먼저 읽힙니다.
+              완성본을 받기 전, 보안 스캔을 먼저 거칩니다.
             </h2>
             <p className="mt-4 max-w-2xl break-keep text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
               제작자가 보낸 완성본은 의뢰자에게 도착하기 전에 자동 보안 스캔을 거칩니다. 발견된
@@ -312,20 +315,23 @@ export default async function Home() {
                   </div>
                   <div className="mt-6 grid grid-cols-3 gap-4 text-center">
                     <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-3xl font-medium tabular-nums text-offwhite">
+                      <span className="text-2xl font-semibold tabular-nums text-accent-soft">
                         {CATEGORY_IDS.length}
                       </span>
-                      <span className="text-xs text-muted">공개 취약 카테고리</span>
+                      <span className="text-xs text-muted">검사 위험 유형</span>
                     </div>
                     <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-3xl font-medium tabular-nums text-offwhite">
+                      <span className="text-2xl font-semibold tabular-nums text-accent-soft">
                         {getDetectorTypeCount()}
                       </span>
-                      <span className="text-xs text-muted">종 탐지 규칙</span>
+                      <span className="text-xs text-muted">탐지 규칙</span>
                     </div>
-                    <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-3xl font-medium tabular-nums text-offwhite">전부</span>
-                      <span className="text-xs text-muted">예외 없는 완성본 스캔</span>
+                    <div className="flex items-center justify-center gap-2">
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent-soft"
+                        aria-hidden
+                      />
+                      <span className="text-xs text-muted">예외 없이 전수 검사</span>
                     </div>
                   </div>
                 </div>
