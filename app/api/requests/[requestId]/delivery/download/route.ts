@@ -7,6 +7,10 @@ import { getToolRequestById, listToolProposalsForRequest } from "@/lib/data";
 // GitHub 제출은 이 라우트를 쓰지 않는다(UI에서 저장소 링크를 그대로 보여준다) -
 // delivery_file_url이 없으면 404. private Blob URL은 여기서만 읽고 클라이언트에는
 // 절대 노출하지 않는다(이미지 프록시와 동일한 스트리밍 방식).
+// 직거래 결제/정산 흐름: 제작자가 "입금 확인"을 표시(payment_confirmed_at)하기
+// 전에는 당사자여도 다운로드할 수 없다 - 파일은 계속 플랫폼(private Blob)에
+// 남아있으므로 분쟁 시 증거로 쓸 수 있고, 결제 없이 완성본만 먼저 가져가는
+// 상황을 막는다.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ requestId: string }> }
@@ -33,6 +37,13 @@ export async function GET(
 
   if (!selectedProposal?.deliveryFileUrl) {
     return NextResponse.json({ error: "다운로드할 완성본이 없습니다." }, { status: 404 });
+  }
+
+  if (!selectedProposal.paymentConfirmedAt) {
+    return NextResponse.json(
+      { error: "제작자가 입금을 확인하기 전에는 다운로드할 수 없습니다." },
+      { status: 403 }
+    );
   }
 
   const blob = await get(selectedProposal.deliveryFileUrl, { access: "private" });

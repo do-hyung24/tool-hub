@@ -112,6 +112,40 @@ export default async function DeliverRequestPage(
           />
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="proofImages" className="text-sm font-medium">
+            작동 증빙 스크린샷 (1장 이상 필수)
+          </label>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            실제로 실행되는 화면을 캡처해 첨부해주세요. 의뢰자가 수락 전에 확인합니다.
+          </p>
+          <input
+            id="proofImages"
+            name="proofImages"
+            type="file"
+            accept="image/png, image/jpeg, image/webp"
+            multiple
+            required
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:file:bg-zinc-800"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="proofVideo" className="text-sm font-medium">
+            작동 증빙 영상 (선택)
+          </label>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            mp4 형식, 최대 20MB.
+          </p>
+          <input
+            id="proofVideo"
+            name="proofVideo"
+            type="file"
+            accept="video/mp4"
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:file:bg-zinc-800"
+          />
+        </div>
+
         <button
           type="submit"
           className="mt-2 self-start rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"

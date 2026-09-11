@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import {
   canAccessProposalThread,
   getDeliveryScanSummaryForViewer,
+  getSettlementAccountForViewer,
   getToolRequestById,
+  listToolProposalDeliveryProofs,
   listToolProposalMessages,
   listToolProposalsForRequest,
   listToolRequestImages,
@@ -72,6 +74,16 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
     sellerId && (isRequester || isSelectedSeller)
       ? await getDeliveryScanSummaryForViewer(toolRequest.id, sellerId)
       : null;
+
+  // 작동 증빙 스크린샷도 같은 당사자 조건(요약이 있을 때만)에서만 조회한다.
+  const deliveryProofImages = deliverySummary
+    ? await listToolProposalDeliveryProofs(deliverySummary.proposal.id)
+    : [];
+
+  // 제작자 계좌는 의뢰인 본인이 완성본을 수락한 뒤에만 채워진다(그 외에는
+  // 함수 자체가 null을 반환) - 함수 내부에서 이중으로 다시 확인한다.
+  const settlementAccount =
+    sellerId && isRequester ? await getSettlementAccountForViewer(toolRequest.id, sellerId) : null;
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
@@ -233,7 +245,10 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
       <ConfirmDeliveryButton
         requestId={toolRequest.id}
         summary={deliverySummary}
-        canConfirm={isRequester}
+        proofImages={deliveryProofImages}
+        settlementAccount={settlementAccount}
+        isRequester={isRequester}
+        isSelectedSeller={isSelectedSeller}
         alreadyCompleted={toolRequest.status === "completed"}
       />
 

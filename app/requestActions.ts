@@ -4,27 +4,33 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { put } from "@vercel/blob";
+import { fileTypeFromBuffer } from "file-type";
 import {
+  acceptProposalDelivery,
   canDeliverProposal,
   clearProposalDeliveryConfirmation,
-  completeToolRequest,
   confirmProposalDelivery,
+  confirmProposalPayment,
   createDraftListing,
   getListingForOwner,
   getSellerById,
   getToolProposalById,
   getToolRequestById,
   markProposalDelivered,
+  markProposalTransferSent,
+  replaceToolProposalDeliveryProofs,
   saveScanReport,
   updateListingSource,
   updateProposalDeliveryFile,
   updateProposalDeliveryGuide,
+  updateProposalDeliveryProofVideo,
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { sendRequestDeliveryReadyEmail } from "@/lib/email";
 import { runScan } from "@/lib/scanEngine";
 import { RULE_ENGINE_VERSION } from "@/lib/detector";
 import { collectFilesForSource, parseSourceType } from "@/app/actions";
+import { processRequestImage } from "@/app/api/requests/shared";
 import type { Finding, ToolRequestWithAuthor } from "@/lib/types";
 
 // 완성본이 zip이면 스캔한 바로 그 버퍼를 private Blob에 저장하고 그 URL을
@@ -39,6 +45,80 @@ async function storeDeliveryFileIfZip(
   const blob = await put(`deliveries/${requestId}/${proposalId}-${randomUUID()}.zip`, zipBuffer, {
     access: "private",
     contentType: "application/zip",
+  });
+  return blob.url;
+}
+
+const MIN_DELIVERY_PROOF_IMAGES = 1;
+const MAX_DELIVERY_PROOF_IMAGES = 5;
+const MAX_PROOF_VIDEO_SIZE_BYTES = 20 * 1024 * 1024; // zip 업로드와 동일한 한도
+
+// 완성본 제출 폼의 "proofImages" 파일들을 검증하고 webp로 재인코딩한다
+// (app/api/requests/shared.ts의 processRequestImage 재사용 - 의뢰 사진과 동일한
+// 검증 규칙). 실패하면 에러 메시지를 던진다 - DB/Blob 쓰기 이전에 먼저 걸러낸다.
+async function collectDeliveryProofImages(formData: FormData): Promise<Buffer[]> {
+  const files = formData.getAll("proofImages").filter((value): value is File => value instanceof File);
+  if (files.length < MIN_DELIVERY_PROOF_IMAGES) {
+    throw new Error("작동 화면 스크린샷을 최소 1장 첨부해주세요.");
+  }
+  if (files.length > MAX_DELIVERY_PROOF_IMAGES) {
+    throw new Error(`작동 증빙 스크린샷은 최대 ${MAX_DELIVERY_PROOF_IMAGES}장까지 첨부할 수 있습니다.`);
+  }
+  const buffers: Buffer[] = [];
+  for (const file of files) {
+    const result = await processRequestImage(file);
+    if ("error" in result) {
+      throw new Error(result.error);
+    }
+    buffers.push(result.buffer);
+  }
+  return buffers;
+}
+
+// 선택 첨부인 작동 증빙 영상. mp4만 허용하며(별도 트랜스코딩 없음), 실제
+// 파일 시그니처로 형식을 확인한다(확장자만 보고 판단하지 않음).
+async function collectDeliveryProofVideo(formData: FormData): Promise<Buffer | null> {
+  const file = formData.get("proofVideo");
+  if (!(file instanceof File) || file.size === 0) {
+    return null;
+  }
+  if (file.size > MAX_PROOF_VIDEO_SIZE_BYTES) {
+    throw new Error("작동 증빙 영상은 20MB를 넘을 수 없습니다.");
+  }
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const detectedType = await fileTypeFromBuffer(buffer);
+  if (!detectedType || detectedType.mime !== "video/mp4") {
+    throw new Error("작동 증빙 영상은 mp4 형식만 첨부할 수 있습니다.");
+  }
+  return buffer;
+}
+
+async function storeDeliveryProofImages(
+  requestId: string,
+  proposalId: string,
+  buffers: Buffer[]
+): Promise<string[]> {
+  const urls: string[] = [];
+  for (let i = 0; i < buffers.length; i++) {
+    const blob = await put(
+      `delivery-proofs/${requestId}/${proposalId}-${i}-${randomUUID()}.webp`,
+      buffers[i],
+      { access: "private", contentType: "image/webp" }
+    );
+    urls.push(blob.url);
+  }
+  return urls;
+}
+
+async function storeDeliveryProofVideoIfPresent(
+  requestId: string,
+  proposalId: string,
+  buffer: Buffer | null
+): Promise<string | null> {
+  if (!buffer) return null;
+  const blob = await put(`delivery-proofs/${requestId}/${proposalId}-video-${randomUUID()}.mp4`, buffer, {
+    access: "private",
+    contentType: "video/mp4",
   });
   return blob.url;
 }
@@ -129,6 +209,10 @@ export async function submitDeliveryAction(formData: FormData) {
   }
 
   const deliveryGuide = requireDeliveryGuide(formData);
+  // 파일 검증은 DB/Blob에 아무것도 쓰기 전에 먼저 끝낸다(app/api/requests/route.ts와
+  // 동일한 원칙) - 검증 실패 시 아직 아무 상태도 바뀌지 않아 롤백이 필요 없다.
+  const proofImageBuffers = await collectDeliveryProofImages(formData);
+  const proofVideoBuffer = await collectDeliveryProofVideo(formData);
 
   // 재제출인 경우, 새 완성본이 스캔 게이트를 통과하기 전까지는 의뢰자 화면에
   // 이전 제출물의 "확인 완료" 상태가 남아있으면 안 된다(delivered_listing_id는
@@ -161,10 +245,14 @@ export async function submitDeliveryAction(formData: FormData) {
   });
 
   const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
+  const proofImageUrls = await storeDeliveryProofImages(requestId, proposalId, proofImageBuffers);
+  const proofVideoUrl = await storeDeliveryProofVideoIfPresent(requestId, proposalId, proofVideoBuffer);
 
   await markProposalDelivered(proposalId, listing.id);
   await updateProposalDeliveryGuide(proposalId, deliveryGuide);
   await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
+  await replaceToolProposalDeliveryProofs(proposalId, proofImageUrls);
+  await updateProposalDeliveryProofVideo(proposalId, proofVideoUrl);
 
   if (!hasUnresolvedFindings(report.findings)) {
     await passDeliveryGate(requestId, proposalId);
@@ -205,6 +293,8 @@ export async function deliverRescanAction(formData: FormData) {
   }
 
   const deliveryGuide = requireDeliveryGuide(formData);
+  const proofImageBuffers = await collectDeliveryProofImages(formData);
+  const proofVideoBuffer = await collectDeliveryProofVideo(formData);
 
   const sourceType = await parseSourceType(formData);
   const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
@@ -215,10 +305,14 @@ export async function deliverRescanAction(formData: FormData) {
   await clearProposalDeliveryConfirmation(proposalId);
 
   const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
+  const proofImageUrls = await storeDeliveryProofImages(requestId, proposalId, proofImageBuffers);
+  const proofVideoUrl = await storeDeliveryProofVideoIfPresent(requestId, proposalId, proofVideoBuffer);
 
   await updateListingSource(listingId, { codeUrl, sourceType });
   await updateProposalDeliveryGuide(proposalId, deliveryGuide);
   await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
+  await replaceToolProposalDeliveryProofs(proposalId, proofImageUrls);
+  await updateProposalDeliveryProofVideo(proposalId, proofVideoUrl);
 
   const findings = await runScan(files);
   const report = await saveScanReport({
@@ -236,17 +330,72 @@ export async function deliverRescanAction(formData: FormData) {
   redirect(`/requests/${requestId}/deliver/review`);
 }
 
-// 더미 결제: 별도 PG 호출 없이 의뢰 상태만 completed로 바꾼다.
-export async function confirmDeliveryAction(formData: FormData) {
+// 의뢰인이 스캔 요약+실행 가이드+작동 증빙을 확인한 뒤 "수락"한다. 이 시점부터
+// 제작자 계좌가 공개되고 이체 단계로 넘어간다. 이미 수락된 상태의 재호출(뒤로가기/
+// 중복 클릭)은 acceptProposalDelivery가 멱등하게 true를 반환해 에러 없이 넘어간다.
+export async function acceptDeliveryAction(formData: FormData) {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
     redirect("/login");
   }
 
   const requestId = String(formData.get("requestId") ?? "");
-  const completed = await completeToolRequest(requestId, sellerId);
-  if (!completed) {
-    throw new Error("의뢰를 완료 처리할 수 없습니다.");
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const accepted = await acceptProposalDelivery(requestId, proposalId, sellerId);
+  if (!accepted) {
+    throw new Error("완성본을 수락할 수 없습니다.");
+  }
+
+  redirect(`/requests/${requestId}`);
+}
+
+// 의뢰인이 제작자 계좌로 이체한 뒤 "이체 완료"를 표시한다. 이체 증빙 스크린샷은
+// 선택이다.
+export async function markTransferSentAction(formData: FormData) {
+  const sellerId = await getCurrentSellerId();
+  if (!sellerId) {
+    redirect("/login");
+  }
+
+  const requestId = String(formData.get("requestId") ?? "");
+  const proposalId = String(formData.get("proposalId") ?? "");
+
+  const proofFile = formData.get("transferProof");
+  let transferProofUrl: string | null = null;
+  if (proofFile instanceof File && proofFile.size > 0) {
+    const result = await processRequestImage(proofFile);
+    if ("error" in result) {
+      throw new Error(result.error);
+    }
+    const blob = await put(
+      `delivery-proofs/${requestId}/${proposalId}-transfer-${randomUUID()}.webp`,
+      result.buffer,
+      { access: "private", contentType: "image/webp" }
+    );
+    transferProofUrl = blob.url;
+  }
+
+  const marked = await markProposalTransferSent(requestId, proposalId, sellerId, transferProofUrl);
+  if (!marked) {
+    throw new Error("이체 완료를 표시할 수 없습니다.");
+  }
+
+  redirect(`/requests/${requestId}`);
+}
+
+// 제작자가 "입금 확인"을 표시한다. 이 호출이 성공하면 의뢰가 완료 처리되고,
+// 의뢰인의 완성본 다운로드가 그때부터 열린다(다운로드 라우트가 별도로 확인).
+export async function confirmPaymentAction(formData: FormData) {
+  const sellerId = await getCurrentSellerId();
+  if (!sellerId) {
+    redirect("/login");
+  }
+
+  const requestId = String(formData.get("requestId") ?? "");
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const confirmed = await confirmProposalPayment(requestId, proposalId, sellerId);
+  if (!confirmed) {
+    throw new Error("입금 확인을 처리할 수 없습니다.");
   }
 
   redirect(`/requests/${requestId}?completed=1`);
