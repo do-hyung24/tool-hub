@@ -267,7 +267,10 @@ export async function createSeller(input: {
   const seller: Seller = {
     id: randomUUID(),
     nickname: input.nickname,
-    contact: input.email,
+    // 로그인 이메일을 공개 연락처로 자동 채우지 않는다 - 매물 상세 페이지에
+    // 그대로 노출되어 개인정보(로그인 이메일)가 새어나가는 문제였다. 공개
+    // 연락처를 입력할 UI가 따로 없으므로 신규 가입자는 빈 값으로 시작한다.
+    contact: "",
     email: input.email.trim().toLowerCase(),
     emailVerified: false,
     deletionRequestedAt: null,
