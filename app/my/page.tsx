@@ -199,7 +199,15 @@ export default async function MyActivityPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <h1 className="text-2xl font-bold">내 활동</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">내 활동</h1>
+        <Link
+          href={`/sellers/${sellerId}`}
+          className="text-sm font-medium text-accent hover:opacity-80"
+        >
+          내 공개 프로필 보기 →
+        </Link>
+      </div>
 
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">내 의뢰</h2>
