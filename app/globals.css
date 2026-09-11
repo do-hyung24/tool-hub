@@ -1,4 +1,5 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
+@import url("https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -18,11 +19,15 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: "Wanted Sans Variable", "Wanted Sans", var(--font-sans);
   /* 랜딩 전용 색 시스템 - 순흑/순백 대신 에메랄드가 살짝 섞인 톤을 쓴다. */
   --color-ink: #0b0f0e;
-  --color-ink-2: #111715;
+  --color-ink-2: #121716;
   --color-paper: #ffffff;
-  --color-paper-2: #f6f7f6;
+  --color-paper-2: #f5f6f5;
+  --color-accent: #2e7d5b;
+  --color-accent-soft: #8ccfb0;
+  --color-accent-tint: #e8f3ee;
 }
 
 body {

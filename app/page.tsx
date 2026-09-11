@@ -112,10 +112,10 @@ const COMPARISON_ROWS: ComparisonRow[] = [
     diy: ["dash", "해당 없음"],
   },
   {
-    label: "비개발자 진입",
-    toolhub: ["check", "설명+사진으로 의뢰"],
-    agency: ["partial", "요구사항 문서 필요"],
-    diy: ["x", "코딩 필요"],
+    label: "시작 방법",
+    toolhub: ["check", "설명과 사진"],
+    agency: ["partial", "요구사항 문서"],
+    diy: ["x", "직접 코딩"],
   },
   {
     label: "결과물 확인 방식",

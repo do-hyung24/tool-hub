@@ -38,11 +38,13 @@ export function SiteHeader({ authStatus }: { authStatus: ReactNode }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isHome]);
 
-  // 홈 & 스크롤 전: 완전 투명(경계 없음)으로 히어로 위에 얹힌 듯 보이게 한다.
+  // 홈 & 스크롤 전: 히어로와 같은 bg-ink 솔리드 배경(경계 없음)으로 히어로의
+  // 연장처럼 이어 붙인다(투명 배경은 sticky 특성상 스크롤 전에는 히어로와
+  // 겹치지 않아 body의 흰 배경이 그대로 비쳐 글씨가 안 보이는 문제가 있었다).
   // 홈 & 스크롤 후, 다른 모든 페이지: 항상 동일한 밝은 헤더(다른 페이지는 변경 없음).
   const transparentHome = isHome && !isScrolled;
   const headerClass = transparentHome
-    ? "dark border-transparent bg-transparent backdrop-blur-none"
+    ? "dark border-transparent bg-ink"
     : isHome
     ? "border-zinc-200 bg-paper/85"
     : "border-zinc-200 bg-white/80 dark:border-zinc-800 dark:bg-black/80";
