@@ -167,7 +167,7 @@ export default function Home() {
   return (
     <main className="flex-1">
       {/* ── A. Hero (dark) ── */}
-      <section className="dark relative flex flex-col items-center justify-center overflow-hidden bg-ink px-6 pb-20 pt-28 text-center text-zinc-50 lg:pb-24 lg:pt-36">
+      <section className="dark relative flex flex-col items-center justify-center overflow-hidden bg-ink px-6 pb-20 pt-28 text-center text-offwhite lg:pb-24 lg:pt-36">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -176,13 +176,13 @@ export default function Home() {
           }}
         />
         <div className="relative">
-          <p className="text-xs font-medium tracking-[0.04em] text-accent-soft">
+          <p className="text-xs font-medium tracking-[0.04em] text-muted">
             자동화 툴 의뢰 플랫폼
           </p>
-          <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.12] tracking-[-0.03em] break-keep sm:text-5xl lg:text-[3.5rem]">
+          <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.15] tracking-[-0.035em] break-keep sm:text-5xl lg:text-[3.5rem]">
             설명 한 줄에서, 검증된 완성본까지.
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-zinc-400 lg:text-base">
+          <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-muted lg:text-base">
             필요한 업무를 설명하면 제작자가 가격과 기간을 제안합니다. 완성본은 전달 전 자동 보안
             스캔을 거칩니다.
           </p>
@@ -254,11 +254,11 @@ export default function Home() {
           </Reveal>
 
           <Reveal className="mt-12">
-            <div className="dark rounded-3xl bg-ink p-8 text-zinc-50 ring-1 ring-white/5 lg:p-12">
+            <div className="dark rounded-3xl bg-ink p-8 text-offwhite ring-1 ring-white/5 lg:p-12">
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
                 <ScanShowcase />
                 <div>
-                  <p className="text-xs font-medium text-zinc-500">
+                  <p className="text-xs font-medium text-muted">
                     의뢰자에게 보이는 결과 (예시)
                   </p>
                   <div className="mt-2">
@@ -266,20 +266,20 @@ export default function Home() {
                   </div>
                   <div className="mt-6 grid grid-cols-3 gap-4 text-center">
                     <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-3xl font-medium tabular-nums text-zinc-50">
+                      <span className="text-3xl font-medium tabular-nums text-offwhite">
                         {CATEGORY_IDS.length}
                       </span>
-                      <span className="text-xs text-zinc-500">공개 취약 카테고리</span>
+                      <span className="text-xs text-muted">공개 취약 카테고리</span>
                     </div>
                     <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-3xl font-medium tabular-nums text-zinc-50">
+                      <span className="text-3xl font-medium tabular-nums text-offwhite">
                         {getDetectorTypeCount()}
                       </span>
-                      <span className="text-xs text-zinc-500">종 탐지 규칙</span>
+                      <span className="text-xs text-muted">종 탐지 규칙</span>
                     </div>
                     <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-3xl font-medium tabular-nums text-zinc-50">전부</span>
-                      <span className="text-xs text-zinc-500">예외 없는 완성본 스캔</span>
+                      <span className="text-3xl font-medium tabular-nums text-offwhite">전부</span>
+                      <span className="text-xs text-muted">예외 없는 완성본 스캔</span>
                     </div>
                   </div>
                 </div>
@@ -295,7 +295,7 @@ export default function Home() {
                   </span>
                 ))}
               </div>
-              <p className="mt-6 text-center text-xs text-zinc-500">
+              <p className="mt-6 text-center text-xs text-muted">
                 규칙 기반 자동 분석이며 모든 보안 문제를 찾아내지는 못합니다. 발견 항목은
                 참고용입니다.
               </p>
@@ -338,13 +338,13 @@ export default function Home() {
                 <div
                   className={
                     column.highlight
-                      ? "dark h-full rounded-2xl bg-ink p-6 text-zinc-50 ring-1 ring-white/[0.06]"
+                      ? "dark h-full rounded-2xl bg-ink p-6 text-offwhite ring-1 ring-white/[0.06]"
                       : "h-full rounded-2xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-950/[0.06]"
                   }
                 >
                   <h3
                     className={`text-lg font-semibold tracking-[-0.01em] ${
-                      column.highlight ? "text-zinc-50" : "text-zinc-900"
+                      column.highlight ? "text-offwhite" : "text-zinc-900"
                     }`}
                   >
                     {column.title}
@@ -356,13 +356,13 @@ export default function Home() {
                         <li key={row.label} className="flex items-start gap-3">
                           <ComparisonMarkIcon mark={mark} dark={column.highlight} />
                           <div>
-                            <p className={column.highlight ? "text-xs text-zinc-400" : "text-xs text-zinc-500"}>
+                            <p className={column.highlight ? "text-xs text-muted" : "text-xs text-zinc-500"}>
                               {row.label}
                             </p>
                             {text && (
                               <p
                                 className={
-                                  column.highlight ? "text-sm text-zinc-200" : "text-sm text-zinc-700"
+                                  column.highlight ? "text-sm text-offwhite" : "text-sm text-zinc-700"
                                 }
                               >
                                 {text}
@@ -420,12 +420,12 @@ export default function Home() {
       </section>
 
       {/* ── I. 최종 CTA (dark) ── */}
-      <section className="dark bg-ink px-6 py-20 text-center text-zinc-50 lg:py-24">
+      <section className="dark bg-ink px-6 py-20 text-center text-offwhite lg:py-24">
         <Reveal className="mx-auto max-w-2xl">
           <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep sm:text-4xl">
             첫 의뢰를 등록하세요
           </h2>
-          <p className="mt-4 text-[15px] leading-[1.7] text-zinc-400 lg:text-base">
+          <p className="mt-4 text-[15px] leading-[1.7] text-muted lg:text-base">
             등록은 무료입니다. 제안을 받기 전까지 비용은 없습니다.
           </p>
           <div className="mt-8">

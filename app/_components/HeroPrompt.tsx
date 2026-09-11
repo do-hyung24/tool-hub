@@ -50,7 +50,7 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
           onKeyDown={handleKeyDown}
           maxLength={MAX_LENGTH}
           placeholder={PLACEHOLDER}
-          className={`flex-1 resize-none bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 ${
+          className={`flex-1 resize-none bg-transparent py-2 text-sm text-offwhite outline-none placeholder:text-muted ${
             compact ? "max-h-6 overflow-hidden" : "max-h-[4.5rem] overflow-y-auto"
           }`}
         />
@@ -63,9 +63,9 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
         </button>
       </div>
       {!compact && (
-        <p className="mt-3 text-center text-xs text-zinc-500">
+        <p className="mt-3 text-center text-xs text-muted">
           등록 무료 · 제안 전까지 비용 없음 · 제작자는{" "}
-          <Link href="/requests" className="text-zinc-300 hover:text-paper">
+          <Link href="/requests" className="text-offwhite hover:opacity-80">
             의뢰 둘러보기
           </Link>
         </p>

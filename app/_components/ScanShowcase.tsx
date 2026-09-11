@@ -38,7 +38,7 @@ export function ScanShowcase() {
         <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
         <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
         <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
-        <span className="ml-2 font-mono text-xs text-zinc-500">sync_orders.py</span>
+        <span className="ml-2 font-mono text-xs text-muted">sync_orders.py</span>
       </div>
       <div aria-hidden className="overflow-x-auto px-2 py-4 font-mono text-[13px] leading-relaxed">
         {CODE_LINES.map((line, index) => {
@@ -62,7 +62,7 @@ export function ScanShowcase() {
               <span className="w-5 shrink-0 select-none text-right text-zinc-600">
                 {lineNumber}
               </span>
-              <span className="flex-1 whitespace-pre text-zinc-300">{line || " "}</span>
+              <span className="flex-1 whitespace-pre text-code">{line || " "}</span>
               <span className="w-16 shrink-0 text-right">
                 {highlight && (
                   <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-300">

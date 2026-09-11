@@ -16,7 +16,7 @@ export function ScanSummaryCard({
     <section
       className={`rounded-xl border border-zinc-200 p-4 dark:border-transparent dark:bg-white/[0.03] dark:ring-1 dark:ring-white/[0.06] ${className}`}
     >
-      <p className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <p className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-offwhite">
         <svg
           aria-hidden
           viewBox="0 0 20 20"
@@ -33,10 +33,10 @@ export function ScanSummaryCard({
       {groups.length > 0 && <SecurityScanSummary groups={groups} />}
       {disclosureNote && (
         <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-          <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+          <h3 className="text-xs font-semibold text-zinc-500 dark:text-muted">
             판매자 코멘트
           </h3>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
+          <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700 dark:text-offwhite">
             {disclosureNote}
           </p>
         </div>
