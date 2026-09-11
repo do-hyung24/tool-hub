@@ -167,13 +167,13 @@ export default function Home() {
   return (
     <main className="flex-1">
       {/* ── A. Hero (dark) ── */}
-      <section className="dark relative flex flex-col items-center justify-center overflow-hidden bg-zinc-950 px-6 py-24 text-center text-zinc-50 lg:py-32">
+      <section className="dark relative flex flex-col items-center justify-center overflow-hidden bg-ink px-6 pb-20 pt-28 text-center text-zinc-50 lg:pb-24 lg:pt-36">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 60% 50% at 50% 20%, rgb(16 185 129 / 0.06), transparent 70%)",
+              "radial-gradient(ellipse 70% 60% at 50% 20%, rgb(16 185 129 / 0.13), transparent 70%)",
           }}
         />
         <div className="relative">
@@ -196,7 +196,7 @@ export default function Home() {
       </section>
 
       {/* ── B. 약속 4개 (light, grid bg) ── */}
-      <section className="relative bg-white px-6 py-24 lg:py-32">
+      <section className="relative bg-paper px-6 py-20 lg:py-24">
         <div aria-hidden className="lp-grid-bg pointer-events-none absolute inset-0" />
         <Reveal className="relative mx-auto max-w-6xl">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
@@ -213,7 +213,7 @@ export default function Home() {
       </section>
 
       {/* ── C. 활용 사례 6개 (light) ── */}
-      <section className="bg-white px-6 py-24 lg:py-32">
+      <section className="bg-paper-2 px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600">
@@ -228,7 +228,7 @@ export default function Home() {
               <Reveal key={useCase.title}>
                 <Link
                   href={`/requests/new?desc=${encodeURIComponent(useCase.sentence)}`}
-                  className="flex h-full flex-col rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-colors hover:border-emerald-300"
+                  className="flex h-full flex-col rounded-2xl border border-zinc-200 bg-paper p-6 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md"
                 >
                   <h3 className="font-semibold text-zinc-900">{useCase.title}</h3>
                   <p className="mt-2 line-clamp-2 text-sm text-zinc-600">{useCase.sentence}</p>
@@ -242,68 +242,73 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── D. 보안 스캔 쇼케이스 (dark) ── */}
-      <section className="dark bg-zinc-950 px-6 py-24 text-zinc-50 lg:py-32">
+      {/* ── D. 보안 스캔 쇼케이스 (light 섹션 + 다크 패널) ── */}
+      <section className="bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
+            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600">
               자동 보안 스캔
             </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight break-keep sm:text-4xl">
+            <h2 className="mt-3 text-3xl font-bold tracking-tight break-keep text-zinc-900 sm:text-4xl">
               받기 전에, 코드가 먼저 읽힙니다.
             </h2>
-            <p className="mt-4 max-w-2xl break-keep text-base text-zinc-400">
+            <p className="mt-4 max-w-2xl break-keep text-base text-zinc-600">
               제작자가 보낸 완성본은 의뢰자에게 도착하기 전에 자동 보안 스캔을 거칩니다. 발견된
               항목은 숨기지 않고 심각도별로 그대로 보여드립니다.
             </p>
           </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <Reveal>
-              <ScanShowcase />
-            </Reveal>
-            <Reveal>
-              <div>
-                <p className="text-xs font-medium text-zinc-500">의뢰자에게 보이는 결과 (예시)</p>
-                <div className="mt-2">
-                  <ScanSummaryCard groups={scanShowcaseGroups} />
-                </div>
-                <div className="mt-6 grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <p className="text-3xl font-semibold text-zinc-50">{CATEGORY_IDS.length}</p>
-                    <p className="mt-1 text-xs text-zinc-500">공개 취약 카테고리</p>
+          <Reveal className="mt-12">
+            <div className="dark rounded-3xl bg-ink p-8 text-zinc-50 ring-1 ring-white/5 lg:p-12">
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                <ScanShowcase />
+                <div>
+                  <p className="text-xs font-medium text-zinc-500">
+                    의뢰자에게 보이는 결과 (예시)
+                  </p>
+                  <div className="mt-2">
+                    <ScanSummaryCard groups={scanShowcaseGroups} />
                   </div>
-                  <div>
-                    <p className="text-3xl font-semibold text-zinc-50">{getDetectorTypeCount()}</p>
-                    <p className="mt-1 text-xs text-zinc-500">종 탐지 규칙</p>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-semibold text-zinc-50">전부</p>
-                    <p className="mt-1 text-xs text-zinc-500">예외 없는 완성본 스캔</p>
+                  <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-3xl font-semibold text-zinc-50">{CATEGORY_IDS.length}</p>
+                      <p className="mt-1 text-xs text-zinc-500">공개 취약 카테고리</p>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-semibold text-zinc-50">
+                        {getDetectorTypeCount()}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">종 탐지 규칙</p>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-semibold text-zinc-50">전부</p>
+                      <p className="mt-1 text-xs text-zinc-500">예외 없는 완성본 스캔</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </Reveal>
-          </div>
 
-          <div className="mt-12 flex flex-wrap justify-center gap-2">
-            {CATEGORY_LABELS.map((item) => (
-              <span
-                key={item.id}
-                className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300"
-              >
-                {item.label}
-              </span>
-            ))}
-          </div>
-          <p className="mt-6 text-center text-xs text-zinc-500">
-            규칙 기반 자동 분석이며 모든 보안 문제를 찾아내지는 못합니다. 발견 항목은 참고용입니다.
-          </p>
+              <div className="mt-12 flex flex-wrap justify-center gap-2">
+                {CATEGORY_LABELS.map((item) => (
+                  <span
+                    key={item.id}
+                    className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300"
+                  >
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-6 text-center text-xs text-zinc-500">
+                규칙 기반 자동 분석이며 모든 보안 문제를 찾아내지는 못합니다. 발견 항목은
+                참고용입니다.
+              </p>
+            </div>
+          </Reveal>
         </div>
       </section>
 
       {/* ── E. 이용 방법 (light) ── */}
-      <section className="bg-white px-6 py-24 lg:py-32">
+      <section className="bg-paper-2 px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600">
@@ -325,7 +330,7 @@ export default function Home() {
       </section>
 
       {/* ── F. 비교 (light) ── */}
-      <section className="bg-white px-6 py-24 lg:py-32">
+      <section className="bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <h2 className="text-3xl font-bold tracking-tight break-keep text-zinc-900 sm:text-4xl">
@@ -336,7 +341,7 @@ export default function Home() {
             {COMPARISON_COLUMNS.map((column) => (
               <Reveal key={column.key}>
                 <div
-                  className={`h-full rounded-2xl border p-6 ${
+                  className={`h-full rounded-2xl border p-6 transition-shadow hover:border-emerald-300 hover:shadow-md ${
                     column.highlight
                       ? "border-emerald-300 ring-1 ring-emerald-100"
                       : "border-zinc-200"
@@ -371,7 +376,7 @@ export default function Home() {
       </section>
 
       {/* ── G. 마켓 티저 (light, 얇은 배너) ── */}
-      <section className="border-y border-zinc-200 bg-zinc-50 px-6 py-8">
+      <section className="border-y border-zinc-200 bg-paper-2 px-6 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-sm text-zinc-600">이미 만들어진 툴이 필요하다면</p>
           <Link
@@ -384,7 +389,7 @@ export default function Home() {
       </section>
 
       {/* ── H. FAQ (light) ── */}
-      <section className="bg-white px-6 py-24 lg:py-32">
+      <section className="bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
@@ -411,7 +416,7 @@ export default function Home() {
       </section>
 
       {/* ── I. 최종 CTA (dark) ── */}
-      <section className="dark bg-zinc-950 px-6 py-24 text-center text-zinc-50 lg:py-32">
+      <section className="dark bg-ink px-6 py-20 text-center text-zinc-50 lg:py-24">
         <Reveal className="mx-auto max-w-2xl">
           <h2 className="text-3xl font-bold tracking-tight break-keep sm:text-4xl">
             지금 첫 의뢰를 등록해보세요

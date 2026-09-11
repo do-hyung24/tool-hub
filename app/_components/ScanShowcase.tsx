@@ -32,7 +32,7 @@ const HIT_COLORS: Record<ShowcaseSeverity, { bg: string; border: string }> = {
 
 export function ScanShowcase() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+    <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-ink-2">
       <div className="lp-scan-beam" aria-hidden />
       <div className="flex items-center gap-1.5 border-b border-zinc-800 px-4 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />

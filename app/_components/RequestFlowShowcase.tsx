@@ -8,7 +8,7 @@ const MOCK_PROPOSALS = [
 
 export function RequestFlowShowcase() {
   return (
-    <div aria-hidden className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div aria-hidden className="rounded-2xl border border-zinc-200 bg-paper p-5 shadow-sm">
       <p className="text-xs font-medium text-zinc-400">진행 과정 (예시)</p>
 
       <div className="mt-4 rounded-xl border border-zinc-200 p-4">

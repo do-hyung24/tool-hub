@@ -10,7 +10,7 @@ const FOOTER_LINKS = [
 
 export function SiteFooter() {
   return (
-    <footer className="dark border-t border-zinc-800 bg-zinc-950 text-zinc-50">
+    <footer className="dark border-t border-white/5 bg-ink-2 text-zinc-50">
       <div className="mx-auto w-full max-w-5xl px-6 py-10">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div>

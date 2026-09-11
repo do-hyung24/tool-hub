@@ -18,6 +18,11 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* 랜딩 전용 색 시스템 - 순흑/순백 대신 에메랄드가 살짝 섞인 톤을 쓴다. */
+  --color-ink: #0b0f0e;
+  --color-ink-2: #111715;
+  --color-paper: #ffffff;
+  --color-paper-2: #f6f7f6;
 }
 
 body {
@@ -48,7 +53,7 @@ body {
 /* 스크롤 진입 시 서서히 떠오르는 효과. JS(Reveal)가 .is-visible을 붙인다. */
 .lp-fade-up {
   opacity: 0;
-  transform: translateY(14px);
+  transform: translateY(8px);
   transition: opacity 0.6s ease-out, transform 0.6s ease-out;
 }
 .lp-fade-up.is-visible {
