@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 
 const DESCRIPTION_MAX_LENGTH = 2000;
 
+// NewRequestForm의 예산 필드와 동일한 방식: state는 콤마 없는 숫자 문자열만
+// 들고, 화면 표시만 천단위 콤마를 붙인다.
+function formatPriceDisplay(rawDigits: string): string {
+  if (!rawDigits) return "";
+  return Number(rawDigits).toLocaleString("ko-KR");
+}
+
 export function ProposalForm({ requestId }: { requestId: string }) {
   const router = useRouter();
   const [price, setPrice] = useState("");
@@ -44,11 +51,10 @@ export function ProposalForm({ requestId }: { requestId: string }) {
       <div className="flex gap-2">
         <input
           required
-          type="number"
-          min={1}
-          step={1}
-          value={price}
-          onChange={(event) => setPrice(event.target.value)}
+          type="text"
+          inputMode="numeric"
+          value={formatPriceDisplay(price)}
+          onChange={(event) => setPrice(event.target.value.replace(/[^0-9]/g, ""))}
           placeholder="가격 (원)"
           className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
         />
