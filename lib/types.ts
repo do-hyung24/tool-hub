@@ -6,6 +6,23 @@ export type Seller = {
   emailVerified: boolean;
   deletionRequestedAt: string | null;
   profileImageUrl: string | null;
+  createdAt: string;
+};
+
+// /sellers/[id] 공개 프로필용 집계 - 이메일 등 비공개 정보는 절대 포함하지 않는다.
+export type SellerPublicProfile = {
+  sellerId: string;
+  nickname: string;
+  profileImageUrl: string | null;
+  createdAt: string;
+  completedAsMaker: number;
+  // 완료 실적이 0건이면 계산할 표본이 없어 null(집계 불가 - "0% 통과"와 구분).
+  scanPassRate: number | null;
+  publishedListings: Array<{
+    id: string;
+    title: string;
+    scanStatus: Listing["scanStatus"];
+  }>;
 };
 
 export const CATEGORIES = [

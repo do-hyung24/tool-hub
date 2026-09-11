@@ -18,6 +18,7 @@ import type {
   Listing,
   ScanReport,
   Seller,
+  SellerPublicProfile,
   SourceType,
   ToolProposal,
   ToolProposalMessage,
@@ -64,6 +65,7 @@ type SellerRow = {
   email_verified: boolean;
   deletion_requested_at: string | null;
   profile_image_url: string | null;
+  created_at: string;
 };
 
 function rowToListing(row: ListingRow): Listing {
@@ -105,6 +107,7 @@ function rowToSeller(row: SellerRow): Seller {
     emailVerified: row.email_verified,
     deletionRequestedAt: row.deletion_requested_at,
     profileImageUrl: row.profile_image_url ?? null,
+    createdAt: row.created_at,
   };
 }
 
@@ -155,7 +158,7 @@ export async function getSellerById(id: string): Promise<Seller | null> {
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, nickname, contact, email, email_verified, deletion_requested_at, profile_image_url
+    SELECT id, nickname, contact, email, email_verified, deletion_requested_at, profile_image_url, created_at
     FROM sellers WHERE id = ${id}
   `) as SellerRow[];
   return rows[0] ? rowToSeller(rows[0]) : null;
@@ -165,7 +168,7 @@ export async function getSellerByEmail(email: string): Promise<Seller | null> {
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, nickname, contact, email, email_verified, profile_image_url
+    SELECT id, nickname, contact, email, email_verified, profile_image_url, created_at
     FROM sellers WHERE email = ${email.trim().toLowerCase()}
   `) as SellerRow[];
   return rows[0] ? rowToSeller(rows[0]) : null;
@@ -175,10 +178,64 @@ export async function getSellerByNickname(nickname: string): Promise<Seller | nu
   await ensureInitialized();
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, nickname, contact, email, email_verified, profile_image_url
+    SELECT id, nickname, contact, email, email_verified, profile_image_url, created_at
     FROM sellers WHERE nickname = ${nickname.trim()}
   `) as SellerRow[];
   return rows[0] ? rowToSeller(rows[0]) : null;
+}
+
+// /sellers/[id] 공개 프로필용 집계. 이메일 등 비공개 정보는 반환 객체를 새로
+// 조립해서(...seller 스프레드 없이) 절대 포함하지 않는다. 탈퇴 처리 중인
+// 계정은 공개 매물과 동일한 기준으로 존재 자체를 숨긴다(null 반환).
+export async function getSellerPublicProfile(sellerId: string): Promise<SellerPublicProfile | null> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const seller = await getSellerById(sellerId);
+  if (!seller || seller.deletionRequestedAt) {
+    return null;
+  }
+
+  const [deliveryRows, listingRows] = await Promise.all([
+    sql`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE listings.has_unresolved_findings = false)::int AS passed
+      FROM tool_proposals
+      JOIN tool_requests ON tool_requests.id = tool_proposals.request_id
+      JOIN listings ON listings.id = tool_proposals.delivered_listing_id
+      WHERE tool_proposals.seller_id = ${sellerId}
+        AND tool_proposals.status = 'selected'
+        AND tool_requests.status = 'completed'
+    `,
+    sql`
+      SELECT id, title, scan_status
+      FROM listings
+      WHERE seller_id = ${sellerId} AND published = true
+      ORDER BY created_at DESC
+    `,
+  ]);
+
+  const { total, passed } = (deliveryRows as Array<{ total: number; passed: number }>)[0] ?? {
+    total: 0,
+    passed: 0,
+  };
+
+  return {
+    sellerId,
+    nickname: seller.nickname,
+    profileImageUrl: seller.profileImageUrl,
+    createdAt: seller.createdAt,
+    completedAsMaker: total,
+    scanPassRate: total > 0 ? passed / total : null,
+    publishedListings: (
+      listingRows as Array<{ id: string; title: string; scan_status: string }>
+    ).map((row) => ({
+      id: row.id,
+      title: row.title,
+      scanStatus: row.scan_status as Listing["scanStatus"],
+    })),
+  };
 }
 
 // 회원가입으로 새 판매자 계정을 만든다. 연락처(contact)는 아직 별도 입력을 받지
@@ -199,13 +256,14 @@ export async function createSeller(input: {
     emailVerified: false,
     deletionRequestedAt: null,
     profileImageUrl: null,
+    createdAt: new Date().toISOString(),
   };
 
   await sql`
-    INSERT INTO sellers (id, nickname, contact, email, password_hash, email_verified)
+    INSERT INTO sellers (id, nickname, contact, email, password_hash, email_verified, created_at)
     VALUES (
       ${seller.id}, ${seller.nickname}, ${seller.contact},
-      ${seller.email}, ${input.passwordHash}, false
+      ${seller.email}, ${input.passwordHash}, false, ${seller.createdAt}
     )
   `;
 

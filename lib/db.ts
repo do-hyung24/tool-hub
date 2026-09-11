@@ -31,6 +31,7 @@ const SEED_SELLERS: Seller[] = [
     emailVerified: false,
     deletionRequestedAt: null,
     profileImageUrl: null,
+    createdAt: "2026-08-01T00:00:00.000Z",
   },
   {
     id: "s2",
@@ -40,6 +41,7 @@ const SEED_SELLERS: Seller[] = [
     emailVerified: false,
     deletionRequestedAt: null,
     profileImageUrl: null,
+    createdAt: "2026-08-01T00:00:00.000Z",
   },
   {
     id: "s3",
@@ -49,6 +51,7 @@ const SEED_SELLERS: Seller[] = [
     emailVerified: false,
     deletionRequestedAt: null,
     profileImageUrl: null,
+    createdAt: "2026-08-01T00:00:00.000Z",
   },
 ];
 
@@ -216,6 +219,12 @@ async function initialize(): Promise<void> {
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS deletion_requested_at TEXT`;
   // 프로필 사진의 Vercel Blob URL. NULL이면 기본 아바타를 표시한다.
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS profile_image_url TEXT`;
+  // 가입일(공개 프로필 "가입 N개월/년차" 표시용). 기존 계정은 이 컬럼이 없었으므로
+  // 한 번만 지금 시각으로 채워 넣는다 - 실제 가입일이 아니지만, 없는 값을 지어내는
+  // 대신 이 컬럼이 생긴 시점을 정직하게 기록하는 것이다. 이후 신규 가입은
+  // createSeller가 매번 실제 가입 시각을 채운다.
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS created_at TEXT`;
+  await sql`UPDATE sellers SET created_at = ${new Date().toISOString()} WHERE created_at IS NULL`;
 
   // 유니크 인덱스를 걸기 전, 이미 중복된 값이 있으면 인덱스 생성 자체가 실패해
   // 이후 모든 요청에서 ensureInitialized()가 계속 예외를 던지는 전면 장애로
@@ -454,8 +463,8 @@ async function initialize(): Promise<void> {
 
   for (const seller of SEED_SELLERS) {
     await sql`
-      INSERT INTO sellers (id, nickname, contact)
-      VALUES (${seller.id}, ${seller.nickname}, ${seller.contact})
+      INSERT INTO sellers (id, nickname, contact, created_at)
+      VALUES (${seller.id}, ${seller.nickname}, ${seller.contact}, ${seller.createdAt})
       ON CONFLICT (id) DO NOTHING
     `;
   }
