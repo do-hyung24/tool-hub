@@ -41,6 +41,17 @@ export function ConfirmDeliveryButton({
           : "제출한 완성본이 자동 보안 스캔을 마치고 의뢰자에게 전달되었습니다. 이 완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다."}
       </p>
 
+      {summary.proposal.deliveryGuide && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+            실행 가이드
+          </h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
+            {summary.proposal.deliveryGuide}
+          </p>
+        </div>
+      )}
+
       <div className="mt-4">
         <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
           코드 링크
@@ -55,23 +66,19 @@ export function ConfirmDeliveryButton({
             {summary.listing.codeUrl}
           </a>
         ) : (
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            zip 업로드로 제출된 완성본이라 코드 링크가 없습니다. 위 비공개
-            스레드에서 파일 전달 방법을 협의해주세요.
-          </p>
+          <div className="mt-2">
+            <a
+              href={`/api/requests/${requestId}/delivery/download`}
+              className="inline-block rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              완성본 다운로드
+            </a>
+            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+              스캔받은 파일과 동일한 완성본입니다. 실행 방법은 위 실행 가이드를 참고하세요.
+            </p>
+          </div>
         )}
       </div>
-
-      {summary.proposal.deliveryGuide && (
-        <div className="mt-4">
-          <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-            실행 가이드
-          </h3>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
-            {summary.proposal.deliveryGuide}
-          </p>
-        </div>
-      )}
 
       <ScanSummaryCard
         className="mt-4"
