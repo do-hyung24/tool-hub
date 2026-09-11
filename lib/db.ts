@@ -225,6 +225,14 @@ async function initialize(): Promise<void> {
   // createSeller가 매번 실제 가입 시각을 채운다.
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS created_at TEXT`;
   await sql`UPDATE sellers SET created_at = ${new Date().toISOString()} WHERE created_at IS NULL`;
+  // 제작자 정산(직거래 이체 수신용) 계좌 정보. 본인이 직접 입력하고(휴대폰 인증·
+  // 계좌 실명대조 없음), 노출은 getSellerById 등 일반 조회 함수에는 전혀 포함하지
+  // 않고 lib/data.ts의 getSellerSettlementAccount(본인 전용)/
+  // getSettlementAccountForViewer(의뢰인이 완성본을 수락한 뒤에만) 두 전용 함수를
+  // 통해서만 읽는다.
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_bank_name TEXT`;
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_account_holder TEXT`;
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_account_number TEXT`;
 
   // 유니크 인덱스를 걸기 전, 이미 중복된 값이 있으면 인덱스 생성 자체가 실패해
   // 이후 모든 요청에서 ensureInitialized()가 계속 예외를 던지는 전면 장애로
@@ -459,6 +467,58 @@ async function initialize(): Promise<void> {
   // 두며, 이 컬럼은 새 제안부터만 채워진다 - 기존 제안은 NULL로 남고 화면에서
   // 조용히 생략된다(파싱/백필 없음).
   await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS proposed_completion_date TEXT`;
+
+  // 아래 5개 컬럼은 "에스크로 없는 직거래 결제/정산" 흐름의 단계별 시각을
+  // 기록한다. 병렬 상태 테이블을 새로 두지 않고 기존 delivery_confirmed_at
+  // (스캔 게이트 통과) 뒤를 잇는 타임스탬프로만 표현한다.
+  //   제출+스캔 통과(delivery_confirmed_at) → 의뢰인 수락(buyer_accepted_at)
+  //   → 의뢰인 이체 완료 표시(transfer_marked_at) → 제작자 입금 확인
+  //   (payment_confirmed_at, 이 시점에만 tool_requests.status가 completed로
+  //   바뀌고 완성본 다운로드가 열린다). 재제출(재스캔) 시에는 아래에서
+  //   clearProposalDeliveryConfirmation이 이 3개도 함께 초기화한다 - 새로
+  //   제출된 완성본이 이전 수락/이체 상태를 그대로 물려받지 않도록.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS buyer_accepted_at TEXT`;
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS transfer_marked_at TEXT`;
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS payment_confirmed_at TEXT`;
+  // 의뢰인이 "이체 완료" 표시 시 선택적으로 첨부하는 이체 증빙 스크린샷(private Blob URL).
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS transfer_proof_url TEXT`;
+  // 완성본 제출 시 작동 증빙으로 첨부하는 짧은 영상(선택, private Blob URL).
+  // 스크린샷은 별도 테이블(tool_proposal_delivery_proofs, 1장 이상)에 보관한다.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_proof_video_url TEXT`;
+
+  // 이 5개 컬럼이 생기기 전에 이미 완료(tool_requests.status='completed')까지
+  // 간 거래는 결제 확인 단계 자체가 없었으므로, 새 게이트(payment_confirmed_at
+  // 없으면 다운로드 불가)가 그 기존 거래를 회귀시키지 않도록 완료 시점을 그대로
+  // 백필한다. 신규/진행중 거래는 delivery_confirmed_at은 있어도 status가
+  // completed가 아니므로 이 조건에 걸리지 않는다.
+  await sql`
+    UPDATE tool_proposals
+    SET buyer_accepted_at = COALESCE(buyer_accepted_at, delivery_confirmed_at),
+        transfer_marked_at = COALESCE(transfer_marked_at, delivery_confirmed_at),
+        payment_confirmed_at = COALESCE(payment_confirmed_at, delivery_confirmed_at)
+    WHERE payment_confirmed_at IS NULL
+      AND delivery_confirmed_at IS NOT NULL
+      AND status = 'selected'
+      AND request_id IN (SELECT id FROM tool_requests WHERE status = 'completed')
+  `;
+
+  // 완성본 제출 시 첨부하는 작동 증빙 스크린샷(1장 이상). tool_request_images와
+  // 동일한 패턴(부모별 다건, sort_order로 순서 유지)이다. 당사자(의뢰인/선택된
+  // 제작자) 한정 게이트 라우트(app/api/requests/[requestId]/delivery/asset)를
+  // 통해서만 조회되며, 다른 조회 함수는 이 테이블을 읽지 않는다.
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_proposal_delivery_proofs (
+      id TEXT PRIMARY KEY,
+      proposal_id TEXT NOT NULL REFERENCES tool_proposals(id),
+      image_url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_tool_proposal_delivery_proofs_proposal
+      ON tool_proposal_delivery_proofs(proposal_id, sort_order)
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS tool_proposal_messages (

@@ -182,7 +182,36 @@ export type ToolProposal = {
   deliveryGuide: string | null;
   deliveryFileUrl: string | null;
   proposedCompletionDate: string | null;
+  // 직거래 결제/정산 흐름(에스크로 없음)의 단계별 시각. delivery_confirmed_at
+  // (스캔 게이트 통과) 다음을 잇는다: 의뢰인 수락(buyerAcceptedAt) → 의뢰인
+  // 이체 완료 표시(transferMarkedAt, 선택적으로 transferProofUrl 첨부) → 제작자
+  // 입금 확인(paymentConfirmedAt, 이 시점에만 완성본 다운로드가 열린다).
+  buyerAcceptedAt: string | null;
+  transferMarkedAt: string | null;
+  transferProofUrl: string | null;
+  paymentConfirmedAt: string | null;
+  // 완성본 제출 시 작동 증빙으로 첨부하는 짧은 영상(선택). 스크린샷은
+  // ToolProposalDeliveryProof(1장 이상)로 별도 보관한다.
+  deliveryProofVideoUrl: string | null;
   createdAt: string;
+};
+
+// 완성본 제출 시 작동 증빙으로 첨부하는 스크린샷. ToolRequestImage와 동일한
+// 모양(부모별 다건 + sortOrder)이다.
+export type ToolProposalDeliveryProof = {
+  id: string;
+  proposalId: string;
+  imageUrl: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
+// 제작자 정산 계좌 - 민감정보라 Seller 타입에 넣지 않고 전용 함수(lib/data.ts의
+// getSellerSettlementAccount/getSettlementAccountForViewer)로만 조회한다.
+export type SellerSettlementAccount = {
+  bankName: string | null;
+  accountHolder: string | null;
+  accountNumber: string | null;
 };
 
 export type ToolProposalWithAuthor = ToolProposal & {
