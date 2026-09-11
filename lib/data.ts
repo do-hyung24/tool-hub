@@ -16,6 +16,8 @@ import type {
   FeedbackVoice,
   Finding,
   Listing,
+  MyRequestSummary,
+  MyWorkSummary,
   ScanReport,
   Seller,
   SellerPublicProfile,
@@ -1489,6 +1491,85 @@ export async function listToolProposalsForRequest(requestId: string): Promise<To
     ORDER BY tool_proposals.created_at ASC
   `) as ToolProposalWithAuthorRow[];
   return rows.map(rowToToolProposalWithAuthor);
+}
+
+// /my(내 활동) - 내가 올린 의뢰 전부를 평평한 목록으로 반환한다(상태별 분류는
+// 페이지에서 status를 보고 나눈다). 제안 수는 LEFT JOIN + COUNT로 한 번에
+// 집계해 N+1을 피한다.
+type MyRequestRow = {
+  id: string;
+  title: string;
+  status: string;
+  desired_deadline: string | null;
+  created_at: string;
+  proposal_count: number;
+};
+
+export async function listMyRequests(sellerId: string): Promise<MyRequestSummary[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT tool_requests.id, tool_requests.title, tool_requests.status,
+           tool_requests.desired_deadline, tool_requests.created_at,
+           COUNT(tool_proposals.id)::int AS proposal_count
+    FROM tool_requests
+    LEFT JOIN tool_proposals ON tool_proposals.request_id = tool_requests.id
+    WHERE tool_requests.requester_seller_id = ${sellerId}
+    GROUP BY tool_requests.id
+    ORDER BY tool_requests.created_at DESC
+  `) as MyRequestRow[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    status: row.status as ToolRequestStatus,
+    desiredDeadline: row.desired_deadline,
+    proposalCount: row.proposal_count,
+    createdAt: row.created_at,
+  }));
+}
+
+// /my(내 활동) - 내가 낸 제안 전부를, 그 제안이 속한 의뢰의 제목/상태/희망
+// 완료시점과 함께 한 번의 JOIN으로 반환한다(상태별 분류는 페이지에서
+// myProposalStatus/requestStatus 조합을 보고 나눈다).
+type MyWorkRow = {
+  proposal_id: string;
+  request_id: string;
+  proposal_status: string;
+  price: number;
+  duration: string;
+  created_at: string;
+  request_title: string;
+  request_status: string;
+  desired_deadline: string | null;
+};
+
+export async function listMyWork(sellerId: string): Promise<MyWorkSummary[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT tool_proposals.id AS proposal_id, tool_proposals.request_id,
+           tool_proposals.status AS proposal_status, tool_proposals.price,
+           tool_proposals.duration, tool_proposals.created_at,
+           tool_requests.title AS request_title, tool_requests.status AS request_status,
+           tool_requests.desired_deadline
+    FROM tool_proposals
+    JOIN tool_requests ON tool_requests.id = tool_proposals.request_id
+    WHERE tool_proposals.seller_id = ${sellerId}
+    ORDER BY tool_proposals.created_at DESC
+  `) as MyWorkRow[];
+
+  return rows.map((row) => ({
+    requestId: row.request_id,
+    proposalId: row.proposal_id,
+    requestTitle: row.request_title,
+    requestStatus: row.request_status as ToolRequestStatus,
+    desiredDeadline: row.desired_deadline,
+    myProposalStatus: row.proposal_status as ToolProposalStatus,
+    price: row.price,
+    duration: row.duration,
+    createdAt: row.created_at,
+  }));
 }
 
 export async function getToolProposalById(id: string): Promise<ToolProposal | null> {

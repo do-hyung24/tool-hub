@@ -189,6 +189,29 @@ export type ToolProposalWithAuthor = ToolProposal & {
   sellerProfileImageUrl: string | null;
 };
 
+// /my(내 활동 대시보드) 전용 요약 타입 - 상태별 분류는 페이지 쪽에서 status
+// 필드를 보고 나눈다(데이터 함수는 분류하지 않고 평평한 목록만 반환).
+export type MyRequestSummary = {
+  id: string;
+  title: string;
+  status: ToolRequestStatus;
+  desiredDeadline: string | null;
+  proposalCount: number;
+  createdAt: string;
+};
+
+export type MyWorkSummary = {
+  requestId: string;
+  proposalId: string;
+  requestTitle: string;
+  requestStatus: ToolRequestStatus;
+  desiredDeadline: string | null;
+  myProposalStatus: ToolProposalStatus;
+  price: number;
+  duration: string;
+  createdAt: string;
+};
+
 export type ToolProposalMessage = {
   id: string;
   proposalId: string;
