@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { groupFindingsForBuyer, CATEGORY_IDS, CATEGORY_LABELS, getDetectorTypeCount } from "@/lib/findingCategories";
+import { getListings } from "@/lib/data";
 import type { Finding } from "@/lib/types";
 import { HeroPrompt } from "./_components/HeroPrompt";
 import { Reveal } from "./_components/Reveal";
@@ -49,10 +50,44 @@ const SCAN_SHOWCASE_FINDINGS: Finding[] = [
 ];
 
 const PROMISES = [
-  { label: "수수료", sentence: "플랫폼 수수료를 받지 않습니다." },
+  {
+    label: "수수료",
+    big: "중개 수수료 0%",
+    small: "타 외주 플랫폼은 제작자에게 최대 20% 이상, 툴허브는 0%",
+  },
   { label: "보안 스캔", sentence: "모든 완성본과 매물이 자동 검사를 거칩니다." },
   { label: "비공개 조율", sentence: "세부 협의는 의뢰자와 선택된 제작자만 봅니다." },
   { label: "결제 시점", sentence: "완성본과 스캔 결과를 확인한 뒤에만 결제합니다." },
+] as const;
+
+// CATEGORY_LABELS 칩에 호버/탭 시 뜨는 쉬운말 한 줄 설명. EXPERT_LABELS/detector.ts의
+// 카테고리 의미를 그대로 풀어 쓴 것으로, 실제 발견 항목(findings)과는 무관하게 카테고리
+// 자체가 무엇을 뜻하는지 설명한다 - lib/findingCategories.ts의 DEFAULT_EASY_LABELS는
+// "~발견되어 확인이 필요해요" 식으로 실제 스캔 결과 문맥에 쓰이는 문구라 여기엔 맞지 않는다.
+const CATEGORY_TOOLTIPS: Record<string, string> = {
+  "secret-exposure": "비밀번호나 API 키 같은 값이 코드에 그대로 적혀 있는지 확인해요",
+  "dangerous-code-execution": "외부 명령을 실행할 수 있는 위험한 코드가 있는지 확인해요",
+  "insecure-network": "인터넷 통신 시 보안 검증을 건너뛰는 코드가 있는지 확인해요",
+  "insecure-deserialization": "출처를 믿을 수 없는 데이터를 위험하게 불러오는지 확인해요",
+  "data-exfiltration": "내 정보를 외부로 몰래 보낼 수 있는 코드가 있는지 확인해요",
+};
+
+const DIY_ROWS = [
+  {
+    label: "시작",
+    diy: "프롬프트·설치·키 발급을 직접",
+    toolhub: "설명만 하면 제작자가 대신",
+  },
+  {
+    label: "안전",
+    diy: "위험한 코드가 섞여도 모름",
+    toolhub: "전달 전 자동 보안 스캔",
+  },
+  {
+    label: "결과",
+    diy: "안 돌아가도 쓴 시간은 날림",
+    toolhub: "완성본·스캔 확인 후에만 결제",
+  },
 ] as const;
 
 const USE_CASES = [
@@ -161,8 +196,12 @@ const FAQ_ITEMS = [
   },
 ] as const;
 
-export default function Home() {
+export default async function Home() {
   const scanShowcaseGroups = groupFindingsForBuyer(SCAN_SHOWCASE_FINDINGS);
+  const listings = await getListings();
+  const scanPassedListings = listings
+    .filter((listing) => listing.scanStatus === "completed" && !listing.hasUnresolvedFindings)
+    .slice(0, 2);
 
   return (
     <main className="flex-1">
@@ -180,7 +219,7 @@ export default function Home() {
             자동화 툴 의뢰 플랫폼
           </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.15] tracking-[-0.035em] break-keep sm:text-5xl lg:text-[3.5rem]">
-            설명 한 줄에서, 검증된 완성본까지.
+            말로 설명하면, 검증된 자동화 툴로.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-muted lg:text-base">
             필요한 업무를 설명하면 제작자가 가격과 기간을 제안합니다. 완성본은 전달 전 자동 보안
@@ -198,11 +237,18 @@ export default function Home() {
         <Reveal className="relative mx-auto max-w-6xl">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {PROMISES.map((item) => (
-              <div key={item.label} className="border-t border-zinc-950/[0.10] pt-5">
+              <div key={item.label} className="border-t border-zinc-950/[0.10] pt-5 text-center">
                 <p className="text-xs font-medium tracking-[0.04em] text-zinc-500">{item.label}</p>
-                <p className="mt-2 text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
-                  {item.sentence}
-                </p>
+                {"big" in item ? (
+                  <>
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-900">{item.big}</p>
+                    <p className="mt-1 text-xs leading-snug text-zinc-500">{item.small}</p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
+                    {item.sentence}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -289,15 +335,15 @@ export default function Home() {
                 {CATEGORY_LABELS.map((item) => (
                   <span
                     key={item.id}
-                    className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]"
+                    title={CATEGORY_TOOLTIPS[item.id]}
+                    className="cursor-help rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]"
                   >
                     {item.label}
                   </span>
                 ))}
               </div>
               <p className="mt-6 text-center text-xs text-muted">
-                규칙 기반 자동 분석이며 모든 보안 문제를 찾아내지는 못합니다. 발견 항목은
-                참고용입니다.
+                규칙 기반 자동 검사로 대표적 위험을 걸러냅니다. 모든 문제를 잡는 보증은 아닙니다.
               </p>
             </div>
           </Reveal>
@@ -388,6 +434,81 @@ export default function Home() {
             마켓 둘러보기 →
           </Link>
         </div>
+        <div className="mx-auto mt-5 w-full max-w-6xl">
+          {scanPassedListings.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {scanPassedListings.map((listing) => (
+                <Link
+                  key={listing.id}
+                  href={`/listings/${listing.id}`}
+                  className="flex items-center gap-2 rounded-xl bg-paper px-3 py-2 ring-1 ring-zinc-950/[0.08] transition-colors hover:ring-zinc-950/[0.16]"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-tint text-sm font-semibold text-accent">
+                    {listing.title.trim().charAt(0) || "T"}
+                  </span>
+                  <span className="max-w-[10rem] truncate text-sm font-medium text-zinc-800">
+                    {listing.title}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent">
+                    검사 통과
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 text-sm text-zinc-500">
+              <svg
+                aria-hidden
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                className="h-4 w-4 shrink-0"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10 2.5l6 2v4.5c0 4-2.5 6.8-6 8.5-3.5-1.7-6-4.5-6-8.5V4.5l6-2z"
+                />
+              </svg>
+              <span>모든 매물은 구매 전 보안 검사를 거칩니다</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── G2. 직접 만들면 되지 않나요? (light) ── */}
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
+        <div className="mx-auto max-w-3xl">
+          <Reveal>
+            <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+              직접 만들면 되지 않나요?
+            </h2>
+          </Reveal>
+          <Reveal className="mt-10">
+            <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-950/[0.08]">
+              <div className="grid grid-cols-[auto_1fr_1fr] bg-paper-2 text-sm font-medium text-zinc-500">
+                <div className="px-5 py-3" />
+                <div className="px-5 py-3">직접 AI로</div>
+                <div className="px-5 py-3 text-accent">툴허브</div>
+              </div>
+              {DIY_ROWS.map((row) => (
+                <div
+                  key={row.label}
+                  className="grid grid-cols-[auto_1fr_1fr] border-t border-zinc-950/[0.06]"
+                >
+                  <div className="px-5 py-4 text-xs font-medium text-zinc-400">{row.label}</div>
+                  <div className="px-5 py-4 text-sm text-zinc-600">{row.diy}</div>
+                  <div className="px-5 py-4 text-sm font-medium text-zinc-900">{row.toolhub}</div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 break-keep text-center text-sm leading-[1.7] text-zinc-500">
+              간단한 1회성 작업은 직접 만드는 게 빠를 수 있어요. 툴허브는 반복해서 쓰거나, 안전이
+              중요하거나, 직접 만들다 막힌 작업을 위한 곳입니다.
+            </p>
+          </Reveal>
+        </div>
       </section>
 
       {/* ── H. FAQ (light) ── */}
@@ -417,21 +538,6 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
-
-      {/* ── I. 최종 CTA (dark) ── */}
-      <section className="dark bg-ink px-6 py-20 text-center text-offwhite lg:py-24">
-        <Reveal className="mx-auto max-w-2xl">
-          <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep sm:text-4xl">
-            첫 의뢰를 등록하세요
-          </h2>
-          <p className="mt-4 text-[15px] leading-[1.7] text-muted lg:text-base">
-            등록은 무료입니다. 제안을 받기 전까지 비용은 없습니다.
-          </p>
-          <div className="mt-8">
-            <HeroPrompt compact />
-          </div>
-        </Reveal>
       </section>
     </main>
   );

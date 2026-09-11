@@ -7,7 +7,8 @@ import Link from "next/link";
 const MAX_LENGTH = 400;
 const MAX_TEXTAREA_HEIGHT_PX = 72; // 대략 3줄
 const COMPACT_TEXTAREA_HEIGHT_PX = 24; // 1줄 고정(넘침 방지)
-const PLACEHOLDER = "자동화할 업무를 한 줄로 적어주세요";
+const PLACEHOLDER =
+  "어떤 업무를 자동화하고 싶으세요? 예: 매일 아침 스마트스토어 주문을 엑셀로 내려받아 재고 시트에 정리…";
 
 // 이 컴포넌트는 폼 전송이나 DB 호출을 하지 않는다 - 입력한 문장을 쿼리
 // 파라미터로 실어 /requests/new로 라우팅만 한다(실제 등록은 그 페이지에서).
@@ -37,11 +38,11 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className={compact ? "mx-auto w-full max-w-3xl" : "mx-auto w-full max-w-2xl"}>
+    <div className={compact ? "mx-auto w-full max-w-3xl" : "mx-auto w-full max-w-xl"}>
       <div className="flex items-end gap-2 rounded-2xl bg-white/[0.04] p-2 pl-5 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22]">
         <textarea
           ref={textareaRef}
-          rows={1}
+          rows={compact ? 1 : 2}
           value={value}
           onChange={(event) => {
             setValue(event.target.value);
