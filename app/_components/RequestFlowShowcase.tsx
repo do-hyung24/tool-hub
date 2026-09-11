@@ -1,9 +1,9 @@
 // "이용 방법" 섹션 오른쪽의 정적 목업이다. 실제 UI(의뢰 뱃지, 선택됨 칩)와
 // 동일한 스타일을 재사용하되, 장식용 버튼은 실제 동작하지 않으므로 <div>로 둔다.
 const MOCK_PROPOSALS = [
-  { name: "제작자 A", price: "250,000원", selected: false },
-  { name: "제작자 B", price: "300,000원", selected: true },
-  { name: "제작자 C", price: "220,000원", selected: false },
+  { name: "제작자 A", price: "250,000원", duration: "14일", selected: false },
+  { name: "제작자 B", price: "300,000원", duration: "7일", selected: true },
+  { name: "제작자 C", price: "220,000원", duration: "21일", selected: false },
 ] as const;
 
 export function RequestFlowShowcase() {
@@ -31,7 +31,9 @@ export function RequestFlowShowcase() {
           >
             <span className="text-zinc-700">{proposal.name}</span>
             <div className="flex items-center gap-2">
-              <span className="text-zinc-500">{proposal.price}</span>
+              <span className="text-zinc-500">
+                {proposal.price} · {proposal.duration}
+              </span>
               {proposal.selected && (
                 <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white">
                   선택됨

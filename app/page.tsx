@@ -167,7 +167,7 @@ export default function Home() {
   return (
     <main className="flex-1">
       {/* ── A. Hero (dark) ── */}
-      <section className="dark relative flex min-h-[88vh] flex-col items-center justify-center overflow-hidden bg-zinc-950 px-6 py-24 text-center text-zinc-50">
+      <section className="dark relative flex flex-col items-center justify-center overflow-hidden bg-zinc-950 px-6 py-24 text-center text-zinc-50 lg:py-32">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -180,7 +180,7 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
             비개발자를 위한 맞춤 자동화 의뢰
           </p>
-          <h1 className="mx-auto mt-4 max-w-3xl text-5xl font-bold tracking-tight break-keep sm:text-6xl lg:text-7xl">
+          <h1 className="mx-auto mt-4 max-w-3xl text-5xl font-bold tracking-tight break-keep sm:text-6xl">
             반복 업무, 설명만 하세요.
             <br />
             제작부터 보안 검사까지 이어드립니다.
@@ -196,8 +196,9 @@ export default function Home() {
       </section>
 
       {/* ── B. 약속 4개 (light, grid bg) ── */}
-      <section className="lp-grid-bg bg-white px-6 py-24 lg:py-32">
-        <Reveal className="mx-auto max-w-6xl">
+      <section className="relative bg-white px-6 py-24 lg:py-32">
+        <div aria-hidden className="lp-grid-bg pointer-events-none absolute inset-0" />
+        <Reveal className="relative mx-auto max-w-6xl">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {PROMISES.map((item) => (
               <div key={item.label} className="text-center">

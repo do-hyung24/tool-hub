@@ -6,6 +6,9 @@ import Link from "next/link";
 
 const MAX_LENGTH = 400;
 const MAX_TEXTAREA_HEIGHT_PX = 72; // 대략 3줄
+const COMPACT_TEXTAREA_HEIGHT_PX = 24; // 1줄 고정(넘침 방지)
+const FULL_PLACEHOLDER = "예: 매일 아침 스마트스토어 주문을 엑셀로 정리하는 일을 자동화하고 싶어요";
+const COMPACT_PLACEHOLDER = "예: 매일 아침 주문 내역을 엑셀로 정리하고 싶어요";
 
 // 이 컴포넌트는 폼 전송이나 DB 호출을 하지 않는다 - 입력한 문장을 쿼리
 // 파라미터로 실어 /requests/new로 라우팅만 한다(실제 등록은 그 페이지에서).
@@ -13,12 +16,13 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const maxHeightPx = compact ? COMPACT_TEXTAREA_HEIGHT_PX : MAX_TEXTAREA_HEIGHT_PX;
 
   function autoResize() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeightPx)}px`;
   }
 
   function submit() {
@@ -34,7 +38,7 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div className={compact ? "mx-auto w-full max-w-xl" : "mx-auto w-full max-w-2xl"}>
+    <div className={compact ? "mx-auto w-full max-w-3xl" : "mx-auto w-full max-w-2xl"}>
       <div className="flex items-end gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-3 ring-1 ring-white/10 transition-shadow focus-within:ring-2 focus-within:ring-emerald-500/40">
         <svg
           aria-hidden
@@ -60,8 +64,10 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
           }}
           onKeyDown={handleKeyDown}
           maxLength={MAX_LENGTH}
-          placeholder="예: 매일 아침 스마트스토어 주문을 엑셀로 정리하는 일을 자동화하고 싶어요"
-          className="max-h-[4.5rem] flex-1 resize-none overflow-y-auto bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
+          placeholder={compact ? COMPACT_PLACEHOLDER : FULL_PLACEHOLDER}
+          className={`flex-1 resize-none bg-transparent py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 ${
+            compact ? "max-h-6 overflow-hidden" : "max-h-[4.5rem] overflow-y-auto"
+          }`}
         />
         <button
           type="button"

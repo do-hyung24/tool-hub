@@ -8,16 +8,14 @@ type ShowcaseSeverity = "critical" | "high" | "medium";
 const CODE_LINES = [
   "import os, requests",
   'API_KEY = "sk-live-7f3a...c9e2"',
-  'BASE = "https://api.shop.example"',
-  "def fetch_orders(day):",
-  '    r = requests.get(f"{BASE}/orders", headers={"X-Key": API_KEY}, verify=False)',
+  'URL = "https://api.shop.example/orders"',
+  "def fetch_orders():",
+  "    r = requests.get(URL, verify=False)",
   "    return r.json()",
   "def run(user_cmd):",
   '    os.system(f"python export.py {user_cmd}")',
   'if __name__ == "__main__":',
   "    run(input())",
-  "",
-  "",
 ];
 
 const HIGHLIGHTS: Record<number, { severity: ShowcaseSeverity; delay: string }> = {
@@ -64,12 +62,14 @@ export function ScanShowcase() {
               <span className="w-5 shrink-0 select-none text-right text-zinc-600">
                 {lineNumber}
               </span>
-              <span className="flex-1 whitespace-pre text-zinc-300">{line || " "}</span>
-              {highlight && (
-                <span className="shrink-0 rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-300">
-                  {SEVERITY_LABEL[highlight.severity]}
-                </span>
-              )}
+              <span className="flex-1 whitespace-pre text-zinc-300">{line || " "}</span>
+              <span className="w-16 shrink-0 text-right">
+                {highlight && (
+                  <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-300">
+                    {SEVERITY_LABEL[highlight.severity]}
+                  </span>
+                )}
+              </span>
             </div>
           );
         })}
