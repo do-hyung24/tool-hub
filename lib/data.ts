@@ -1329,6 +1329,7 @@ type ToolProposalRow = {
   status: string;
   delivered_listing_id: string | null;
   delivery_confirmed_at: string | null;
+  delivery_guide: string | null;
   created_at: string;
 };
 
@@ -1343,6 +1344,7 @@ function rowToToolProposal(row: ToolProposalRow): ToolProposal {
     status: row.status as ToolProposalStatus,
     deliveredListingId: row.delivered_listing_id,
     deliveryConfirmedAt: row.delivery_confirmed_at,
+    deliveryGuide: row.delivery_guide,
     createdAt: row.created_at,
   };
 }
@@ -1379,6 +1381,7 @@ export async function createToolProposal(input: {
     status: "pending",
     deliveredListingId: null,
     deliveryConfirmedAt: null,
+    deliveryGuide: null,
     createdAt: new Date().toISOString(),
   };
 
@@ -1479,6 +1482,19 @@ export async function clearProposalDeliveryConfirmation(proposalId: string): Pro
   const sql = getSql();
   await sql`
     UPDATE tool_proposals SET delivery_confirmed_at = NULL WHERE id = ${proposalId}
+  `;
+}
+
+// 완성본 제출/재스캔 시점마다 호출한다 - 제작자가 남긴 실행 가이드(설치·실행
+// 방법)를 저장/갱신한다. 서버 액션에서 최소 길이 검증을 마친 뒤에만 호출된다.
+export async function updateProposalDeliveryGuide(
+  proposalId: string,
+  deliveryGuide: string
+): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE tool_proposals SET delivery_guide = ${deliveryGuide} WHERE id = ${proposalId}
   `;
 }
 

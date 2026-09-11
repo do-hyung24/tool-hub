@@ -15,6 +15,7 @@ import {
   markProposalDelivered,
   saveScanReport,
   updateListingSource,
+  updateProposalDeliveryGuide,
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { sendRequestDeliveryReadyEmail } from "@/lib/email";
@@ -36,6 +37,19 @@ async function getOrigin(): Promise<string> {
 // app/actions.ts의 게시 분기와 동일한 기준(critical/high/medium)을 쓴다.
 function hasUnresolvedFindings(findings: Finding[]): boolean {
   return findings.some((finding) => ["critical", "high", "medium"].includes(finding.severity));
+}
+
+const DELIVERY_GUIDE_MIN_LENGTH = 20;
+
+// 클라이언트 폼(required/minLength)과 별개로 서버 액션에서도 반드시 다시
+// 검증한다 - 폼 우회(직접 POST 등)로 실행 가이드 없는 제출을 막기 위해서다.
+function requireDeliveryGuide(formData: FormData): string {
+  const raw = formData.get("deliveryGuide");
+  const deliveryGuide = typeof raw === "string" ? raw.trim() : "";
+  if (deliveryGuide.length < DELIVERY_GUIDE_MIN_LENGTH) {
+    throw new Error(`실행 가이드를 ${DELIVERY_GUIDE_MIN_LENGTH}자 이상 입력해주세요.`);
+  }
+  return deliveryGuide;
 }
 
 // UI 가드와 별개로 서버 액션은 직접 POST될 수 있으므로, 납품 권한(선택된 제안의
@@ -95,6 +109,8 @@ export async function submitDeliveryAction(formData: FormData) {
     throw new Error("제안을 찾을 수 없습니다.");
   }
 
+  const deliveryGuide = requireDeliveryGuide(formData);
+
   // 재제출인 경우, 새 완성본이 스캔 게이트를 통과하기 전까지는 의뢰자 화면에
   // 이전 제출물의 "확인 완료" 상태가 남아있으면 안 된다(delivered_listing_id는
   // 곧 새 리스팅으로 옮겨가므로 확인 시점 기록을 먼저 되돌린다).
@@ -126,6 +142,7 @@ export async function submitDeliveryAction(formData: FormData) {
   });
 
   await markProposalDelivered(proposalId, listing.id);
+  await updateProposalDeliveryGuide(proposalId, deliveryGuide);
 
   if (!hasUnresolvedFindings(report.findings)) {
     await passDeliveryGate(requestId, proposalId);
@@ -165,6 +182,8 @@ export async function deliverRescanAction(formData: FormData) {
     throw new Error("완성본을 찾을 수 없거나 접근 권한이 없습니다.");
   }
 
+  const deliveryGuide = requireDeliveryGuide(formData);
+
   const sourceType = await parseSourceType(formData);
   const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
 
@@ -174,6 +193,7 @@ export async function deliverRescanAction(formData: FormData) {
   await clearProposalDeliveryConfirmation(proposalId);
 
   await updateListingSource(listingId, { codeUrl, sourceType });
+  await updateProposalDeliveryGuide(proposalId, deliveryGuide);
 
   const findings = await runScan(files);
   const report = await saveScanReport({

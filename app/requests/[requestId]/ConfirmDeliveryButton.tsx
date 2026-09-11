@@ -53,6 +53,17 @@ export function ConfirmDeliveryButton({
         )}
       </div>
 
+      {summary.proposal.deliveryGuide && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+            실행 가이드
+          </h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
+            {summary.proposal.deliveryGuide}
+          </p>
+        </div>
+      )}
+
       <ScanSummaryCard
         className="mt-4"
         groups={summary.findings}

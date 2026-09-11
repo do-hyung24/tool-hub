@@ -158,6 +158,7 @@ export type ToolProposal = {
   status: ToolProposalStatus;
   deliveredListingId: string | null;
   deliveryConfirmedAt: string | null;
+  deliveryGuide: string | null;
   createdAt: string;
 };
 

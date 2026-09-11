@@ -436,6 +436,10 @@ async function initialize(): Promise<void> {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_tool_proposals_request ON tool_proposals(request_id, created_at)`;
+  // 완성본 제출 시 제작자가 필수로 남기는 실행 가이드(설치/실행 방법).
+  // FK가 아닌 단순 텍스트 컬럼이라 삭제 순서(deleteToolRequest)나 계정삭제
+  // 크론에는 영향이 없다.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_guide TEXT`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS tool_proposal_messages (

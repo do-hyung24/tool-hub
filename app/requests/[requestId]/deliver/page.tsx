@@ -5,6 +5,14 @@ import { getCurrentSellerId } from "@/lib/session";
 import { submitDeliveryAction } from "@/app/requestActions";
 import { SourceTypeFields } from "@/app/listings/new/SourceTypeFields";
 
+// app/requestActions.ts의 DELIVERY_GUIDE_MIN_LENGTH와 반드시 같은 값이어야 한다
+// (그쪽은 "use server" 파일이라 상수를 export할 수 없어 여기 그대로 둔다).
+const DELIVERY_GUIDE_MIN_LENGTH = 20;
+const DELIVERY_GUIDE_PLACEHOLDER = `· 필요한 것(설치할 프로그램, 필요한 계정/키)
+· 설치 방법
+· 실행 방법
+· 자주 막히는 부분`;
+
 export default async function DeliverRequestPage(
   props: PageProps<"/requests/[requestId]/deliver">
 ) {
@@ -84,6 +92,25 @@ export default async function DeliverRequestPage(
         <input type="hidden" name="proposalId" value={selectedProposal.id} />
 
         <SourceTypeFields />
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="deliveryGuide" className="text-sm font-medium">
+            실행 가이드
+          </label>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            비개발자인 의뢰자가 그대로 따라 할 수 있도록 설치·실행 방법을 구체적으로
+            적어주세요.
+          </p>
+          <textarea
+            id="deliveryGuide"
+            name="deliveryGuide"
+            required
+            minLength={DELIVERY_GUIDE_MIN_LENGTH}
+            rows={6}
+            placeholder={DELIVERY_GUIDE_PLACEHOLDER}
+            className="resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </div>
 
         <button
           type="submit"
