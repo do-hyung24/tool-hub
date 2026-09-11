@@ -52,7 +52,7 @@ const PROMISES = [
   { label: "수수료", sentence: "플랫폼 수수료를 받지 않습니다." },
   { label: "보안 스캔", sentence: "모든 완성본과 매물이 자동 검사를 거칩니다." },
   { label: "비공개 조율", sentence: "세부 협의는 의뢰자와 선택된 제작자만 봅니다." },
-  { label: "납기", sentence: "희망 완료 시점을 최대 6개월까지 지정합니다." },
+  { label: "결제 시점", sentence: "완성본과 스캔 결과를 확인한 뒤에만 결제합니다." },
 ] as const;
 
 const USE_CASES = [
