@@ -61,7 +61,7 @@ export function ProposalForm({ requestId }: { requestId: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
-      <div className="flex gap-2">
+      <div className="flex items-start gap-2">
         <div className="relative w-1/2">
           <input
             required
@@ -77,6 +77,7 @@ export function ProposalForm({ requestId }: { requestId: string }) {
           </span>
         </div>
         <div className="flex w-1/2 flex-col gap-1">
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">완료 예정일</span>
           <div className="flex items-center gap-2">
             <input
               required
@@ -93,7 +94,6 @@ export function ProposalForm({ requestId }: { requestId: string }) {
             />
             {proposedCompletionDate && <DDayBadge today={today} deadline={proposedCompletionDate} />}
           </div>
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">완료 예정일</span>
         </div>
       </div>
       <textarea
