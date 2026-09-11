@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ScanSummaryCard } from "@/app/_components/ScanSummaryCard";
 import { confirmDeliveryAction } from "@/app/requestActions";
 import type { PublicFindingGroup } from "@/lib/findingCategories";
@@ -19,6 +22,12 @@ export function ConfirmDeliveryButton({
   canConfirm: boolean;
   alreadyCompleted: boolean;
 }) {
+  // 체크는 버튼 활성화만 클라에서 제어한다 - confirmDeliveryAction 자체의
+  // 권한 검증(로그인/소유자)은 서버에서 그대로 유지되고, 이 체크 여부는
+  // 별도로 서버에 전달/검증하지 않는다(결제를 막는 보안 장치가 아니라
+  // 인수인계를 유도하는 UX 넛지다).
+  const [operationConfirmed, setOperationConfirmed] = useState(false);
+
   if (!summary) {
     return null;
   }
@@ -76,11 +85,24 @@ export function ConfirmDeliveryButton({
             결제(더미)가 완료된 의뢰입니다.
           </p>
         ) : (
-          <form action={confirmDeliveryAction} className="mt-4">
+          <form action={confirmDeliveryAction} className="mt-4 flex flex-col gap-3">
             <input type="hidden" name="requestId" value={requestId} />
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              결제 전 비공개 스레드에서 제작자에게 설치·사용법을 안내받으세요.
+            </p>
+            <label className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={operationConfirmed}
+                onChange={(event) => setOperationConfirmed(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-zinc-300 dark:border-zinc-700"
+              />
+              제작자에게 설치·사용법을 안내받았고, 실제 작동을 확인했습니다.
+            </label>
             <button
               type="submit"
-              className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              disabled={!operationConfirmed}
+              className="w-fit rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
             >
               확인 및 결제(더미) 완료하기
             </button>
