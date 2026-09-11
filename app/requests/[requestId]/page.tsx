@@ -10,6 +10,8 @@ import {
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, formatPrice, getProfileImageSrc } from "@/lib/format";
+import { getKstTodayDateString } from "@/lib/dday";
+import { DDayBadge } from "@/app/_components/DDayBadge";
 import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
 import { ConfirmDeliveryButton } from "./ConfirmDeliveryButton";
 import { DeleteRequestButton } from "./DeleteRequestButton";
@@ -44,6 +46,8 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
   if (!toolRequest) {
     notFound();
   }
+
+  const today = getKstTodayDateString();
 
   const isRequester = !!sellerId && sellerId === toolRequest.requesterSellerId;
   const canSelectProposals = isRequester && toolRequest.status === "open";
@@ -194,6 +198,12 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
                   <span>{formatPrice(proposal.price)}</span>
                   <span>{proposal.duration}</span>
                 </div>
+                {proposal.proposedCompletionDate && DATE_ONLY_PATTERN.test(proposal.proposedCompletionDate) && (
+                  <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span>완료 예정일 {formatDate(proposal.proposedCompletionDate)}</span>
+                    <DDayBadge today={today} deadline={proposal.proposedCompletionDate} />
+                  </div>
+                )}
                 <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
                   {proposal.description}
                 </p>

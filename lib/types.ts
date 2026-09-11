@@ -181,6 +181,7 @@ export type ToolProposal = {
   deliveryConfirmedAt: string | null;
   deliveryGuide: string | null;
   deliveryFileUrl: string | null;
+  proposedCompletionDate: string | null;
   createdAt: string;
 };
 
@@ -209,6 +210,7 @@ export type MyWorkSummary = {
   myProposalStatus: ToolProposalStatus;
   price: number;
   duration: string;
+  proposedCompletionDate: string | null;
   createdAt: string;
 };
 

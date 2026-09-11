@@ -454,6 +454,11 @@ async function initialize(): Promise<void> {
   // 조회/노출될 수 있는 필드라, 의뢰자 전용 다운로드 게이트로만 접근 가능한 이
   // 파일 URL과 노출 범위를 격리해야 한다. GitHub 제출이면 NULL.
   await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_file_url TEXT`;
+  // 제안의 완료 예정일(YYYY-MM-DD, tool_requests.desired_deadline과 동일한
+  // TEXT 저장 관례). 기존 duration TEXT 컬럼은 타입을 바꾸지 않고 그대로
+  // 두며, 이 컬럼은 새 제안부터만 채워진다 - 기존 제안은 NULL로 남고 화면에서
+  // 조용히 생략된다(파싱/백필 없음).
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS proposed_completion_date TEXT`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS tool_proposal_messages (

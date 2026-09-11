@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { listMyRequests, listMyWork } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { formatPrice } from "@/lib/format";
+import { DATE_ONLY_PATTERN, getKstTodayDateString } from "@/lib/dday";
+import { DDayBadge } from "@/app/_components/DDayBadge";
 import type { MyRequestSummary, MyWorkSummary, ToolRequestStatus } from "@/lib/types";
 
 const STATUS_LABELS: Record<ToolRequestStatus, string> = {
@@ -10,35 +12,6 @@ const STATUS_LABELS: Record<ToolRequestStatus, string> = {
   in_progress: "진행중",
   completed: "완료",
 };
-
-const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-// 등록 폼(app/requests/new/NewRequestForm.tsx)과 동일한 방식으로 KST 오늘 날짜를 구한다.
-function getKstTodayDateString(): string {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-function daysBetween(fromDateStr: string, toDateStr: string): number {
-  const from = new Date(`${fromDateStr}T00:00:00Z`).getTime();
-  const to = new Date(`${toDateStr}T00:00:00Z`).getTime();
-  return Math.round((to - from) / (24 * 60 * 60 * 1000));
-}
-
-function DDayBadge({ today, deadline }: { today: string; deadline: string }) {
-  const diff = daysBetween(today, deadline);
-  const label = diff > 0 ? `D-${diff}` : diff === 0 ? "D-DAY" : `D+${Math.abs(diff)}`;
-  const colorClass =
-    diff < 0
-      ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
-      : diff <= 3
-      ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-      : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
-  return (
-    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>
-      {label}
-    </span>
-  );
-}
 
 // 진행중 항목에만 붙는 여분의 일정 표시 - 희망 완료시점이 있으면 D-day 뱃지,
 // 없으면 대체 텍스트(내 작업은 제안 기간, 내 의뢰는 "희망 완료일 미정").
@@ -149,7 +122,7 @@ function WorkGroup({
               {work.requestStatus === "in_progress" && (
                 <DeadlineInfo
                   today={today}
-                  desiredDeadline={work.desiredDeadline}
+                  desiredDeadline={work.proposedCompletionDate}
                   fallback={`기간: ${work.duration}`}
                 />
               )}

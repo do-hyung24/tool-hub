@@ -1405,6 +1405,7 @@ type ToolProposalRow = {
   delivery_confirmed_at: string | null;
   delivery_guide: string | null;
   delivery_file_url: string | null;
+  proposed_completion_date: string | null;
   created_at: string;
 };
 
@@ -1421,6 +1422,7 @@ function rowToToolProposal(row: ToolProposalRow): ToolProposal {
     deliveryConfirmedAt: row.delivery_confirmed_at,
     deliveryGuide: row.delivery_guide,
     deliveryFileUrl: row.delivery_file_url,
+    proposedCompletionDate: row.proposed_completion_date,
     createdAt: row.created_at,
   };
 }
@@ -1445,6 +1447,7 @@ export async function createToolProposal(input: {
   price: number;
   duration: string;
   description: string;
+  proposedCompletionDate?: string | null;
 }): Promise<ToolProposal> {
   await ensureInitialized();
   const sql = getSql();
@@ -1461,18 +1464,20 @@ export async function createToolProposal(input: {
     deliveryConfirmedAt: null,
     deliveryGuide: null,
     deliveryFileUrl: null,
+    proposedCompletionDate: input.proposedCompletionDate ?? null,
     createdAt: new Date().toISOString(),
   };
 
   await sql`
     INSERT INTO tool_proposals (
       id, request_id, seller_id, price, duration, description, status,
-      delivered_listing_id, delivery_confirmed_at, created_at
+      delivered_listing_id, delivery_confirmed_at, proposed_completion_date, created_at
     )
     VALUES (
       ${proposal.id}, ${proposal.requestId}, ${proposal.sellerId}, ${proposal.price},
       ${proposal.duration}, ${proposal.description}, ${proposal.status},
-      ${proposal.deliveredListingId}, ${proposal.deliveryConfirmedAt}, ${proposal.createdAt}
+      ${proposal.deliveredListingId}, ${proposal.deliveryConfirmedAt},
+      ${proposal.proposedCompletionDate}, ${proposal.createdAt}
     )
   `;
 
@@ -1538,6 +1543,7 @@ type MyWorkRow = {
   proposal_status: string;
   price: number;
   duration: string;
+  proposed_completion_date: string | null;
   created_at: string;
   request_title: string;
   request_status: string;
@@ -1550,7 +1556,8 @@ export async function listMyWork(sellerId: string): Promise<MyWorkSummary[]> {
   const rows = (await sql`
     SELECT tool_proposals.id AS proposal_id, tool_proposals.request_id,
            tool_proposals.status AS proposal_status, tool_proposals.price,
-           tool_proposals.duration, tool_proposals.created_at,
+           tool_proposals.duration, tool_proposals.proposed_completion_date,
+           tool_proposals.created_at,
            tool_requests.title AS request_title, tool_requests.status AS request_status,
            tool_requests.desired_deadline
     FROM tool_proposals
@@ -1568,6 +1575,7 @@ export async function listMyWork(sellerId: string): Promise<MyWorkSummary[]> {
     myProposalStatus: row.proposal_status as ToolProposalStatus,
     price: row.price,
     duration: row.duration,
+    proposedCompletionDate: row.proposed_completion_date,
     createdAt: row.created_at,
   }));
 }
