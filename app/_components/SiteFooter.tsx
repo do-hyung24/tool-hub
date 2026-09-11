@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const FOOTER_LINKS = [
   { href: "/requests", label: "자동화 툴 의뢰" },
@@ -8,7 +11,34 @@ const FOOTER_LINKS = [
   { href: "/privacy", label: "개인정보처리방침" },
 ] as const;
 
+// 홈은 풍성한 푸터(워드마크+태그라인+전체 링크), 그 외 모든 페이지는
+// 미니멀 푸터(워드마크+개인정보처리방침 링크만)를 쓴다 - SiteHeader가
+// usePathname()으로 홈/그 외를 구분하는 것과 동일한 방식.
 export function SiteFooter() {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+
+  if (!isHome) {
+    return (
+      <footer className="border-t border-zinc-200 dark:border-zinc-800">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              툴허브
+            </span>
+            <Link
+              href="/privacy"
+              className="text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+            >
+              개인정보처리방침
+            </Link>
+          </div>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">© 2026 툴허브</p>
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="dark border-t border-white/5 bg-ink-2 text-zinc-50">
       <div className="mx-auto w-full max-w-5xl px-6 py-10">
