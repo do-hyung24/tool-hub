@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getToolRequestById, listToolRequestImages } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
-import { NewRequestForm, parseRequiredEnvironment } from "@/app/requests/new/NewRequestForm";
+import { NewRequestForm } from "@/app/requests/new/NewRequestForm";
+import { parseRequiredEnvironment } from "@/lib/requestEnvironment";
 
 export default async function EditToolRequestPage(
   props: PageProps<"/requests/[requestId]/edit">

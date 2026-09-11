@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ENVIRONMENT_CHIPS } from "@/lib/requestEnvironment";
 
 const TITLE_MIN_LENGTH = 2;
 const CONTENT_MIN_LENGTH = 30;
@@ -12,34 +13,7 @@ const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE_MB = 2;
 const ALLOWED_IMAGE_TYPES_LABEL = "jpg, png, webp";
 
-export const ENVIRONMENT_CHIPS = [
-  "엑셀/구글시트",
-  "네이버 스마트스토어",
-  "쿠팡",
-  "카카오톡",
-  "인스타그램",
-  "유튜브",
-  "이메일(Gmail/아웃룩)",
-  "웹사이트 크롤링",
-  "노션",
-  "윈도우 PC 프로그램",
-] as const;
-
 const ETC_MAX_LENGTH = 100;
-
-// buildRequiredEnvironment(아래)의 역변환 - 저장된 "칩, 칩, 기타텍스트" 형태의
-// 문자열을 수정 폼 프리필용으로 다시 칩 목록/기타 텍스트로 분리한다.
-export function parseRequiredEnvironment(value: string): { chips: string[]; etcText: string } {
-  if (!value) return { chips: [], etcText: "" };
-  const parts = value
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part !== "");
-  const knownChips = new Set<string>(ENVIRONMENT_CHIPS);
-  const chips = parts.filter((part) => knownChips.has(part));
-  const etcParts = parts.filter((part) => !knownChips.has(part));
-  return { chips, etcText: etcParts.join(", ") };
-}
 
 const DESCRIPTION_PLACEHOLDER = `지금 어떤 일을 손으로 하고 계신가요? (예: 매일 아침 스마트스토어 주문 내역을 엑셀로 옮겨 적습니다)
 얼마나 자주 하고, 한 번에 얼마나 걸리나요? (예: 매일 1시간)
