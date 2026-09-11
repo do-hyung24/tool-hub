@@ -14,6 +14,7 @@ import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/typ
 import { ConfirmDeliveryButton } from "./ConfirmDeliveryButton";
 import { ProposalForm } from "./ProposalForm";
 import { ProposalThread } from "./ProposalThread";
+import { RequestImageGallery } from "./RequestImageGallery";
 import { SelectProposalButton } from "./SelectProposalButton";
 
 const STATUS_LABELS: Record<ToolRequestStatus, string> = {
@@ -115,19 +116,7 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
         </div>
       </dl>
 
-      {images.length > 0 && (
-        <div className="mt-6 grid grid-cols-3 gap-2">
-          {images.map((image) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={image.id}
-              src={`/api/requests/images/${image.id}`}
-              alt=""
-              className="aspect-square w-full rounded-lg object-cover"
-            />
-          ))}
-        </div>
-      )}
+      <RequestImageGallery images={images} />
 
       {toolRequest.referenceVideoUrl && (
         <p className="mt-4 text-sm">
