@@ -14,14 +14,14 @@ export function SiteFooter() {
       <div className="mx-auto w-full max-w-5xl px-6 py-10">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-lg font-bold">툴허브</p>
+            <p className="text-lg font-semibold">툴허브</p>
             <p className="mt-1 text-sm text-zinc-400">
               자동화 툴을 의뢰하고, 만들고, 안전하게 받는 곳
             </p>
           </div>
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400">
             {FOOTER_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} className="hover:text-zinc-50">
+              <Link key={link.href} href={link.href} className="hover:text-paper">
                 {link.label}
               </Link>
             ))}

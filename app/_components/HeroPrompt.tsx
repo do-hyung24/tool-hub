@@ -39,21 +39,7 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={compact ? "mx-auto w-full max-w-3xl" : "mx-auto w-full max-w-2xl"}>
-      <div className="flex items-end gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-3 ring-1 ring-white/10 transition-shadow focus-within:ring-2 focus-within:ring-emerald-500/40">
-        <svg
-          aria-hidden
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          className="mt-2 h-5 w-5 shrink-0 text-zinc-500"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"
-          />
-        </svg>
+      <div className="flex items-end gap-2 rounded-2xl bg-white/[0.04] p-2 pl-5 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22]">
         <textarea
           ref={textareaRef}
           rows={1}
@@ -72,7 +58,7 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
         <button
           type="button"
           onClick={submit}
-          className="mb-1 shrink-0 rounded-full bg-emerald-400 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-emerald-300"
+          className="mb-1 shrink-0 rounded-xl bg-paper px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-zinc-200"
         >
           의뢰 시작하기
         </button>
@@ -80,7 +66,7 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <p className="mt-3 text-center text-xs text-zinc-500">
           등록 무료 · 제안을 받기 전까지 비용 없음 · 제작자로 참여하려면{" "}
-          <Link href="/requests" className="underline hover:text-zinc-300">
+          <Link href="/requests" className="text-zinc-300 hover:text-paper">
             의뢰 둘러보기
           </Link>
         </p>

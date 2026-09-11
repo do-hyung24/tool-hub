@@ -49,10 +49,10 @@ const SCAN_SHOWCASE_FINDINGS: Finding[] = [
 ];
 
 const PROMISES = [
-  { value: "0원", label: "플랫폼 수수료 없음" },
-  { value: "100%", label: "완성본과 마켓 매물 전부 자동 보안 스캔" },
-  { value: "비공개", label: "조율 스레드는 의뢰자와 선택된 제작자만" },
-  { value: "6개월", label: "희망 완료 시점을 최대 6개월까지 설정" },
+  { label: "수수료", sentence: "플랫폼 수수료 없음" },
+  { label: "보안 스캔", sentence: "완성본과 마켓 매물 전부 자동 보안 스캔" },
+  { label: "비공개 조율", sentence: "조율 스레드는 의뢰자와 선택된 제작자만" },
+  { label: "납기", sentence: "희망 완료 시점을 최대 6개월까지 설정" },
 ] as const;
 
 const USE_CASES = [
@@ -172,20 +172,19 @@ export default function Home() {
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
-            background:
-              "radial-gradient(ellipse 70% 60% at 50% 20%, rgb(16 185 129 / 0.13), transparent 70%)",
+            background: "radial-gradient(60% 50% at 50% 0%, rgba(140,207,176,0.10), transparent 70%)",
           }}
         />
         <div className="relative">
-          <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
+          <p className="text-xs font-medium tracking-[0.04em] text-accent-soft">
             자동화 툴 의뢰 · 제작 · 보안 검사
           </p>
-          <h1 className="mx-auto mt-4 max-w-3xl text-5xl font-bold tracking-tight break-keep sm:text-6xl">
+          <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.12] tracking-[-0.03em] break-keep sm:text-5xl lg:text-[3.5rem]">
             반복 업무, 설명만 하세요.
             <br />
             제작부터 보안 검사까지 이어드립니다.
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl break-keep text-base text-zinc-400">
+          <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-zinc-400 lg:text-base">
             필요한 자동화 툴을 글과 사진으로 설명하면 제작자들이 가격과 기간을 제안합니다. 완성본은
             전달 전에 자동 보안 스캔을 거쳐 안심하고 받을 수 있습니다.
           </p>
@@ -201,11 +200,11 @@ export default function Home() {
         <Reveal className="relative mx-auto max-w-6xl">
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             {PROMISES.map((item) => (
-              <div key={item.label} className="text-center">
-                <p className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
-                  {item.value}
+              <div key={item.label} className="border-t border-zinc-950/[0.10] pt-5">
+                <p className="text-xs font-medium tracking-[0.04em] text-zinc-500">{item.label}</p>
+                <p className="mt-2 text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
+                  {item.sentence}
                 </p>
-                <p className="mt-2 text-sm text-zinc-600">{item.label}</p>
               </div>
             ))}
           </div>
@@ -213,13 +212,11 @@ export default function Home() {
       </section>
 
       {/* ── C. 활용 사례 6개 (light) ── */}
-      <section className="bg-paper-2 px-6 py-20 lg:py-24">
+      <section className="border-t border-zinc-950/[0.06] bg-paper-2 px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600">
-              이런 일을 의뢰합니다
-            </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight break-keep text-zinc-900 sm:text-4xl">
+            <p className="text-xs font-medium tracking-[0.04em] text-accent">이런 일을 의뢰합니다</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               설명만 하면 됩니다. 이런 식으로.
             </h2>
           </Reveal>
@@ -228,13 +225,15 @@ export default function Home() {
               <Reveal key={useCase.title}>
                 <Link
                   href={`/requests/new?desc=${encodeURIComponent(useCase.sentence)}`}
-                  className="flex h-full flex-col rounded-2xl border border-zinc-200 bg-paper p-6 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md"
+                  className="flex h-full flex-col rounded-2xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-950/[0.06] transition-shadow hover:shadow-md hover:ring-zinc-950/[0.14]"
                 >
-                  <h3 className="font-semibold text-zinc-900">{useCase.title}</h3>
-                  <p className="mt-2 line-clamp-2 text-sm text-zinc-600">{useCase.sentence}</p>
-                  <span className="mt-4 text-sm font-medium text-emerald-600">
-                    이 예시로 의뢰 시작 →
-                  </span>
+                  <h3 className="text-lg font-semibold tracking-[-0.01em] text-zinc-900">
+                    {useCase.title}
+                  </h3>
+                  <p className="mt-2 line-clamp-2 text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+                    {useCase.sentence}
+                  </p>
+                  <span className="mt-4 text-sm font-medium text-accent">이 예시로 의뢰 시작 →</span>
                 </Link>
               </Reveal>
             ))}
@@ -243,16 +242,14 @@ export default function Home() {
       </section>
 
       {/* ── D. 보안 스캔 쇼케이스 (light 섹션 + 다크 패널) ── */}
-      <section className="bg-paper px-6 py-20 lg:py-24">
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600">
-              자동 보안 스캔
-            </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight break-keep text-zinc-900 sm:text-4xl">
+            <p className="text-xs font-medium tracking-[0.04em] text-accent">자동 보안 스캔</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               받기 전에, 코드가 먼저 읽힙니다.
             </h2>
-            <p className="mt-4 max-w-2xl break-keep text-base text-zinc-600">
+            <p className="mt-4 max-w-2xl break-keep text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
               제작자가 보낸 완성본은 의뢰자에게 도착하기 전에 자동 보안 스캔을 거칩니다. 발견된
               항목은 숨기지 않고 심각도별로 그대로 보여드립니다.
             </p>
@@ -270,19 +267,21 @@ export default function Home() {
                     <ScanSummaryCard groups={scanShowcaseGroups} />
                   </div>
                   <div className="mt-6 grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-3xl font-semibold text-zinc-50">{CATEGORY_IDS.length}</p>
-                      <p className="mt-1 text-xs text-zinc-500">공개 취약 카테고리</p>
+                    <div className="flex items-baseline justify-center gap-1.5">
+                      <span className="text-3xl font-medium tabular-nums text-zinc-50">
+                        {CATEGORY_IDS.length}
+                      </span>
+                      <span className="text-xs text-zinc-500">공개 취약 카테고리</span>
                     </div>
-                    <div>
-                      <p className="text-3xl font-semibold text-zinc-50">
+                    <div className="flex items-baseline justify-center gap-1.5">
+                      <span className="text-3xl font-medium tabular-nums text-zinc-50">
                         {getDetectorTypeCount()}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500">종 탐지 규칙</p>
+                      </span>
+                      <span className="text-xs text-zinc-500">종 탐지 규칙</span>
                     </div>
-                    <div>
-                      <p className="text-3xl font-semibold text-zinc-50">전부</p>
-                      <p className="mt-1 text-xs text-zinc-500">예외 없는 완성본 스캔</p>
+                    <div className="flex items-baseline justify-center gap-1.5">
+                      <span className="text-3xl font-medium tabular-nums text-zinc-50">전부</span>
+                      <span className="text-xs text-zinc-500">예외 없는 완성본 스캔</span>
                     </div>
                   </div>
                 </div>
@@ -292,7 +291,7 @@ export default function Home() {
                 {CATEGORY_LABELS.map((item) => (
                   <span
                     key={item.id}
-                    className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300"
+                    className="rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]"
                   >
                     {item.label}
                   </span>
@@ -308,13 +307,11 @@ export default function Home() {
       </section>
 
       {/* ── E. 이용 방법 (light) ── */}
-      <section className="bg-paper-2 px-6 py-20 lg:py-24">
+      <section className="border-t border-zinc-950/[0.06] bg-paper-2 px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600">
-              이용 방법
-            </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight break-keep text-zinc-900 sm:text-4xl">
+            <p className="text-xs font-medium tracking-[0.04em] text-accent">이용 방법</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               세 단계면 충분합니다
             </h2>
           </Reveal>
@@ -330,10 +327,10 @@ export default function Home() {
       </section>
 
       {/* ── F. 비교 (light) ── */}
-      <section className="bg-paper px-6 py-20 lg:py-24">
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <h2 className="text-3xl font-bold tracking-tight break-keep text-zinc-900 sm:text-4xl">
+            <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               왜 툴허브인가
             </h2>
           </Reveal>
@@ -341,15 +338,15 @@ export default function Home() {
             {COMPARISON_COLUMNS.map((column) => (
               <Reveal key={column.key}>
                 <div
-                  className={`h-full rounded-2xl border p-6 transition-shadow hover:border-emerald-300 hover:shadow-md ${
+                  className={
                     column.highlight
-                      ? "border-emerald-300 ring-1 ring-emerald-100"
-                      : "border-zinc-200"
-                  }`}
+                      ? "dark h-full rounded-2xl bg-ink p-6 text-zinc-50 ring-1 ring-white/[0.06]"
+                      : "h-full rounded-2xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-950/[0.06]"
+                  }
                 >
                   <h3
-                    className={`font-semibold ${
-                      column.highlight ? "text-emerald-700" : "text-zinc-900"
+                    className={`text-lg font-semibold tracking-[-0.01em] ${
+                      column.highlight ? "text-zinc-50" : "text-zinc-900"
                     }`}
                   >
                     {column.title}
@@ -359,10 +356,20 @@ export default function Home() {
                       const [mark, text] = row[column.key];
                       return (
                         <li key={row.label} className="flex items-start gap-3">
-                          <ComparisonMarkIcon mark={mark} />
+                          <ComparisonMarkIcon mark={mark} dark={column.highlight} />
                           <div>
-                            <p className="text-xs text-zinc-500">{row.label}</p>
-                            {text && <p className="text-sm text-zinc-700">{text}</p>}
+                            <p className={column.highlight ? "text-xs text-zinc-400" : "text-xs text-zinc-500"}>
+                              {row.label}
+                            </p>
+                            {text && (
+                              <p
+                                className={
+                                  column.highlight ? "text-sm text-zinc-200" : "text-sm text-zinc-700"
+                                }
+                              >
+                                {text}
+                              </p>
+                            )}
                           </div>
                         </li>
                       );
@@ -376,27 +383,24 @@ export default function Home() {
       </section>
 
       {/* ── G. 마켓 티저 (light, 얇은 배너) ── */}
-      <section className="border-y border-zinc-200 bg-paper-2 px-6 py-8">
+      <section className="border-y border-zinc-950/[0.06] bg-paper-2 px-6 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-sm text-zinc-600">이미 만들어진 툴이 필요하다면</p>
-          <Link
-            href="/listings"
-            className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
-          >
+          <Link href="/listings" className="text-sm font-medium text-accent hover:opacity-80">
             마켓 둘러보기 →
           </Link>
         </div>
       </section>
 
       {/* ── H. FAQ (light) ── */}
-      <section className="bg-paper px-6 py-20 lg:py-24">
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+            <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] text-zinc-900 lg:text-4xl">
               자주 묻는 질문
             </h2>
           </Reveal>
-          <div className="mt-10 flex flex-col divide-y divide-zinc-200">
+          <div className="mt-10 flex flex-col divide-y divide-zinc-950/[0.08]">
             {FAQ_ITEMS.map((item) => (
               <details key={item.question} className="group py-5">
                 <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-zinc-900">
@@ -408,7 +412,9 @@ export default function Home() {
                     +
                   </span>
                 </summary>
-                <p className="mt-3 break-keep text-sm text-zinc-600">{item.answer}</p>
+                <p className="mt-3 break-keep text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+                  {item.answer}
+                </p>
               </details>
             ))}
           </div>
@@ -418,10 +424,10 @@ export default function Home() {
       {/* ── I. 최종 CTA (dark) ── */}
       <section className="dark bg-ink px-6 py-20 text-center text-zinc-50 lg:py-24">
         <Reveal className="mx-auto max-w-2xl">
-          <h2 className="text-3xl font-bold tracking-tight break-keep sm:text-4xl">
+          <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep sm:text-4xl">
             지금 첫 의뢰를 등록해보세요
           </h2>
-          <p className="mt-4 text-base text-zinc-400">
+          <p className="mt-4 text-[15px] leading-[1.7] text-zinc-400 lg:text-base">
             등록은 무료이고, 제안이 오기 전까지 비용이 없습니다.
           </p>
           <div className="mt-8">
@@ -433,7 +439,7 @@ export default function Home() {
   );
 }
 
-function ComparisonMarkIcon({ mark }: { mark: ComparisonMark }) {
+function ComparisonMarkIcon({ mark, dark = false }: { mark: ComparisonMark; dark?: boolean }) {
   if (mark === "check") {
     return (
       <svg
@@ -442,7 +448,7 @@ function ComparisonMarkIcon({ mark }: { mark: ComparisonMark }) {
         fill="none"
         stroke="currentColor"
         strokeWidth={1.5}
-        className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600"
+        className={`mt-0.5 h-5 w-5 shrink-0 ${dark ? "text-accent-soft" : "text-accent"}`}
       >
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 10.5l3.5 3.5L16 6" />
       </svg>

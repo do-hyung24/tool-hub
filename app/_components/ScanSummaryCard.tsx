@@ -14,7 +14,7 @@ export function ScanSummaryCard({
 }) {
   return (
     <section
-      className={`rounded-xl border border-zinc-200 p-4 dark:border-zinc-800 ${className}`}
+      className={`rounded-xl border border-zinc-200 p-4 dark:border-transparent dark:bg-white/[0.03] dark:ring-1 dark:ring-white/[0.06] ${className}`}
     >
       <p className="flex items-center gap-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300">
         <svg

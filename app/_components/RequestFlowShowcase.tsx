@@ -8,10 +8,13 @@ const MOCK_PROPOSALS = [
 
 export function RequestFlowShowcase() {
   return (
-    <div aria-hidden className="rounded-2xl border border-zinc-200 bg-paper p-5 shadow-sm">
+    <div
+      aria-hidden
+      className="rounded-2xl bg-paper p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-950/[0.06]"
+    >
       <p className="text-xs font-medium text-zinc-400">진행 과정 (예시)</p>
 
-      <div className="mt-4 rounded-xl border border-zinc-200 p-4">
+      <div className="mt-4 rounded-xl border border-zinc-950/[0.08] p-4">
         <div className="flex items-center gap-2 text-xs text-zinc-500">
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-600">
             의뢰
@@ -26,7 +29,7 @@ export function RequestFlowShowcase() {
           <div
             key={proposal.name}
             className={`flex items-center justify-between rounded-lg border p-3 text-sm ${
-              proposal.selected ? "border-zinc-900 bg-zinc-50" : "border-zinc-200"
+              proposal.selected ? "border-zinc-900 bg-zinc-50" : "border-zinc-950/[0.08]"
             }`}
           >
             <span className="text-zinc-700">{proposal.name}</span>
@@ -35,7 +38,7 @@ export function RequestFlowShowcase() {
                 {proposal.price} · {proposal.duration}
               </span>
               {proposal.selected && (
-                <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs font-medium text-white">
+                <span className="rounded-full bg-ink px-2 py-0.5 text-xs font-medium text-paper">
                   선택됨
                 </span>
               )}
@@ -44,7 +47,7 @@ export function RequestFlowShowcase() {
         ))}
       </div>
 
-      <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+      <div className="mt-4 rounded-lg bg-accent-tint px-3 py-2 text-xs font-medium text-accent ring-1 ring-accent/20">
         보안 스캔 통과 · 발견 항목 0건 · 확인 및 결제
       </div>
     </div>
