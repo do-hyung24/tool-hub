@@ -12,7 +12,7 @@ const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE_MB = 2;
 const ALLOWED_IMAGE_TYPES_LABEL = "jpg, png, webp";
 
-const ENVIRONMENT_CHIPS = [
+export const ENVIRONMENT_CHIPS = [
   "엑셀/구글시트",
   "네이버 스마트스토어",
   "쿠팡",
@@ -26,6 +26,20 @@ const ENVIRONMENT_CHIPS = [
 ] as const;
 
 const ETC_MAX_LENGTH = 100;
+
+// buildRequiredEnvironment(아래)의 역변환 - 저장된 "칩, 칩, 기타텍스트" 형태의
+// 문자열을 수정 폼 프리필용으로 다시 칩 목록/기타 텍스트로 분리한다.
+export function parseRequiredEnvironment(value: string): { chips: string[]; etcText: string } {
+  if (!value) return { chips: [], etcText: "" };
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part !== "");
+  const knownChips = new Set<string>(ENVIRONMENT_CHIPS);
+  const chips = parts.filter((part) => knownChips.has(part));
+  const etcParts = parts.filter((part) => !knownChips.has(part));
+  return { chips, etcText: etcParts.join(", ") };
+}
 
 const DESCRIPTION_PLACEHOLDER = `지금 어떤 일을 손으로 하고 계신가요? (예: 매일 아침 스마트스토어 주문 내역을 엑셀로 옮겨 적습니다)
 얼마나 자주 하고, 한 번에 얼마나 걸리나요? (예: 매일 1시간)
@@ -102,17 +116,49 @@ function HelpPopover({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function NewRequestForm({ initialDescription = "" }: { initialDescription?: string }) {
+type ExistingImage = { id: string };
+
+// 수정 모드 프리필 값. requiredEnvironment(콤마로 합쳐진 문자열)는 페이지에서
+// 미리 칩/기타 텍스트로 분리해 넘긴다(이 파일의 buildRequiredEnvironment와
+// 짝을 이루는 역변환이므로 한 곳에서만 관리하지 않기 위해 페이지 쪽에 둔다).
+type InitialValues = {
+  title: string;
+  description: string;
+  budgetAmount: string; // 콤마 없는 숫자 문자열, 없으면 ""
+  budgetNegotiable: boolean;
+  desiredDeadline: string; // 없으면 ""
+  requiredEnvironmentChips: string[];
+  etcText: string;
+  referenceVideoUrl: string;
+  existingImages: ExistingImage[];
+};
+
+export function NewRequestForm({
+  initialDescription = "",
+  mode = "new",
+  requestId,
+  initialValues,
+}: {
+  initialDescription?: string;
+  mode?: "new" | "edit";
+  requestId?: string;
+  initialValues?: InitialValues;
+}) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState(initialDescription);
-  const [budgetAmount, setBudgetAmount] = useState(""); // 콤마 없는 숫자 문자열
-  const [budgetNegotiable, setBudgetNegotiable] = useState(false);
-  const [desiredDeadline, setDesiredDeadline] = useState("");
-  const [selectedChips, setSelectedChips] = useState<string[]>([]);
-  const [etcEnabled, setEtcEnabled] = useState(false);
-  const [etcText, setEtcText] = useState("");
-  const [referenceVideoUrl, setReferenceVideoUrl] = useState("");
+  const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [description, setDescription] = useState(initialValues?.description ?? initialDescription);
+  const [budgetAmount, setBudgetAmount] = useState(initialValues?.budgetAmount ?? ""); // 콤마 없는 숫자 문자열
+  const [budgetNegotiable, setBudgetNegotiable] = useState(initialValues?.budgetNegotiable ?? false);
+  const [desiredDeadline, setDesiredDeadline] = useState(initialValues?.desiredDeadline ?? "");
+  const [selectedChips, setSelectedChips] = useState<string[]>(
+    initialValues?.requiredEnvironmentChips ?? []
+  );
+  const [etcEnabled, setEtcEnabled] = useState(!!initialValues?.etcText);
+  const [etcText, setEtcText] = useState(initialValues?.etcText ?? "");
+  const [referenceVideoUrl, setReferenceVideoUrl] = useState(initialValues?.referenceVideoUrl ?? "");
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>(
+    initialValues?.existingImages ?? []
+  );
   const [images, setImages] = useState<File[]>([]);
   const [imageNotice, setImageNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,7 +195,7 @@ export function NewRequestForm({ initialDescription = "" }: { initialDescription
     const merged = [...images];
     let hitLimit = false;
     for (const file of newFiles) {
-      if (merged.length >= MAX_IMAGES) {
+      if (merged.length + existingImages.length >= MAX_IMAGES) {
         hitLimit = true;
         break;
       }
@@ -167,11 +213,18 @@ export function NewRequestForm({ initialDescription = "" }: { initialDescription
     setImageNotice(null);
   }
 
+  function handleRemoveExistingImage(id: string) {
+    setExistingImages((prev) => prev.filter((image) => image.id !== id));
+    setImageNotice(null);
+  }
+
+  const totalImageCount = images.length + existingImages.length;
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
 
-    if (images.length === 0) {
+    if (totalImageCount === 0) {
       setError("사진을 최소 1장 첨부해주세요.");
       return;
     }
@@ -192,6 +245,23 @@ export function NewRequestForm({ initialDescription = "" }: { initialDescription
         formData.append("images", file);
       }
 
+      if (mode === "edit") {
+        for (const image of existingImages) {
+          formData.append("keepImageIds", image.id);
+        }
+        const response = await fetch(`/api/requests/${requestId}`, {
+          method: "PATCH",
+          body: formData,
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          setError(result.error ?? "수정에 실패했습니다.");
+          return;
+        }
+        router.push(`/requests/${requestId}`);
+        return;
+      }
+
       const response = await fetch("/api/requests", {
         method: "POST",
         body: formData,
@@ -203,7 +273,11 @@ export function NewRequestForm({ initialDescription = "" }: { initialDescription
       }
       router.push(`/requests/${result.id}`);
     } catch {
-      setError("등록 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setError(
+        mode === "edit"
+          ? "수정 중 오류가 발생했습니다. 다시 시도해주세요."
+          : "등록 중 오류가 발생했습니다. 다시 시도해주세요."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -396,6 +470,28 @@ export function NewRequestForm({ initialDescription = "" }: { initialDescription
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">사진 첨부</label>
+        {existingImages.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {existingImages.map((image) => (
+              <div key={image.id} className="relative h-16 w-16 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/requests/images/${image.id}`}
+                  alt=""
+                  className="h-full w-full rounded-lg object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveExistingImage(image.id)}
+                  aria-label="사진 삭제"
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-900 text-xs text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <label
             htmlFor="images"
@@ -449,13 +545,13 @@ export function NewRequestForm({ initialDescription = "" }: { initialDescription
           isSubmitting ||
           title.trim().length < TITLE_MIN_LENGTH ||
           descriptionLength < CONTENT_MIN_LENGTH ||
-          images.length === 0 ||
+          totalImageCount === 0 ||
           budgetMissing ||
           requiredEnvironmentValue.trim() === ""
         }
         className="w-fit rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
       >
-        {isSubmitting ? "등록 중..." : "등록하기"}
+        {isSubmitting ? (mode === "edit" ? "수정 중..." : "등록 중...") : mode === "edit" ? "수정하기" : "등록하기"}
       </button>
     </form>
   );

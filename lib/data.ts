@@ -1258,6 +1258,63 @@ export async function getToolRequestImageById(id: string): Promise<ToolRequestIm
   return rows[0] ? rowToToolRequestImage(rows[0]) : null;
 }
 
+// 의뢰가 'open' 상태일 때만(app/api/requests/[requestId]/route.ts에서 확인)
+// 호출되는 수정. status/requester_seller_id/created_at은 여기서 바꾸지 않는다.
+export async function updateToolRequest(input: {
+  id: string;
+  title: string;
+  description: string;
+  budgetAmount: number | null;
+  budgetNegotiable: boolean;
+  desiredDeadline: string | null;
+  requiredEnvironment: string | null;
+  referenceVideoUrl: string | null;
+}): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE tool_requests
+    SET title = ${input.title},
+        description = ${input.description},
+        budget_amount = ${input.budgetAmount},
+        budget_negotiable = ${input.budgetNegotiable},
+        desired_deadline = ${input.desiredDeadline},
+        required_environment = ${input.requiredEnvironment},
+        reference_video_url = ${input.referenceVideoUrl}
+    WHERE id = ${input.id}
+  `;
+}
+
+// 기존 사진 목록을 전부 지우고 imageUrls로 다시 채운다(유지된 기존 URL +
+// 새로 업로드된 URL을 순서대로 합친 배열을 그대로 받는다).
+export async function replaceToolRequestImages(requestId: string, imageUrls: string[]): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`DELETE FROM tool_request_images WHERE request_id = ${requestId}`;
+  for (let i = 0; i < imageUrls.length; i++) {
+    await sql`
+      INSERT INTO tool_request_images (id, request_id, image_url, sort_order, created_at)
+      VALUES (${randomUUID()}, ${requestId}, ${imageUrls[i]}, ${i}, ${new Date().toISOString()})
+    `;
+  }
+}
+
+// 'open' 상태일 때만 호출된다 - 이 상태에서는 선택된 제안이 있을 수 없으므로
+// (selectToolProposal이 상태를 'in_progress'로 바꾸는 것과 원자적으로 묶여
+// 있다) 제안 스레드 메시지도 존재할 수 없지만, FK 순서상 안전하게 자식부터
+// 지운다.
+export async function deleteToolRequest(requestId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    DELETE FROM tool_proposal_messages
+    WHERE proposal_id IN (SELECT id FROM tool_proposals WHERE request_id = ${requestId})
+  `;
+  await sql`DELETE FROM tool_proposals WHERE request_id = ${requestId}`;
+  await sql`DELETE FROM tool_request_images WHERE request_id = ${requestId}`;
+  await sql`DELETE FROM tool_requests WHERE id = ${requestId}`;
+}
+
 // ============================================================
 // 툴 수배 게시판 - 제안(Proposal) CRUD
 // ============================================================

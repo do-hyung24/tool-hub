@@ -12,6 +12,7 @@ import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, formatPrice } from "@/lib/format";
 import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
 import { ConfirmDeliveryButton } from "./ConfirmDeliveryButton";
+import { DeleteRequestButton } from "./DeleteRequestButton";
 import { ProposalForm } from "./ProposalForm";
 import { ProposalThread } from "./ProposalThread";
 import { RequestImageGallery } from "./RequestImageGallery";
@@ -82,7 +83,20 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
         <span>{formatDate(toolRequest.createdAt)}</span>
       </div>
 
-      <h1 className="mt-2 text-2xl font-bold">{toolRequest.title}</h1>
+      <div className="mt-2 flex items-start justify-between gap-4">
+        <h1 className="text-2xl font-bold">{toolRequest.title}</h1>
+        {isRequester && toolRequest.status === "open" && (
+          <div className="flex shrink-0 items-center gap-2">
+            <Link
+              href={`/requests/${toolRequest.id}/edit`}
+              className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              수정
+            </Link>
+            <DeleteRequestButton requestId={toolRequest.id} />
+          </div>
+        )}
+      </div>
 
       <div className="mt-3 flex items-center gap-2">
         <span className="text-sm text-zinc-600 dark:text-zinc-300">
