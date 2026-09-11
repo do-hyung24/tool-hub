@@ -15,7 +15,9 @@ export function SiteFooter() {
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-lg font-bold">툴허브</p>
-            <p className="mt-1 text-sm text-zinc-400">비개발자를 위한 맞춤 자동화 의뢰 플랫폼</p>
+            <p className="mt-1 text-sm text-zinc-400">
+              자동화 툴을 의뢰하고, 만들고, 안전하게 받는 곳
+            </p>
           </div>
           <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-400">
             {FOOTER_LINKS.map((link) => (

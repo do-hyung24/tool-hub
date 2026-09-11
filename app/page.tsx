@@ -178,7 +178,7 @@ export default function Home() {
         />
         <div className="relative">
           <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400">
-            비개발자를 위한 맞춤 자동화 의뢰
+            자동화 툴 의뢰 · 제작 · 보안 검사
           </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-5xl font-bold tracking-tight break-keep sm:text-6xl">
             반복 업무, 설명만 하세요.
