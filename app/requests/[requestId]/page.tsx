@@ -228,14 +228,18 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
       />
 
       {toolRequest.status === "completed" && isSelectedSeller && (
-        <p className="mt-6">
+        <div className="mt-6">
           <Link
             href={`/listings/new?sourceRequestId=${encodeURIComponent(toolRequest.id)}&title=${encodeURIComponent(toolRequest.title)}&description=${encodeURIComponent(toolRequest.description)}`}
             className="inline-block rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            매물로도 등록하기
+            이 툴 마켓에도 판매하기
           </Link>
-        </p>
+          <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+            방금 완성한 툴을 공개 마켓에도 올려 다른 사람에게 판매할 수 있어요. 저작권은
+            제작자에게 있습니다.
+          </p>
+        </div>
       )}
     </main>
   );
