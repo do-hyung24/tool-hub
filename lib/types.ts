@@ -16,6 +16,10 @@ export type SellerPublicProfile = {
   profileImageUrl: string | null;
   createdAt: string;
   completedAsMaker: number;
+  inProgressAsMaker: number;
+  // 계산은 남겨두되 UI(/sellers/[id])에는 노출하지 않는다 - 표본이 작을 때
+  // 오해를 주고, '고지 후 그대로 전달'이라는 정당한 경로를 실패로 낙인찍는
+  // 지표라 공개 지표로는 부적절하다고 판단했다.
   // 완료 실적이 0건이면 계산할 표본이 없어 null(집계 불가 - "0% 통과"와 구분).
   scanPassRate: number | null;
   publishedListings: Array<{

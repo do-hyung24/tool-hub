@@ -39,7 +39,10 @@ export default async function SellerPublicProfilePage(props: PageProps<"/sellers
 
   const imageSrc = getProfileImageSrc(profile.sellerId, profile.profileImageUrl);
   const initial = profile.nickname.trim().charAt(0) || "?";
-  const hasActivity = profile.completedAsMaker > 0 || profile.publishedListings.length > 0;
+  const hasActivity =
+    profile.completedAsMaker > 0 ||
+    profile.inProgressAsMaker > 0 ||
+    profile.publishedListings.length > 0;
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
@@ -63,10 +66,10 @@ export default async function SellerPublicProfilePage(props: PageProps<"/sellers
       {hasActivity ? (
         <div className="mt-8 flex flex-wrap gap-3">
           <StatBadge label="완료" value={`${profile.completedAsMaker}건`} />
-          <StatBadge label="마켓 매물" value={`${profile.publishedListings.length}개`} />
-          {profile.scanPassRate !== null && (
-            <StatBadge label="스캔 통과율" value={`${Math.round(profile.scanPassRate * 100)}%`} />
+          {profile.inProgressAsMaker > 0 && (
+            <StatBadge label="진행 중" value={`${profile.inProgressAsMaker}건`} />
           )}
+          <StatBadge label="마켓 매물" value={`${profile.publishedListings.length}개`} />
         </div>
       ) : (
         <p className="mt-8 rounded-xl border border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">

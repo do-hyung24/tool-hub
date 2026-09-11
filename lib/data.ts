@@ -196,7 +196,7 @@ export async function getSellerPublicProfile(sellerId: string): Promise<SellerPu
     return null;
   }
 
-  const [deliveryRows, listingRows] = await Promise.all([
+  const [deliveryRows, inProgressRows, listingRows] = await Promise.all([
     sql`
       SELECT
         COUNT(*)::int AS total,
@@ -207,6 +207,16 @@ export async function getSellerPublicProfile(sellerId: string): Promise<SellerPu
       WHERE tool_proposals.seller_id = ${sellerId}
         AND tool_proposals.status = 'selected'
         AND tool_requests.status = 'completed'
+    `,
+    // '진행 중'은 아직 완성본을 제출하지 않았을 수도 있으므로(delivered_listing_id가
+    // NULL일 수 있음) listings JOIN 없이 tool_requests.status만으로 센다.
+    sql`
+      SELECT COUNT(*)::int AS total
+      FROM tool_proposals
+      JOIN tool_requests ON tool_requests.id = tool_proposals.request_id
+      WHERE tool_proposals.seller_id = ${sellerId}
+        AND tool_proposals.status = 'selected'
+        AND tool_requests.status = 'in_progress'
     `,
     sql`
       SELECT id, title, scan_status
@@ -220,6 +230,7 @@ export async function getSellerPublicProfile(sellerId: string): Promise<SellerPu
     total: 0,
     passed: 0,
   };
+  const inProgressAsMaker = (inProgressRows as Array<{ total: number }>)[0]?.total ?? 0;
 
   return {
     sellerId,
@@ -227,6 +238,9 @@ export async function getSellerPublicProfile(sellerId: string): Promise<SellerPu
     profileImageUrl: seller.profileImageUrl,
     createdAt: seller.createdAt,
     completedAsMaker: total,
+    inProgressAsMaker,
+    // UI에는 노출하지 않는다(표본이 작을 때 오해를 주고, '고지 후 그대로 전달'이라는
+    // 정당한 경로를 실패로 낙인찍는 지표라 부적절 - 계산 함수만 남겨둔다).
     scanPassRate: total > 0 ? passed / total : null,
     publishedListings: (
       listingRows as Array<{ id: string; title: string; scan_status: string }>
