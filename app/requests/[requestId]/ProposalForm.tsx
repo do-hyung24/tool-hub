@@ -62,19 +62,22 @@ export function ProposalForm({ requestId }: { requestId: string }) {
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
       <div className="flex items-start gap-2">
-        <div className="relative w-1/2">
-          <input
-            required
-            type="text"
-            inputMode="numeric"
-            value={formatPriceDisplay(price)}
-            onChange={(event) => setPrice(event.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="가격"
-            className="w-full rounded-lg border border-zinc-300 py-2 pl-3 pr-8 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-          />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 dark:text-zinc-500">
-            원
-          </span>
+        <div className="flex w-1/2 flex-col gap-1">
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">가격</span>
+          <div className="relative">
+            <input
+              required
+              type="text"
+              inputMode="numeric"
+              value={formatPriceDisplay(price)}
+              onChange={(event) => setPrice(event.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="예: 100,000"
+              className="w-full rounded-lg border border-zinc-300 py-2 pl-3 pr-8 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 dark:text-zinc-500">
+              원
+            </span>
+          </div>
         </div>
         <div className="flex w-1/2 flex-col gap-1">
           <span className="text-xs text-zinc-400 dark:text-zinc-500">완료 예정일</span>
