@@ -64,12 +64,15 @@ export function HeroPrompt({ compact = false }: { compact?: boolean }) {
         </button>
       </div>
       {!compact && (
-        <p className="mt-3 text-center text-xs text-muted">
-          등록 무료 · 제안 전까지 비용 없음 · 제작자는{" "}
-          <Link href="/requests" className="text-offwhite hover:opacity-80">
-            의뢰 둘러보기
+        <div className="mt-3 flex flex-col items-center gap-1.5 text-center text-xs text-muted">
+          <p className="break-keep">등록 무료 · 제안 전까지 비용 없음</p>
+          <Link
+            href="/requests"
+            className="break-keep font-medium text-offwhite hover:opacity-80"
+          >
+            툴을 만들 수 있나요? 의뢰를 받아 수익화 →
           </Link>
-        </p>
+        </div>
       )}
     </div>
   );

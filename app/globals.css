@@ -40,6 +40,11 @@ body {
   color: var(--foreground);
   font-family: "Pretendard Variable", Pretendard, var(--font-geist-sans), -apple-system,
     sans-serif;
+  /* 한글은 break-keep(word-break: keep-all)만으로는 아주 좁은 폭에서 마지막
+     한 글자만 다음 줄로 넘어가는 "외톨이 글자"가 생길 수 있다. 그런 극단적인
+     경우에만 개입해 아무 글자에서나 자연스럽게 잘리도록 안전망을 전역으로
+     깔아둔다 - 평소 줄바꿈(단어/어절 단위)에는 영향이 없다. */
+  overflow-wrap: anywhere;
 }
 
 /* 홈 히어로의 "안전한 매물 둘러보기" 앵커 이동에만 쓰인다. */

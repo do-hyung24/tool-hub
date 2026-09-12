@@ -74,19 +74,19 @@ const CATEGORY_TOOLTIPS: Record<string, string> = {
 
 const DIY_ROWS = [
   {
-    label: "시작",
-    diy: "프롬프트·설치·키 발급을 직접",
-    toolhub: "설명만 하면 제작자가 대신",
+    label: "환경설정·API 연동",
+    diy: "패키지 설치·키 발급을 직접 삽질",
+    toolhub: "제작자가 환경까지 맞춰서 전달",
   },
   {
-    label: "안전",
+    label: "디버깅·예외처리",
+    diy: "에러 나면 원인부터 직접 추적",
+    toolhub: "제작자가 재현·수정까지 처리",
+  },
+  {
+    label: "보안 검수",
     diy: "위험한 코드가 섞여도 모름",
     toolhub: "전달 전 자동 보안 스캔",
-  },
-  {
-    label: "결과",
-    diy: "안 돌아가도 쓴 시간은 날림",
-    toolhub: "완성본·스캔 확인 후에만 결제",
   },
 ] as const;
 
@@ -177,7 +177,8 @@ const FAQ_ITEMS = [
   },
   {
     question: "저작권은 누구에게 있나요?",
-    answer: "제작자에게 있습니다. 제작자가 원하면 마켓에 별도로 등록할 수 있습니다.",
+    answer:
+      "의뢰비를 지불하고 제작한 맞춤 결과물의 사용권은 의뢰인에게 있습니다. 제작자가 이 결과물을 마켓에 재판매하려면 의뢰인의 동의가 필요합니다. 의뢰 내용에 담긴 기밀 정보와 고유 로직은 보호됩니다.",
   },
   {
     question: "보안 스캔은 무엇을 검사하나요?",
@@ -219,7 +220,7 @@ export default async function Home() {
             자동화 툴 의뢰 플랫폼
           </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.15] tracking-[-0.035em] break-keep sm:text-5xl lg:text-[3.5rem]">
-            말로 설명하면, 검증된 자동화 툴로.
+            글로 설명하면, 검증된 자동화 툴로.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-muted lg:text-base">
             필요한 업무를 설명하면 제작자가 가격과 기간을 제안합니다. 완성본은 전달 전 자동 보안
@@ -239,17 +240,15 @@ export default async function Home() {
             {PROMISES.map((item) => (
               <div key={item.label} className="border-t border-zinc-950/[0.10] pt-5 text-center">
                 <p className="text-xs font-medium tracking-[0.04em] text-zinc-500">{item.label}</p>
-                {"big" in item ? (
-                  <div className="mt-2 inline-flex flex-col items-center gap-1 rounded-xl px-4 py-2.5 ring-1 ring-zinc-950/[0.08]">
-                    <p className="flex items-center gap-1.5 text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-                      {item.big}
-                    </p>
-                    <p className="text-xs leading-snug text-zinc-500">{item.small}</p>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
-                    {item.sentence}
+                <p className="mt-2 flex items-center justify-center gap-1.5 break-keep text-balance text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
+                  {"big" in item && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+                  )}
+                  {"big" in item ? item.big : item.sentence}
+                </p>
+                {"small" in item && (
+                  <p className="mt-1 break-keep text-balance text-xs leading-snug text-zinc-500">
+                    {item.small}
                   </p>
                 )}
               </div>
@@ -263,7 +262,7 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <p className="text-xs font-medium tracking-[0.04em] text-accent">이런 일을 의뢰합니다</p>
-            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+            <h2 className="mt-3 text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               의뢰는 이렇게 시작됩니다
             </h2>
           </Reveal>
@@ -274,10 +273,10 @@ export default async function Home() {
                   href={`/requests/new?desc=${encodeURIComponent(useCase.sentence)}`}
                   className="flex h-full flex-col rounded-2xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-950/[0.06] transition-shadow hover:shadow-md hover:ring-zinc-950/[0.14]"
                 >
-                  <h3 className="text-lg font-semibold tracking-[-0.01em] text-zinc-900">
+                  <h3 className="break-keep text-balance text-lg font-semibold tracking-[-0.01em] text-zinc-900">
                     {useCase.title}
                   </h3>
-                  <p className="mt-2 line-clamp-2 text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+                  <p className="mt-2 line-clamp-2 break-keep text-pretty text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
                     {useCase.sentence}
                   </p>
                   <span className="mt-4 text-sm font-medium text-accent">이 예시로 시작 →</span>
@@ -293,12 +292,19 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <p className="text-xs font-medium tracking-[0.04em] text-accent">자동 보안 스캔</p>
-            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+            <h2 className="mt-3 text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               완성본을 받기 전, 보안 스캔을 먼저 거칩니다.
             </h2>
-            <p className="mt-4 max-w-2xl break-keep text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+            <p className="mt-4 max-w-2xl break-keep text-pretty text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
               제작자가 보낸 완성본은 의뢰자에게 도착하기 전에 자동 보안 스캔을 거칩니다. 발견된
               항목은 숨기지 않고 심각도별로 그대로 보여드립니다.
+            </p>
+            <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 break-keep text-xs text-zinc-500">
+              <span>탐지</span>
+              <span aria-hidden>→</span>
+              <span>제작자가 수정 후 재검사</span>
+              <span aria-hidden>→</span>
+              <span>의뢰인이 결제 전 확인</span>
             </p>
           </Reveal>
 
@@ -318,20 +324,20 @@ export default async function Home() {
                       <span className="text-2xl font-semibold tabular-nums text-accent-soft">
                         {CATEGORY_IDS.length}
                       </span>
-                      <span className="text-xs text-muted">검사 위험 유형</span>
+                      <span className="break-keep text-xs text-muted">검사 위험 유형</span>
                     </div>
                     <div className="flex items-baseline justify-center gap-1.5">
                       <span className="text-2xl font-semibold tabular-nums text-accent-soft">
                         {getDetectorTypeCount()}
                       </span>
-                      <span className="text-xs text-muted">탐지 규칙</span>
+                      <span className="break-keep text-xs text-muted">탐지 규칙</span>
                     </div>
                     <div className="flex items-center justify-center gap-2">
                       <span
                         className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent-soft"
                         aria-hidden
                       />
-                      <span className="text-xs text-muted">예외 없이 전수 검사</span>
+                      <span className="break-keep text-xs text-muted">예외 없이 전수 검사</span>
                     </div>
                   </div>
                 </div>
@@ -342,13 +348,13 @@ export default async function Home() {
                   <span
                     key={item.id}
                     title={CATEGORY_TOOLTIPS[item.id]}
-                    className="cursor-help rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]"
+                    className="cursor-help break-keep rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]"
                   >
                     {item.label}
                   </span>
                 ))}
               </div>
-              <p className="mt-6 text-center text-xs text-muted">
+              <p className="mt-6 break-keep text-pretty text-center text-xs text-muted">
                 규칙 기반 자동 검사로 대표적 위험을 걸러냅니다. 모든 문제를 잡는 보증은 아닙니다.
               </p>
             </div>
@@ -361,7 +367,7 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl">
           <Reveal>
             <p className="text-xs font-medium tracking-[0.04em] text-accent">이용 방법</p>
-            <h2 className="mt-3 font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+            <h2 className="mt-3 text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               세 단계로 완료됩니다
             </h2>
           </Reveal>
@@ -380,7 +386,7 @@ export default async function Home() {
       <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+            <h2 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               왜 툴허브인가
             </h2>
           </Reveal>
@@ -395,7 +401,7 @@ export default async function Home() {
                   }
                 >
                   <h3
-                    className={`text-lg font-semibold tracking-[-0.01em] ${
+                    className={`break-keep text-balance text-lg font-semibold tracking-[-0.01em] ${
                       column.highlight ? "text-offwhite" : "text-zinc-900"
                     }`}
                   >
@@ -408,14 +414,16 @@ export default async function Home() {
                         <li key={row.label} className="flex items-start gap-3">
                           <ComparisonMarkIcon mark={mark} dark={column.highlight} />
                           <div>
-                            <p className={column.highlight ? "text-xs text-muted" : "text-xs text-zinc-500"}>
+                            <p
+                              className={`break-keep ${column.highlight ? "text-xs text-muted" : "text-xs text-zinc-500"}`}
+                            >
                               {row.label}
                             </p>
                             {text && (
                               <p
-                                className={
+                                className={`break-keep text-pretty ${
                                   column.highlight ? "text-sm text-offwhite" : "text-sm text-zinc-700"
-                                }
+                                }`}
                               >
                                 {text}
                               </p>
@@ -435,7 +443,7 @@ export default async function Home() {
       {/* ── G. 마켓 티저 (light, 얇은 배너) ── */}
       <section className="border-y border-zinc-950/[0.06] bg-paper-2 px-6 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="text-sm text-zinc-600">완성된 툴이 필요하다면</p>
+          <p className="break-keep text-sm text-zinc-600">완성된 툴이 필요하다면</p>
           <Link href="/listings" className="text-sm font-medium text-accent hover:opacity-80">
             마켓 둘러보기 →
           </Link>
@@ -477,7 +485,7 @@ export default async function Home() {
                   d="M10 2.5l6 2v4.5c0 4-2.5 6.8-6 8.5-3.5-1.7-6-4.5-6-8.5V4.5l6-2z"
                 />
               </svg>
-              <span>모든 매물은 구매 전 보안 검사를 거칩니다</span>
+              <span className="break-keep">모든 매물은 구매 전 보안 검사를 거칩니다</span>
             </div>
           )}
         </div>
@@ -487,7 +495,7 @@ export default async function Home() {
       <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-3xl">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+            <h2 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               직접 만들면 되지 않나요?
             </h2>
           </Reveal>
@@ -495,23 +503,29 @@ export default async function Home() {
             <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-950/[0.08]">
               <div className="grid grid-cols-[auto_1fr_1fr] bg-paper-2 text-sm font-medium text-zinc-500">
                 <div className="px-5 py-3" />
-                <div className="px-5 py-3">직접 AI로</div>
-                <div className="px-5 py-3 text-accent">툴허브</div>
+                <div className="break-keep px-5 py-3">직접 AI로</div>
+                <div className="break-keep px-5 py-3 text-accent">툴허브</div>
               </div>
               {DIY_ROWS.map((row) => (
                 <div
                   key={row.label}
                   className="grid grid-cols-[auto_1fr_1fr] border-t border-zinc-950/[0.06]"
                 >
-                  <div className="px-5 py-4 text-xs font-medium text-zinc-400">{row.label}</div>
-                  <div className="px-5 py-4 text-sm text-zinc-600">{row.diy}</div>
-                  <div className="px-5 py-4 text-sm font-medium text-zinc-900">{row.toolhub}</div>
+                  <div className="break-keep px-5 py-4 text-xs font-medium text-zinc-400">
+                    {row.label}
+                  </div>
+                  <div className="break-keep text-pretty px-5 py-4 text-sm text-zinc-600">
+                    {row.diy}
+                  </div>
+                  <div className="break-keep text-pretty px-5 py-4 text-sm font-medium text-zinc-900">
+                    {row.toolhub}
+                  </div>
                 </div>
               ))}
             </div>
-            <p className="mt-6 break-keep text-center text-sm leading-[1.7] text-zinc-500">
-              간단한 1회성 작업은 직접 만드는 게 빠를 수 있어요. 툴허브는 반복해서 쓰거나, 안전이
-              중요하거나, 직접 만들다 막힌 작업을 위한 곳입니다.
+            <p className="mt-6 break-keep text-pretty text-center text-sm leading-[1.7] text-zinc-500">
+              바이브코딩으로 80%는 만들어도, 나머지 20% 디버깅·연동이 귀찮을 때 툴허브가
+              해결합니다.
             </p>
           </Reveal>
         </div>
@@ -521,14 +535,14 @@ export default async function Home() {
       <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <Reveal>
-            <h2 className="font-display text-3xl font-semibold leading-tight tracking-[-0.02em] text-zinc-900 lg:text-4xl">
+            <h2 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
               자주 묻는 질문
             </h2>
           </Reveal>
           <div className="mt-10 flex flex-col divide-y divide-zinc-950/[0.08]">
             {FAQ_ITEMS.map((item) => (
               <details key={item.question} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-zinc-900">
+                <summary className="flex cursor-pointer list-none items-center justify-between break-keep text-sm font-medium text-zinc-900">
                   {item.question}
                   <span
                     aria-hidden
@@ -537,7 +551,7 @@ export default async function Home() {
                     +
                   </span>
                 </summary>
-                <p className="mt-3 break-keep text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+                <p className="mt-3 break-keep text-pretty text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
                   {item.answer}
                 </p>
               </details>
