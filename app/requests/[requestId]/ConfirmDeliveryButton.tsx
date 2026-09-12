@@ -101,7 +101,9 @@ export function ConfirmDeliveryButton({
 
   return (
     <section className="mt-10 border-t border-zinc-200 pt-8 dark:border-zinc-800">
-      <h2 className="text-sm font-semibold">완성본 도착</h2>
+      <h2 className="text-sm font-semibold">
+        {isRequester ? "완성본 도착" : "완성본 제출 완료"}
+      </h2>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         {isRequester
           ? "선택한 판매자가 완성본을 제출했고 자동 보안 스캔을 마쳤습니다. 이 완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다."
