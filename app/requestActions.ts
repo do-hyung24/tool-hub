@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { put } from "@vercel/blob";
 import { fileTypeFromBuffer } from "file-type";
@@ -463,7 +463,9 @@ export async function updateRequestDisclosureAction(formData: FormData) {
   const requestId = String(formData.get("requestId") ?? "");
   const toolRequest = await getToolRequestById(requestId);
   if (!toolRequest || toolRequest.requesterSellerId !== sellerId) {
-    throw new Error("권한이 없습니다.");
+    // throw는 500(서버 예외)로 응답해 의도된 거부와 실제 오류를 구분할 수 없게
+    // 만든다 - 존재 여부도 함께 감추는 notFound()로 명확한 404를 반환한다.
+    notFound();
   }
 
   const completedContentPublic = formData.get("completedContentPublic") === "on";
