@@ -12,6 +12,7 @@ import {
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, formatPrice, getProfileImageSrc } from "@/lib/format";
+import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 import { getKstTodayDateString } from "@/lib/dday";
 import { DDayBadge } from "@/app/_components/DDayBadge";
 import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
@@ -260,10 +261,7 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
           >
             이 툴 마켓에도 판매하기
           </Link>
-          <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-            방금 완성한 툴을 공개 마켓에도 올려 다른 사람에게 판매할 수 있어요. 저작권은
-            제작자에게 있습니다.
-          </p>
+          <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">{COPYRIGHT_POLICY_NOTICE}</p>
         </div>
       )}
     </main>

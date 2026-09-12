@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ENVIRONMENT_CHIPS } from "@/lib/requestEnvironment";
+import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 
 const TITLE_MIN_LENGTH = 2;
 const CONTENT_MIN_LENGTH = 30;
@@ -507,9 +508,7 @@ export function NewRequestForm({
         <p className="text-xs text-zinc-400 dark:text-zinc-500">사진을 최소 1장 첨부해주세요.</p>
       </div>
 
-      <p className="text-xs text-zinc-400 dark:text-zinc-500">
-        완성물은 제작자가 원하면 마켓에도 별도로 재판매할 수 있으며 저작권은 제작자에게 있습니다.
-      </p>
+      <p className="text-xs text-zinc-400 dark:text-zinc-500">{COPYRIGHT_POLICY_NOTICE}</p>
 
       {error && <p className="text-xs font-medium text-red-600 dark:text-red-400">{error}</p>}
 

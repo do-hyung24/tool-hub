@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { groupFindingsForBuyer, CATEGORY_IDS, CATEGORY_LABELS, getDetectorTypeCount } from "@/lib/findingCategories";
 import { getListings } from "@/lib/data";
+import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 import type { Finding } from "@/lib/types";
 import { HeroPrompt } from "./_components/HeroPrompt";
 import { Reveal } from "./_components/Reveal";
@@ -177,8 +178,7 @@ const FAQ_ITEMS = [
   },
   {
     question: "저작권은 누구에게 있나요?",
-    answer:
-      "의뢰비를 지불하고 제작한 맞춤 결과물의 사용권은 의뢰인에게 있습니다. 제작자가 이 결과물을 마켓에 재판매하려면 의뢰인의 동의가 필요합니다. 의뢰 내용에 담긴 기밀 정보와 고유 로직은 보호됩니다.",
+    answer: COPYRIGHT_POLICY_NOTICE,
   },
   {
     question: "보안 스캔은 무엇을 검사하나요?",
