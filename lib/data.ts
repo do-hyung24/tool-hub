@@ -31,6 +31,7 @@ import type {
   ToolProposalWithAuthor,
   ToolRequest,
   ToolRequestImage,
+  ToolRequestListItem,
   ToolRequestStatus,
   ToolRequestWithAuthor,
 } from "./types";
@@ -1231,6 +1232,8 @@ type ToolRequestRow = {
   required_environment: string | null;
   reference_video_url: string | null;
   status: string;
+  completed_content_public: boolean;
+  maker_attribution_public: boolean;
   created_at: string;
 };
 
@@ -1246,6 +1249,8 @@ function rowToToolRequest(row: ToolRequestRow): ToolRequest {
     requiredEnvironment: row.required_environment,
     referenceVideoUrl: row.reference_video_url,
     status: row.status as ToolRequestStatus,
+    completedContentPublic: row.completed_content_public,
+    makerAttributionPublic: row.maker_attribution_public,
     createdAt: row.created_at,
   };
 }
@@ -1270,6 +1275,12 @@ export async function createToolRequest(input: {
   desiredDeadline: string | null;
   requiredEnvironment: string | null;
   referenceVideoUrl: string | null;
+  // 신규 등록 폼의 체크박스 값을 그대로 받는다(기본 체크되어 있음). 컬럼
+  // 자체의 DEFAULT는 FALSE라 기존 행이 소급 공개되지 않고, 신규 등록만
+  // 이 값으로 명시적으로 채운다. maker_attribution_public은 여기서 받지
+  // 않는다 - 항상 false로 시작하고(제작자 귀속은 완료 뒤 의뢰인이 별도로
+  // 켠다), 컬럼 DEFAULT가 그대로 적용된다.
+  completedContentPublic: boolean;
 }): Promise<ToolRequest> {
   await ensureInitialized();
   const sql = getSql();
@@ -1285,22 +1296,42 @@ export async function createToolRequest(input: {
     requiredEnvironment: input.requiredEnvironment,
     referenceVideoUrl: input.referenceVideoUrl,
     status: "open",
+    completedContentPublic: input.completedContentPublic,
+    makerAttributionPublic: false,
     createdAt: new Date().toISOString(),
   };
 
   await sql`
     INSERT INTO tool_requests (
       id, requester_seller_id, title, description, budget_amount, budget_negotiable,
-      desired_deadline, required_environment, reference_video_url, status, created_at
+      desired_deadline, required_environment, reference_video_url, status,
+      completed_content_public, maker_attribution_public, created_at
     )
     VALUES (
       ${request.id}, ${request.requesterSellerId}, ${request.title}, ${request.description},
       ${request.budgetAmount}, ${request.budgetNegotiable}, ${request.desiredDeadline},
-      ${request.requiredEnvironment}, ${request.referenceVideoUrl}, ${request.status}, ${request.createdAt}
+      ${request.requiredEnvironment}, ${request.referenceVideoUrl}, ${request.status},
+      ${request.completedContentPublic}, ${request.makerAttributionPublic}, ${request.createdAt}
     )
   `;
 
   return request;
+}
+
+// 완료 사례 공개 정책 토글 전용 - 의뢰인이 아무 상태에서나(주로 완료 후) 켜고
+// 끌 수 있다. 호출부(서버 액션)에서 requester 본인인지 먼저 확인해야 한다.
+export async function updateToolRequestDisclosure(
+  id: string,
+  input: { completedContentPublic: boolean; makerAttributionPublic: boolean }
+): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE tool_requests
+    SET completed_content_public = ${input.completedContentPublic},
+        maker_attribution_public = ${input.makerAttributionPublic}
+    WHERE id = ${id}
+  `;
 }
 
 type ToolRequestImageRow = {
@@ -1335,27 +1366,80 @@ export async function addToolRequestImages(requestId: string, imageUrls: string[
 }
 
 // 카테고리 필터는 없다 - 이 게시판은 단일 유형이다.
+type ToolRequestListRow = ToolRequestWithAuthorRow & {
+  selected_seller_id: string | null;
+  selected_seller_nickname: string | null;
+  selected_proposal_duration: string | null;
+  selected_proposal_completion_date: string | null;
+};
+
+function rowToToolRequestListItem(row: ToolRequestListRow): ToolRequestListItem {
+  return {
+    ...rowToToolRequestWithAuthor(row),
+    selectedSellerId: row.selected_seller_id,
+    selectedSellerNickname: row.selected_seller_nickname,
+    selectedProposalDuration: row.selected_proposal_duration,
+    selectedProposalCompletionDate: row.selected_proposal_completion_date,
+  };
+}
+
+// status 탭(모집중/진행중/완료) 목록. completed 탭의 공개 정책을 여기서
+// 직접 걸러낸다 - 당사자(요청자 본인 또는 선택된 제안의 판매자 본인)가
+// 아니면 completed_content_public=true인 행만 보인다. open/in_progress는
+// 기존과 동일하게 전부 공개(이번 라운드에서 그 범위는 건드리지 않는다).
+// viewerSellerId가 없으면(비로그인) 당사자 조건은 자동으로 전부 거짓이 된다.
 export async function listToolRequests(input: {
   page: number;
   pageSize: number;
-}): Promise<{ requests: ToolRequestWithAuthor[]; total: number }> {
+  status: ToolRequestStatus;
+  viewerSellerId: string | null;
+}): Promise<{ requests: ToolRequestListItem[]; total: number }> {
   await ensureInitialized();
   const sql = getSql();
   const offset = (input.page - 1) * input.pageSize;
+  const { status, viewerSellerId } = input;
 
   const [rows, countRows] = await Promise.all([
     sql`
-      SELECT tool_requests.*, sellers.nickname AS requester_nickname
+      SELECT tool_requests.*, sellers.nickname AS requester_nickname,
+             CASE WHEN tool_requests.maker_attribution_public THEN selected_proposal.seller_id ELSE NULL END
+               AS selected_seller_id,
+             CASE WHEN tool_requests.maker_attribution_public THEN maker.nickname ELSE NULL END
+               AS selected_seller_nickname,
+             selected_proposal.duration AS selected_proposal_duration,
+             selected_proposal.proposed_completion_date AS selected_proposal_completion_date
       FROM tool_requests
       JOIN sellers ON sellers.id = tool_requests.requester_seller_id
+      LEFT JOIN tool_proposals AS selected_proposal
+        ON selected_proposal.request_id = tool_requests.id AND selected_proposal.status = 'selected'
+      LEFT JOIN sellers AS maker ON maker.id = selected_proposal.seller_id
+      WHERE tool_requests.status = ${status}
+        AND (
+          tool_requests.status != 'completed'
+          OR tool_requests.completed_content_public = true
+          OR tool_requests.requester_seller_id = ${viewerSellerId}
+          OR selected_proposal.seller_id = ${viewerSellerId}
+        )
       ORDER BY tool_requests.created_at DESC
       LIMIT ${input.pageSize} OFFSET ${offset}
     `,
-    sql`SELECT COUNT(*) AS count FROM tool_requests`,
+    sql`
+      SELECT COUNT(*) AS count
+      FROM tool_requests
+      LEFT JOIN tool_proposals AS selected_proposal
+        ON selected_proposal.request_id = tool_requests.id AND selected_proposal.status = 'selected'
+      WHERE tool_requests.status = ${status}
+        AND (
+          tool_requests.status != 'completed'
+          OR tool_requests.completed_content_public = true
+          OR tool_requests.requester_seller_id = ${viewerSellerId}
+          OR selected_proposal.seller_id = ${viewerSellerId}
+        )
+    `,
   ]);
 
   return {
-    requests: (rows as ToolRequestWithAuthorRow[]).map(rowToToolRequestWithAuthor),
+    requests: (rows as ToolRequestListRow[]).map(rowToToolRequestListItem),
     total: Number((countRows as Array<{ count: string }>)[0]?.count ?? 0),
   };
 }

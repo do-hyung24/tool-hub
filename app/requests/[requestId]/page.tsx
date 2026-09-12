@@ -15,6 +15,7 @@ import { formatDate, formatPrice, getProfileImageSrc } from "@/lib/format";
 import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 import { getKstTodayDateString } from "@/lib/dday";
 import { DDayBadge } from "@/app/_components/DDayBadge";
+import { updateRequestDisclosureAction } from "@/app/requestActions";
 import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
 import { ConfirmDeliveryButton } from "./ConfirmDeliveryButton";
 import { DeleteRequestButton } from "./DeleteRequestButton";
@@ -39,9 +40,8 @@ function formatDesiredDeadline(value: string): string {
 export default async function ToolRequestDetailPage(props: PageProps<"/requests/[requestId]">) {
   const { requestId } = await props.params;
 
-  const [toolRequest, images, proposals, sellerId] = await Promise.all([
+  const [toolRequest, proposals, sellerId] = await Promise.all([
     getToolRequestById(requestId),
-    listToolRequestImages(requestId),
     listToolProposalsForRequest(requestId),
     getCurrentSellerId(),
   ]);
@@ -50,13 +50,84 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
     notFound();
   }
 
+  const isRequester = !!sellerId && sellerId === toolRequest.requesterSellerId;
+  const selectedProposal = proposals.find((proposal) => proposal.status === "selected");
+  const isSelectedSeller = !!sellerId && sellerId === selectedProposal?.sellerId;
+  const isParty = isRequester || isSelectedSeller;
+
+  // 완료 사례 공개 정책: (a)완료 후 의뢰 내용 공개가 꺼져 있으면 당사자 외에는
+  // 이 의뢰가 존재하는지조차 알 수 없어야 하므로 404로 응답한다.
+  if (toolRequest.status === "completed" && !toolRequest.completedContentPublic && !isParty) {
+    notFound();
+  }
+
+  // 완료 + 공개 + 비당사자: 공개 화이트리스트(제목/필요환경/본문/소요기간/완료일,
+  // (b)가 켜졌을 때만 제작자 귀속)만 렌더링한다. 금액·첨부파일·증빙·대화·계좌·
+  // 완성본은 이 분기에서 아예 조회하지 않는다.
+  if (toolRequest.status === "completed" && !isParty) {
+    return (
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
+        <Link href="/requests?status=completed" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
+          ← 목록으로
+        </Link>
+
+        <div className="mt-4 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+            의뢰
+          </span>
+          <span>완료</span>
+        </div>
+
+        <h1 className="mt-2 text-2xl font-bold">{toolRequest.title}</h1>
+
+        {toolRequest.makerAttributionPublic && selectedProposal && (
+          <div className="mt-3 flex items-center gap-2">
+            <Link
+              href={`/sellers/${selectedProposal.sellerId}`}
+              className="text-sm text-zinc-600 hover:underline dark:text-zinc-300"
+            >
+              제작자 {selectedProposal.sellerNickname}
+            </Link>
+          </div>
+        )}
+
+        <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+          {toolRequest.description}
+        </p>
+
+        <dl className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-zinc-400 dark:text-zinc-500">필요한 프로그램/환경</dt>
+            <dd className="mt-0.5 text-zinc-700 dark:text-zinc-300">
+              {toolRequest.requiredEnvironment ?? "제한 없음"}
+            </dd>
+          </div>
+          {selectedProposal?.duration && (
+            <div>
+              <dt className="text-xs text-zinc-400 dark:text-zinc-500">소요기간</dt>
+              <dd className="mt-0.5 text-zinc-700 dark:text-zinc-300">{selectedProposal.duration}</dd>
+            </div>
+          )}
+          {selectedProposal?.proposedCompletionDate &&
+            DATE_ONLY_PATTERN.test(selectedProposal.proposedCompletionDate) && (
+              <div>
+                <dt className="text-xs text-zinc-400 dark:text-zinc-500">완료일</dt>
+                <dd className="mt-0.5 text-zinc-700 dark:text-zinc-300">
+                  {formatDate(selectedProposal.proposedCompletionDate)}
+                </dd>
+              </div>
+            )}
+        </dl>
+      </main>
+    );
+  }
+
+  const images = await listToolRequestImages(requestId);
   const today = getKstTodayDateString();
 
-  const isRequester = !!sellerId && sellerId === toolRequest.requesterSellerId;
   const canSelectProposals = isRequester && toolRequest.status === "open";
   const canPropose = !!sellerId && sellerId !== toolRequest.requesterSellerId && toolRequest.status === "open";
 
-  const selectedProposal = proposals.find((proposal) => proposal.status === "selected");
   const canAccessThread =
     !!selectedProposal &&
     !!sellerId &&
@@ -66,7 +137,6 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
     ? await listToolProposalMessages(selectedProposal!.id)
     : [];
 
-  const isSelectedSeller = !!sellerId && sellerId === selectedProposal?.sellerId;
   const canSubmitDelivery = isSelectedSeller && toolRequest.status === "in_progress";
 
   // 납품 스캔 요약은 의뢰자 본인 또는 선택된 제안의 판매자 본인일 때만 조회한다
@@ -120,6 +190,40 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
           {toolRequest.requesterNickname}
         </span>
       </div>
+
+      {isRequester && (
+        <form
+          action={updateRequestDisclosureAction}
+          className="mt-4 flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800"
+        >
+          <input type="hidden" name="requestId" value={toolRequest.id} />
+          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">완료 사례 공개 설정</p>
+          <label className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              name="completedContentPublic"
+              defaultChecked={toolRequest.completedContentPublic}
+              className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700"
+            />
+            완료 후 의뢰 내용 공개(제목·필요환경·본문·소요기간·완료일)
+          </label>
+          <label className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              name="makerAttributionPublic"
+              defaultChecked={toolRequest.makerAttributionPublic}
+              className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700"
+            />
+            공개 화면에 제작자 이름·프로필 링크 표시
+          </label>
+          <button
+            type="submit"
+            className="mt-1 w-fit rounded-full bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            저장
+          </button>
+        </form>
+      )}
 
       <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
         {toolRequest.description}

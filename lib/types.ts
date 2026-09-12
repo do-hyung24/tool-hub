@@ -151,11 +151,27 @@ export type ToolRequest = {
   requiredEnvironment: string | null;
   referenceVideoUrl: string | null;
   status: ToolRequestStatus;
+  // 완료 사례 공개 정책(둘의 의미가 다르므로 분리): completedContentPublic은
+  // 완료 후 의뢰 내용(제목/필요환경/본문/기간/완료예정일)을 비로그인 포함
+  // 누구나 볼 수 있게 할지, makerAttributionPublic은 그 공개 화면에 제작자
+  // 이름·프로필 링크까지 노출할지(전자가 true일 때만 의미가 있음).
+  completedContentPublic: boolean;
+  makerAttributionPublic: boolean;
   createdAt: string;
 };
 
 export type ToolRequestWithAuthor = ToolRequest & {
   requesterNickname: string;
+};
+
+// /requests 목록 카드 전용 - 완료 탭 표시를 위해 선택된 제안(있으면)의
+// 제작자·기간·완료예정일을 함께 담는다. getToolRequestById 등 단건 조회는
+// 이 정보가 필요 없어 그대로 ToolRequestWithAuthor를 쓴다(불필요한 JOIN 방지).
+export type ToolRequestListItem = ToolRequestWithAuthor & {
+  selectedSellerId: string | null;
+  selectedSellerNickname: string | null;
+  selectedProposalDuration: string | null;
+  selectedProposalCompletionDate: string | null;
 };
 
 export type ToolRequestImage = {

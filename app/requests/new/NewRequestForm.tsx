@@ -121,6 +121,7 @@ export function NewRequestForm({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [completedContentPublic, setCompletedContentPublic] = useState(true);
   const [description, setDescription] = useState(initialValues?.description ?? initialDescription);
   const [budgetAmount, setBudgetAmount] = useState(initialValues?.budgetAmount ?? ""); // 콤마 없는 숫자 문자열
   const [budgetNegotiable, setBudgetNegotiable] = useState(initialValues?.budgetNegotiable ?? false);
@@ -216,6 +217,11 @@ export function NewRequestForm({
       if (desiredDeadline.trim() !== "") formData.append("desiredDeadline", desiredDeadline);
       if (requiredEnvironment !== "") formData.append("requiredEnvironment", requiredEnvironment);
       if (referenceVideoUrl.trim() !== "") formData.append("referenceVideoUrl", referenceVideoUrl);
+      if (mode === "new") {
+        // 수정(edit) 모드는 이 값을 다루지 않는다(updateToolRequest가 건드리지
+        // 않음) - 등록 시에만 의미가 있다.
+        formData.append("completedContentPublic", completedContentPublic ? "on" : "off");
+      }
       for (const file of images) {
         formData.append("images", file);
       }
@@ -274,6 +280,26 @@ export function NewRequestForm({
           className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
         />
       </div>
+
+      {mode === "new" && (
+        <div className="flex flex-col gap-1.5 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+          <label className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={completedContentPublic}
+              onChange={(event) => setCompletedContentPublic(event.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-zinc-300 dark:border-zinc-700"
+            />
+            완료 후 의뢰 내용을 공개해요
+          </label>
+          <p className="text-xs text-zinc-400 dark:text-zinc-500">
+            완료되면 제목·필요한 프로그램/환경·본문·소요기간·완료 예정일이 비로그인
+            방문자에게도 공개됩니다. 예산·첨부 사진·작동 증빙·비공개 대화·계좌 정보는
+            공개 여부와 무관하게 항상 비공개입니다. 이 설정은 완료 후에도 의뢰 상세에서
+            언제든 바꿀 수 있습니다.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5">

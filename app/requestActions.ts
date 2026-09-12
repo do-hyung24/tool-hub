@@ -24,6 +24,7 @@ import {
   updateProposalDeliveryFile,
   updateProposalDeliveryGuide,
   updateProposalDeliveryProofVideo,
+  updateToolRequestDisclosure,
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { sendRequestDeliveryReadyEmail } from "@/lib/email";
@@ -449,4 +450,25 @@ export async function confirmPaymentAction(formData: FormData) {
   }
 
   redirect(`/requests/${requestId}?completed=1`);
+}
+
+// 완료 사례 공개 정책((a)완료 후 의뢰 내용 공개 / (b)제작자 귀속 표시 동의)을
+// 의뢰인 본인만 바꿀 수 있다 - 완료 이전/이후 상태와 무관하게 언제든 토글 가능.
+export async function updateRequestDisclosureAction(formData: FormData) {
+  const sellerId = await getCurrentSellerId();
+  if (!sellerId) {
+    redirect("/login");
+  }
+
+  const requestId = String(formData.get("requestId") ?? "");
+  const toolRequest = await getToolRequestById(requestId);
+  if (!toolRequest || toolRequest.requesterSellerId !== sellerId) {
+    throw new Error("권한이 없습니다.");
+  }
+
+  const completedContentPublic = formData.get("completedContentPublic") === "on";
+  const makerAttributionPublic = formData.get("makerAttributionPublic") === "on";
+  await updateToolRequestDisclosure(requestId, { completedContentPublic, makerAttributionPublic });
+
+  redirect(`/requests/${requestId}`);
 }

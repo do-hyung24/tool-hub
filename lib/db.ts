@@ -424,6 +424,17 @@ async function initialize(): Promise<void> {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_tool_requests_created ON tool_requests(created_at DESC)`;
 
+  // 완료 사례 공개 정책 - 의미가 다른 두 불리언이라 하나로 합치지 않는다.
+  //   completed_content_public: 완료 후 의뢰 내용(제목/필요환경/본문/기간/완료예정일)을
+  //     비로그인 포함 누구나 볼 수 있게 공개할지. 금액/첨부파일/증빙/대화/계좌/이메일/
+  //     완성본은 이 값과 무관하게 항상 비공개.
+  //   maker_attribution_public: 위 공개 화면에 제작자 이름·프로필 링크까지 노출할지
+  //     (completed_content_public이 true일 때만 의미가 있음).
+  // 기존 행을 소급 공개하면 안 되므로 DEFAULT FALSE로 추가한다 - 신규 등록 시에만
+  // 애플리케이션(createToolRequest)이 completed_content_public을 명시적으로 채운다.
+  await sql`ALTER TABLE tool_requests ADD COLUMN IF NOT EXISTS completed_content_public BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE tool_requests ADD COLUMN IF NOT EXISTS maker_attribution_public BOOLEAN NOT NULL DEFAULT FALSE`;
+
   // listings보다 뒤에서 생성되므로 여기서 컬럼을 추가한다(순방향 참조 회피).
   await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_request_id TEXT REFERENCES tool_requests(id)`;
 

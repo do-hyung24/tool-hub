@@ -7,8 +7,7 @@ import { HeroPrompt } from "./_components/HeroPrompt";
 import { Reveal } from "./_components/Reveal";
 import { ScanShowcase } from "./_components/ScanShowcase";
 import { ScanSummaryCard } from "./_components/ScanSummaryCard";
-import { HowItWorksTabs } from "./_components/HowItWorksTabs";
-import { RequestFlowShowcase } from "./_components/RequestFlowShowcase";
+import { TransactionFlowTimeline } from "./_components/TransactionFlowTimeline";
 
 // 보안 스캔 쇼케이스 섹션의 예시 findings. ScanShowcase의 코드 패널과 줄 번호가
 // 맞춰져 있다(2행 critical, 5행 medium, 8행 high) - 실제 서비스 로직
@@ -368,15 +367,12 @@ export default async function Home() {
           <Reveal>
             <p className="text-xs font-medium tracking-[0.04em] text-accent">이용 방법</p>
             <h2 className="mt-3 text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
-              세 단계로 완료됩니다
+              다섯 단계로 완료됩니다
             </h2>
           </Reveal>
-          <div className="mt-12 grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-start">
+          <div className="mt-12">
             <Reveal>
-              <HowItWorksTabs />
-            </Reveal>
-            <Reveal>
-              <RequestFlowShowcase />
+              <TransactionFlowTimeline />
             </Reveal>
           </div>
         </div>

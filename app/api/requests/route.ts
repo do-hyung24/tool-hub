@@ -43,10 +43,15 @@ export async function POST(request: Request) {
     processedBuffers.push(result.buffer);
   }
 
+  // 폼이 명시적으로 "off"를 보내지 않는 한(체크 해제) 기본은 공개(true)다 -
+  // 값 자체가 아예 없는 경우(구버전 클라이언트 등)도 안전하게 공개 기본값을 쓴다.
+  const completedContentPublic = formData.get("completedContentPublic") !== "off";
+
   // 여기까지 왔으면 모든 검증/이미지 처리가 끝났다 - 이제부터 DB/Blob에 쓴다.
   const toolRequest = await createToolRequest({
     requesterSellerId: sellerId,
     ...fields,
+    completedContentPublic,
   });
 
   // 이 환경의 Blob 스토어가 private 전용으로 구성되어 있어 access:"public" 업로드는
