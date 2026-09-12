@@ -394,7 +394,9 @@ export async function acceptDeliveryAction(formData: FormData) {
   const proposalId = String(formData.get("proposalId") ?? "");
   const accepted = await acceptProposalDelivery(requestId, proposalId, sellerId);
   if (!accepted) {
-    throw new Error("완성본을 수락할 수 없습니다.");
+    // throw는 500(서버 예외)으로 응답해 의도된 거부와 실제 오류를 구분할 수 없게
+    // 만든다 - updateRequestDisclosureAction과 같은 방식으로 notFound()를 쓴다.
+    notFound();
   }
 
   redirect(`/requests/${requestId}`);
@@ -428,7 +430,7 @@ export async function markTransferSentAction(formData: FormData) {
 
   const marked = await markProposalTransferSent(requestId, proposalId, sellerId, transferProofUrl);
   if (!marked) {
-    throw new Error("이체 완료를 표시할 수 없습니다.");
+    notFound();
   }
 
   redirect(`/requests/${requestId}`);
@@ -446,7 +448,7 @@ export async function confirmPaymentAction(formData: FormData) {
   const proposalId = String(formData.get("proposalId") ?? "");
   const confirmed = await confirmProposalPayment(requestId, proposalId, sellerId);
   if (!confirmed) {
-    throw new Error("입금 확인을 처리할 수 없습니다.");
+    notFound();
   }
 
   redirect(`/requests/${requestId}?completed=1`);

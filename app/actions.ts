@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   createDraftListing,
   getListingForOwner,
@@ -156,7 +156,7 @@ export async function rescanListingAction(formData: FormData) {
 
   const listing = await getListingForOwner(listingId, sellerId);
   if (!listing) {
-    throw new Error("매물을 찾을 수 없거나 접근 권한이 없습니다.");
+    notFound();
   }
 
   const sourceType = await parseSourceType(formData);
@@ -191,7 +191,7 @@ export async function publishAnywayAction(formData: FormData) {
 
   const published = await publishListing(listingId, sellerId, disclosureNote || null);
   if (!published) {
-    throw new Error("매물을 찾을 수 없거나 접근 권한이 없습니다.");
+    notFound();
   }
 
   redirect(`/listings/${listingId}`);
