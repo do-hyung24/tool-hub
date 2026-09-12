@@ -51,7 +51,7 @@ function StatusMessage({
   return null;
 }
 
-export function SignupForm() {
+export function SignupForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
   const [emailStatus, setEmailStatus] = useState<CheckStatus>("unchecked");
@@ -108,6 +108,7 @@ export function SignupForm() {
 
   return (
     <form action={signupAction} className="mt-8 flex flex-col gap-6">
+      <input type="hidden" name="next" value={next ?? ""} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="email" className="text-sm font-medium">
           이메일

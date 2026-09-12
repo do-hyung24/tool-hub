@@ -31,6 +31,7 @@ const SEED_SELLERS: Seller[] = [
     emailVerified: false,
     deletionRequestedAt: null,
     profileImageUrl: null,
+    createdAt: "2026-08-01T00:00:00.000Z",
   },
   {
     id: "s2",
@@ -40,6 +41,7 @@ const SEED_SELLERS: Seller[] = [
     emailVerified: false,
     deletionRequestedAt: null,
     profileImageUrl: null,
+    createdAt: "2026-08-01T00:00:00.000Z",
   },
   {
     id: "s3",
@@ -49,6 +51,7 @@ const SEED_SELLERS: Seller[] = [
     emailVerified: false,
     deletionRequestedAt: null,
     profileImageUrl: null,
+    createdAt: "2026-08-01T00:00:00.000Z",
   },
 ];
 
@@ -68,6 +71,7 @@ const SEED_LISTINGS: Listing[] = [
     hasUnresolvedFindings: false,
     createdAt: "2026-08-20T09:00:00.000Z",
     sellerId: "s1",
+    sourceRequestId: null,
   },
   {
     id: "l2",
@@ -85,6 +89,7 @@ const SEED_LISTINGS: Listing[] = [
     hasUnresolvedFindings: true,
     createdAt: "2026-08-18T09:00:00.000Z",
     sellerId: "s2",
+    sourceRequestId: null,
   },
   {
     id: "l3",
@@ -101,6 +106,7 @@ const SEED_LISTINGS: Listing[] = [
     hasUnresolvedFindings: false,
     createdAt: "2026-08-22T09:00:00.000Z",
     sellerId: "s3",
+    sourceRequestId: null,
   },
 ];
 
@@ -162,14 +168,16 @@ const SEED_COMMUNITY_POSTS: Array<{
   {
     id: "cp-tool-request-preview",
     category: "공지",
-    title: "곧 추가됩니다 - 툴 수배 게시판",
+    title: "오픈했습니다 - 자동화 툴 의뢰 게시판",
     createdAt: "2026-09-09T09:05:00.000Z",
     content:
-      "원하는 자동화 봇/스크립트를 직접 만들어달라고 요청할 수 있는 '툴 수배' 게시판을 준비하고 있습니다.\n\n" +
-      "예정된 방식은 다음과 같습니다.\n" +
-      "- 원하는 툴과 예산(가격)을 함께 올리면, 만들 수 있는 개발자가 선착순으로 수락해 제작을 진행합니다.\n" +
-      "- 결제는 플랫폼이 중개하지 않고 요청자와 개발자가 직접 진행합니다. 그 과정에서 발생하는 분쟁에 대해 플랫폼은 책임지지 않습니다.\n\n" +
-      "정확한 출시 일정은 아직 확정되지 않았습니다. 준비되는 대로 다시 안내드리겠습니다.",
+      "원하는 자동화 봇/스크립트를 직접 만들어달라고 요청할 수 있는 '자동화 툴 의뢰' 게시판이 열렸습니다.\n\n" +
+      "이용 방법은 다음과 같습니다.\n" +
+      "- 원하는 툴 내용과 사진, 예산을 함께 올려 의뢰를 등록합니다.\n" +
+      "- 여러 개발자가 가격/기간/설명을 담아 제안을 보내오면, 의뢰자가 그중 하나를 선택합니다.\n" +
+      "- 선택 이후에는 해당 제안의 비공개 스레드에서 개발자와 세부 사항을 조율합니다.\n" +
+      "- 개발자가 완성본을 제출하면 기존 매물과 동일한 보안 스캔을 거쳐 전달되고, 의뢰자가 확인 후 결제를 완료하면 거래가 마무리됩니다.\n\n" +
+      "지금 바로 '자동화 툴 의뢰' 메뉴 또는 /requests 에서 이용해보세요.",
   },
 ];
 
@@ -211,6 +219,20 @@ async function initialize(): Promise<void> {
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS deletion_requested_at TEXT`;
   // 프로필 사진의 Vercel Blob URL. NULL이면 기본 아바타를 표시한다.
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS profile_image_url TEXT`;
+  // 가입일(공개 프로필 "가입 N개월/년차" 표시용). 기존 계정은 이 컬럼이 없었으므로
+  // 한 번만 지금 시각으로 채워 넣는다 - 실제 가입일이 아니지만, 없는 값을 지어내는
+  // 대신 이 컬럼이 생긴 시점을 정직하게 기록하는 것이다. 이후 신규 가입은
+  // createSeller가 매번 실제 가입 시각을 채운다.
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS created_at TEXT`;
+  await sql`UPDATE sellers SET created_at = ${new Date().toISOString()} WHERE created_at IS NULL`;
+  // 제작자 정산(직거래 이체 수신용) 계좌 정보. 본인이 직접 입력하고(휴대폰 인증·
+  // 계좌 실명대조 없음), 노출은 getSellerById 등 일반 조회 함수에는 전혀 포함하지
+  // 않고 lib/data.ts의 getSellerSettlementAccount(본인 전용)/
+  // getSettlementAccountForViewer(의뢰인이 완성본을 수락한 뒤에만) 두 전용 함수를
+  // 통해서만 읽는다.
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_bank_name TEXT`;
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_account_holder TEXT`;
+  await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_account_number TEXT`;
 
   // 유니크 인덱스를 걸기 전, 이미 중복된 값이 있으면 인덱스 생성 자체가 실패해
   // 이후 모든 요청에서 ensureInitialized()가 계속 예외를 던지는 전면 장애로
@@ -385,10 +407,145 @@ async function initialize(): Promise<void> {
       ON community_comment_reports(comment_id, reporter_seller_id)
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_requests (
+      id TEXT PRIMARY KEY,
+      requester_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      budget_amount INTEGER,
+      budget_negotiable BOOLEAN NOT NULL DEFAULT FALSE,
+      desired_deadline TEXT,
+      required_environment TEXT,
+      reference_video_url TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_requests_created ON tool_requests(created_at DESC)`;
+
+  // 완료 사례 공개 정책 - 의미가 다른 두 불리언이라 하나로 합치지 않는다.
+  //   completed_content_public: 완료 후 의뢰 내용(제목/필요환경/본문/기간/완료예정일)을
+  //     비로그인 포함 누구나 볼 수 있게 공개할지. 금액/첨부파일/증빙/대화/계좌/이메일/
+  //     완성본은 이 값과 무관하게 항상 비공개.
+  //   maker_attribution_public: 위 공개 화면에 제작자 이름·프로필 링크까지 노출할지
+  //     (completed_content_public이 true일 때만 의미가 있음).
+  // 기존 행을 소급 공개하면 안 되므로 DEFAULT FALSE로 추가한다 - 신규 등록 시에만
+  // 애플리케이션(createToolRequest)이 completed_content_public을 명시적으로 채운다.
+  await sql`ALTER TABLE tool_requests ADD COLUMN IF NOT EXISTS completed_content_public BOOLEAN NOT NULL DEFAULT FALSE`;
+  await sql`ALTER TABLE tool_requests ADD COLUMN IF NOT EXISTS maker_attribution_public BOOLEAN NOT NULL DEFAULT FALSE`;
+
+  // listings보다 뒤에서 생성되므로 여기서 컬럼을 추가한다(순방향 참조 회피).
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_request_id TEXT REFERENCES tool_requests(id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_request_images (
+      id TEXT PRIMARY KEY,
+      request_id TEXT NOT NULL REFERENCES tool_requests(id),
+      image_url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_request_images_request ON tool_request_images(request_id, sort_order)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_proposals (
+      id TEXT PRIMARY KEY,
+      request_id TEXT NOT NULL REFERENCES tool_requests(id),
+      seller_id TEXT NOT NULL REFERENCES sellers(id),
+      price INTEGER NOT NULL,
+      duration TEXT NOT NULL,
+      description TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      delivered_listing_id TEXT REFERENCES listings(id),
+      delivery_confirmed_at TEXT,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_proposals_request ON tool_proposals(request_id, created_at)`;
+  // 완성본 제출 시 제작자가 필수로 남기는 실행 가이드(설치/실행 방법).
+  // FK가 아닌 단순 텍스트 컬럼이라 삭제 순서(deleteToolRequest)나 계정삭제
+  // 크론에는 영향이 없다.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_guide TEXT`;
+  // 완성본이 zip으로 제출된 경우, 스캔한 바로 그 zip을 private Blob에 저장한 URL.
+  // listings.code_url을 재사용하지 않는다 - 그쪽은 마켓 재등록 등 다른 경로에서도
+  // 조회/노출될 수 있는 필드라, 의뢰자 전용 다운로드 게이트로만 접근 가능한 이
+  // 파일 URL과 노출 범위를 격리해야 한다. GitHub 제출이면 NULL.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_file_url TEXT`;
+  // 제안의 완료 예정일(YYYY-MM-DD, tool_requests.desired_deadline과 동일한
+  // TEXT 저장 관례). 기존 duration TEXT 컬럼은 타입을 바꾸지 않고 그대로
+  // 두며, 이 컬럼은 새 제안부터만 채워진다 - 기존 제안은 NULL로 남고 화면에서
+  // 조용히 생략된다(파싱/백필 없음).
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS proposed_completion_date TEXT`;
+
+  // 아래 5개 컬럼은 "에스크로 없는 직거래 결제/정산" 흐름의 단계별 시각을
+  // 기록한다. 병렬 상태 테이블을 새로 두지 않고 기존 delivery_confirmed_at
+  // (스캔 게이트 통과) 뒤를 잇는 타임스탬프로만 표현한다.
+  //   제출+스캔 통과(delivery_confirmed_at) → 의뢰인 수락(buyer_accepted_at)
+  //   → 의뢰인 이체 완료 표시(transfer_marked_at) → 제작자 입금 확인
+  //   (payment_confirmed_at, 이 시점에만 tool_requests.status가 completed로
+  //   바뀌고 완성본 다운로드가 열린다). 재제출(재스캔) 시에는 아래에서
+  //   clearProposalDeliveryConfirmation이 이 3개도 함께 초기화한다 - 새로
+  //   제출된 완성본이 이전 수락/이체 상태를 그대로 물려받지 않도록.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS buyer_accepted_at TEXT`;
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS transfer_marked_at TEXT`;
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS payment_confirmed_at TEXT`;
+  // 의뢰인이 "이체 완료" 표시 시 선택적으로 첨부하는 이체 증빙 스크린샷(private Blob URL).
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS transfer_proof_url TEXT`;
+  // 완성본 제출 시 작동 증빙으로 첨부하는 짧은 영상(선택, private Blob URL).
+  // 스크린샷은 별도 테이블(tool_proposal_delivery_proofs, 1장 이상)에 보관한다.
+  await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS delivery_proof_video_url TEXT`;
+
+  // 이 5개 컬럼이 생기기 전에 이미 완료(tool_requests.status='completed')까지
+  // 간 거래는 결제 확인 단계 자체가 없었으므로, 새 게이트(payment_confirmed_at
+  // 없으면 다운로드 불가)가 그 기존 거래를 회귀시키지 않도록 완료 시점을 그대로
+  // 백필한다. 신규/진행중 거래는 delivery_confirmed_at은 있어도 status가
+  // completed가 아니므로 이 조건에 걸리지 않는다.
+  await sql`
+    UPDATE tool_proposals
+    SET buyer_accepted_at = COALESCE(buyer_accepted_at, delivery_confirmed_at),
+        transfer_marked_at = COALESCE(transfer_marked_at, delivery_confirmed_at),
+        payment_confirmed_at = COALESCE(payment_confirmed_at, delivery_confirmed_at)
+    WHERE payment_confirmed_at IS NULL
+      AND delivery_confirmed_at IS NOT NULL
+      AND status = 'selected'
+      AND request_id IN (SELECT id FROM tool_requests WHERE status = 'completed')
+  `;
+
+  // 완성본 제출 시 첨부하는 작동 증빙 스크린샷(1장 이상). tool_request_images와
+  // 동일한 패턴(부모별 다건, sort_order로 순서 유지)이다. 당사자(의뢰인/선택된
+  // 제작자) 한정 게이트 라우트(app/api/requests/[requestId]/delivery/asset)를
+  // 통해서만 조회되며, 다른 조회 함수는 이 테이블을 읽지 않는다.
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_proposal_delivery_proofs (
+      id TEXT PRIMARY KEY,
+      proposal_id TEXT NOT NULL REFERENCES tool_proposals(id),
+      image_url TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_tool_proposal_delivery_proofs_proposal
+      ON tool_proposal_delivery_proofs(proposal_id, sort_order)
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS tool_proposal_messages (
+      id TEXT PRIMARY KEY,
+      proposal_id TEXT NOT NULL REFERENCES tool_proposals(id),
+      sender_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tool_proposal_messages_proposal ON tool_proposal_messages(proposal_id, created_at)`;
+
   for (const seller of SEED_SELLERS) {
     await sql`
-      INSERT INTO sellers (id, nickname, contact)
-      VALUES (${seller.id}, ${seller.nickname}, ${seller.contact})
+      INSERT INTO sellers (id, nickname, contact, created_at)
+      VALUES (${seller.id}, ${seller.nickname}, ${seller.contact}, ${seller.createdAt})
       ON CONFLICT (id) DO NOTHING
     `;
   }
@@ -435,6 +592,22 @@ async function initialize(): Promise<void> {
 
   if (operatorId) {
     for (const post of SEED_COMMUNITY_POSTS) {
+      // "cp-tool-request-preview"는 툴 의뢰 게시판 오픈 전에 이미 프로덕션에 배포되었던
+      // 예고 공지라, 문구를 갱신한 뒤에도 DO NOTHING이면 기존 행이 고쳐지지 않는다.
+      // 이 한 건만 title/content를 최신 내용으로 덮어쓰도록 upsert한다.
+      if (post.id === "cp-tool-request-preview") {
+        await sql`
+          INSERT INTO community_posts (id, author_seller_id, category, title, content, hidden, created_at)
+          VALUES (
+            ${post.id}, ${operatorId}, ${post.category}, ${post.title},
+            ${post.content}, false, ${post.createdAt}
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            title = EXCLUDED.title,
+            content = EXCLUDED.content
+        `;
+        continue;
+      }
       await sql`
         INSERT INTO community_posts (id, author_seller_id, category, title, content, hidden, created_at)
         VALUES (

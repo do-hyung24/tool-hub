@@ -26,6 +26,9 @@ export async function AuthStatus() {
 
   return (
     <div className="flex items-center gap-3 text-sm">
+      <Link href="/my" className="text-zinc-600 hover:underline dark:text-zinc-300">
+        내 활동
+      </Link>
       <Link href="/account" className="flex items-center gap-2">
         {profileImageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element

@@ -1,8 +1,17 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
+@import url("https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css");
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -10,24 +19,118 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-display: "Wanted Sans Variable", "Wanted Sans", var(--font-sans);
+  /* 랜딩 전용 색 시스템 - 순흑/순백 대신 에메랄드가 살짝 섞인 톤을 쓴다. */
+  --color-ink: #08090a;
+  --color-ink-2: #121716;
+  --color-paper: #ffffff;
+  --color-paper-2: #f5f6f5;
+  --color-accent: #2e7d5b;
+  --color-accent-soft: #8ccfb0;
+  --color-accent-tint: #e8f3ee;
+  /* 다크 섹션(히어로·CTA·푸터·스캔 패널) 전용 텍스트 톤 - 순백 대신 오프화이트,
+     보조 텍스트는 계층 분리를 위한 회색. */
+  --color-offwhite: #f7f8f8;
+  --color-muted: #8a8f98;
+  --color-code: #d0d6e0;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, var(--font-geist-sans), -apple-system,
+    sans-serif;
+  /* 한글은 break-keep(word-break: keep-all)만으로는 아주 좁은 폭에서 마지막
+     한 글자만 다음 줄로 넘어가는 "외톨이 글자"가 생길 수 있다. 그런 극단적인
+     경우에만 개입해 아무 글자에서나 자연스럽게 잘리도록 안전망을 전역으로
+     깔아둔다 - 평소 줄바꿈(단어/어절 단위)에는 영향이 없다. */
+  overflow-wrap: anywhere;
 }
 
 /* 홈 히어로의 "안전한 매물 둘러보기" 앵커 이동에만 쓰인다. */
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
+  }
+}
+
+/* ── 랜딩 전용 유틸(lp- 접두, 전역 오염 방지) ── */
+
+/* 은은한 미세 그리드 배경. 라이트 섹션 전용(선 색은 zinc-900 4% 불투명도). */
+.lp-grid-bg {
+  background-image: linear-gradient(to right, rgb(24 24 27 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(24 24 27 / 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+}
+
+/* 스크롤 진입 시 서서히 떠오르는 효과. JS(Reveal)가 .is-visible을 붙인다. */
+.lp-fade-up {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+.lp-fade-up.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 스캔 쇼케이스의 이동하는 광선. */
+@keyframes lp-scan-beam-move {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+.lp-scan-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgb(16 185 129 / 0.9) 20%,
+    rgb(16 185 129 / 0.9) 80%,
+    transparent
+  );
+  box-shadow: 0 -6px 10px rgb(16 185 129 / 0.35), 0 6px 10px rgb(16 185 129 / 0.35);
+  filter: blur(0.5px);
+  animation: lp-scan-beam-move 4.5s linear infinite;
+}
+
+/* 스캔 쇼케이스의 코드 하이라이트 라인. 배경/보더 색은 --lp-hit-bg/--lp-hit-border로,
+   지연 시간은 style.animationDelay로 각 사용처에서 인라인 지정한다. */
+@keyframes lp-scan-hit-reveal {
+  from {
+    background-color: transparent;
+    border-left-color: transparent;
+  }
+  to {
+    background-color: var(--lp-hit-bg, transparent);
+    border-left-color: var(--lp-hit-border, transparent);
+  }
+}
+.lp-scan-hit {
+  animation: lp-scan-hit-reveal 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-fade-up {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  .lp-scan-beam {
+    animation: none;
+    opacity: 0;
+  }
+  .lp-scan-hit {
+    animation: none;
+    background-color: var(--lp-hit-bg, transparent);
+    border-left-color: var(--lp-hit-border, transparent);
   }
 }

@@ -19,6 +19,7 @@ import {
 import { hashPassword } from "@/lib/password";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { SUPPORT_EMAIL } from "@/lib/constants";
+import { safeNextPath } from "@/lib/safeNext";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -64,6 +65,7 @@ export async function signupAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const nickname = String(formData.get("nickname") ?? "").trim();
+  const redirectTo = safeNextPath(formData.get("next"));
 
   if (!EMAIL_REGEX.test(email)) {
     throw new Error("올바른 이메일 주소를 입력해주세요.");
@@ -99,7 +101,7 @@ export async function signupAction(formData: FormData) {
   // 미인증 계정도 로그인은 가능하므로, 가입 직후 바로 로그인 상태로 전환한다.
   // 인증 코드 발송은 이제 /verify-email 페이지의 버튼 클릭으로만 시작된다
   // (resendVerificationAction 참고).
-  await signIn("credentials", { email, password, redirectTo: "/" });
+  await signIn("credentials", { email, password, redirectTo });
 }
 
 export type LoginState = { error?: string };
@@ -110,9 +112,10 @@ export async function loginAction(
 ): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const redirectTo = safeNextPath(formData.get("next"));
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/" });
+    await signIn("credentials", { email, password, redirectTo });
   } catch (error) {
     if (error instanceof AccountDeletionPendingError) {
       return {

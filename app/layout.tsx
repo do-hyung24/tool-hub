@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteHeader } from "./_components/SiteHeader";
 import { SiteFooter } from "./_components/SiteFooter";
+import { AuthStatus } from "./_components/AuthStatus";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "툴허브 - 바이브코딩 자동화 봇 거래 허브",
   description:
-    "개인이 만든 자동화 봇/스크립트를 다른 개인에게 직거래로 판매할 수 있는 C2C 거래 허브입니다.",
+    "필요한 업무를 설명하면 제작자가 가격과 기간을 제안합니다. 완성본은 전달 전 자동 보안 스캔을 거칩니다. 의뢰자와 제작자를 잇는 자동화 툴 플랫폼, 툴허브.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -27,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-white text-zinc-900 dark:bg-black dark:text-zinc-50">
-        <SiteHeader />
+        <SiteHeader authStatus={<AuthStatus />} />
         {children}
         <SiteFooter />
       </body>
