@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ENVIRONMENT_CHIPS } from "@/lib/requestEnvironment";
 import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
+import { clearLandingDraft, readLandingDraft } from "@/lib/landingDraft";
 
 const TITLE_MIN_LENGTH = 2;
 const CONTENT_MIN_LENGTH = 30;
@@ -109,20 +110,39 @@ type InitialValues = {
 };
 
 export function NewRequestForm({
+  initialTitle = "",
   initialDescription = "",
   mode = "new",
   requestId,
   initialValues,
 }: {
+  initialTitle?: string;
   initialDescription?: string;
   mode?: "new" | "edit";
   requestId?: string;
   initialValues?: InitialValues;
 }) {
   const router = useRouter();
-  const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [title, setTitle] = useState(initialValues?.title ?? initialTitle);
   const [completedContentPublic, setCompletedContentPublic] = useState(true);
   const [description, setDescription] = useState(initialValues?.description ?? initialDescription);
+  // 랜딩 폼에서 이어받은 값(쿼리 파라미터 또는 로컬 저장소 복원)이 있을 때만
+  // "거의 다 됐습니다" 안내를 보여준다.
+  const [showContinuationBanner, setShowContinuationBanner] = useState(
+    mode === "new" && (!!initialTitle || !!initialDescription)
+  );
+
+  useEffect(() => {
+    if (mode !== "new") return;
+    if (initialTitle || initialDescription) return; // 쿼리로 이미 채워졌으면 로컬 초안으로 덮어쓰지 않는다.
+    const draft = readLandingDraft();
+    if (!draft) return;
+    if (draft.title) setTitle(draft.title);
+    if (draft.description) setDescription(draft.description);
+    setShowContinuationBanner(true);
+    // 최초 마운트 시 한 번만 복원한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [budgetAmount, setBudgetAmount] = useState(initialValues?.budgetAmount ?? ""); // 콤마 없는 숫자 문자열
   const [budgetNegotiable, setBudgetNegotiable] = useState(initialValues?.budgetNegotiable ?? false);
   const [desiredDeadline, setDesiredDeadline] = useState(initialValues?.desiredDeadline ?? "");
@@ -252,6 +272,7 @@ export function NewRequestForm({
         setError(result.error ?? "등록에 실패했습니다.");
         return;
       }
+      clearLandingDraft();
       router.push(`/requests/${result.id}`);
     } catch {
       setError(
@@ -266,6 +287,12 @@ export function NewRequestForm({
 
   return (
     <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-6">
+      {showContinuationBanner && (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+          거의 다 됐습니다 · 남은 항목만 확인해 주세요
+        </p>
+      )}
+
       <div className="flex flex-col gap-1.5">
         <label htmlFor="title" className="text-sm font-medium">
           제목 <FieldBadge required />

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { groupFindingsForBuyer, CATEGORY_IDS, CATEGORY_LABELS, getDetectorTypeCount } from "@/lib/findingCategories";
 import { getListings } from "@/lib/data";
+import { getCurrentSellerId } from "@/lib/session";
 import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 import type { Finding } from "@/lib/types";
 import { HeroPrompt } from "./_components/HeroPrompt";
@@ -197,6 +198,7 @@ const FAQ_ITEMS = [
 ] as const;
 
 export default async function Home() {
+  const sellerId = await getCurrentSellerId();
   const scanShowcaseGroups = groupFindingsForBuyer(SCAN_SHOWCASE_FINDINGS);
   const listings = await getListings();
   const scanPassedListings = listings
@@ -222,11 +224,10 @@ export default async function Home() {
             글로 설명하면, 검증된 자동화 툴로.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-muted lg:text-base">
-            필요한 업무를 설명하면 제작자가 가격과 기간을 제안합니다. 완성본은 전달 전 자동 보안
-            스캔을 거칩니다.
+            어려운 개발 용어는 몰라도 괜찮습니다. 평소 하던 일 그대로 편하게 적어보세요.
           </p>
           <div className="mt-10">
-            <HeroPrompt />
+            <HeroPrompt isLoggedIn={!!sellerId} />
           </div>
         </div>
       </section>

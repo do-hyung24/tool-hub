@@ -4,6 +4,7 @@ import { Suspense, useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { loginAction, type LoginState } from "@/app/authActions";
+import { DraftSavedNotice } from "@/app/_components/DraftSavedNotice";
 
 const initialState: LoginState = {};
 
@@ -37,8 +38,8 @@ function NextField() {
   return <input type="hidden" name="next" value={searchParams.get("next") ?? ""} />;
 }
 
-// next가 있으면 회원가입 링크에도 그대로 이어 넘긴다(회원가입 자체가 next를
-// 아직 쓰지 않더라도, 로그인 화면과의 연속성을 위해 최소한으로 전달만 해둔다).
+// next가 있으면 회원가입 링크에도 그대로 이어 넘긴다 - 가입 폼도 이 값을
+// hidden 필드로 실어 signupAction에서 가입 직후 리다이렉트에 사용한다.
 function SignupLink() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
@@ -63,6 +64,7 @@ export default function LoginPage() {
       <Suspense fallback={null}>
         <AccountDeletionBanner />
       </Suspense>
+      <DraftSavedNotice />
 
       <form action={formAction} className="mt-8 flex flex-col gap-6">
         <Suspense fallback={null}>
