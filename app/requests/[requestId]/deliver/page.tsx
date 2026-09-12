@@ -144,6 +144,19 @@ export default async function DeliverRequestPage(
             accept="video/mp4"
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:file:bg-zinc-800"
           />
+          <p className="flex items-center gap-1 text-xs text-accent">
+            <svg
+              aria-hidden
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="h-3.5 w-3.5 shrink-0"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 10.5l3.5 3.5L16 6" />
+            </svg>
+            작동 영상을 함께 올리면 의뢰인이 더 빨리 수락합니다.
+          </p>
         </div>
 
         <button
