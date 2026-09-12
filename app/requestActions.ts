@@ -151,21 +151,32 @@ function requireDeliveryGuide(formData: FormData): string {
   return deliveryGuide;
 }
 
-// UI 가드와 별개로 서버 액션은 직접 POST될 수 있으므로, 납품 권한(선택된 제안의
-// 판매자 본인인지)을 매번 다시 확인한다. canDeliverProposal은 제안의 status만 보므로,
-// 의뢰 자체가 아직 진행중인지(= 의뢰자가 이미 확인/결제를 마치지 않았는지)는
-// 여기서 함께 확인한다 - 완료된 의뢰에 완성본을 다시 밀어넣지 못하게 한다.
-async function requireDeliverableProposal(formData: FormData): Promise<{
-  sellerId: string;
-  requestId: string;
-  proposalId: string;
-  toolRequest: ToolRequestWithAuthor;
-}> {
+// redirect()는 try/catch 안에서 호출하면 안 된다(던져진 리다이렉트 신호를
+// 검증 에러로 오인해 삼켜버릴 수 있다) - 그래서 로그인 확인은 항상 아래
+// 위험 구간(try) 밖, 각 액션의 맨 앞에서 먼저 끝낸다.
+async function requireCurrentSellerId(): Promise<string> {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
     redirect("/login");
   }
+  return sellerId;
+}
 
+// UI 가드와 별개로 서버 액션은 직접 POST될 수 있으므로, 납품 권한(선택된 제안의
+// 판매자 본인인지)을 매번 다시 확인한다. canDeliverProposal은 제안의 status만 보므로,
+// 의뢰 자체가 아직 진행중인지(= 의뢰자가 이미 확인/결제를 마치지 않았는지)는
+// 여기서 함께 확인한다 - 완료된 의뢰에 완성본을 다시 밀어넣지 못하게 한다.
+// sellerId는 호출부(requireCurrentSellerId)가 이미 로그인 여부까지 확인해
+// 넘겨준다 - 이 함수 자체는 redirect를 호출하지 않아 try 블록 안에서 안전하게
+// 쓸 수 있다.
+async function requireDeliverableProposal(
+  sellerId: string,
+  formData: FormData
+): Promise<{
+  requestId: string;
+  proposalId: string;
+  toolRequest: ToolRequestWithAuthor;
+}> {
   const requestId = String(formData.get("requestId") ?? "");
   const proposalId = String(formData.get("proposalId") ?? "");
   const [allowed, toolRequest] = await Promise.all([
@@ -176,7 +187,7 @@ async function requireDeliverableProposal(formData: FormData): Promise<{
     throw new Error("이 의뢰의 완성본을 제출할 권한이 없습니다.");
   }
 
-  return { sellerId, requestId, proposalId, toolRequest };
+  return { requestId, proposalId, toolRequest };
 }
 
 // 스캔 게이트를 통과한 시점의 공통 처리.
@@ -199,73 +210,97 @@ async function passDeliveryGate(requestId: string, proposalId: string): Promise<
   );
 }
 
-export async function submitDeliveryAction(formData: FormData) {
-  const { sellerId, requestId, proposalId, toolRequest } =
-    await requireDeliverableProposal(formData);
+// 완성본 제출 폼(useActionState)의 반환 상태. 에러가 없으면 성공 후 redirect()로
+// 이동하므로 컴포넌트가 이 상태를 렌더링할 일이 없다.
+export type DeliveryFormState = { error?: string };
 
-  const proposal = await getToolProposalById(proposalId);
-  if (!proposal) {
-    throw new Error("제안을 찾을 수 없습니다.");
+export async function submitDeliveryAction(
+  _prevState: DeliveryFormState,
+  formData: FormData
+): Promise<DeliveryFormState> {
+  const sellerId = await requireCurrentSellerId();
+
+  let nextPath: string;
+  try {
+    const { requestId, proposalId, toolRequest } = await requireDeliverableProposal(
+      sellerId,
+      formData
+    );
+
+    const proposal = await getToolProposalById(proposalId);
+    if (!proposal) {
+      throw new Error("제안을 찾을 수 없습니다.");
+    }
+
+    const deliveryGuide = requireDeliveryGuide(formData);
+    // 파일 검증은 DB/Blob에 아무것도 쓰기 전에 먼저 끝낸다(app/api/requests/route.ts와
+    // 동일한 원칙) - 검증 실패 시 아직 아무 상태도 바뀌지 않아 롤백이 필요 없다.
+    // zip 용량 초과 등 여기서 던져지는 에러는 아래 catch에서 폼 에러로 반환된다
+    // (예전엔 처리되지 않은 예외로 페이지 전체가 에러 화면으로 대체됐다).
+    const proofImageBuffers = await collectDeliveryProofImages(formData);
+    const proofVideoBuffer = await collectDeliveryProofVideo(formData);
+
+    // 재제출인 경우, 새 완성본이 스캔 게이트를 통과하기 전까지는 의뢰자 화면에
+    // 이전 제출물의 "확인 완료" 상태가 남아있으면 안 된다(delivered_listing_id는
+    // 곧 새 리스팅으로 옮겨가므로 확인 시점 기록을 먼저 되돌린다).
+    await clearProposalDeliveryConfirmation(proposalId);
+
+    const sourceType = await parseSourceType(formData);
+    const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
+
+    // 납품용 리스팅은 스캔/리뷰 로직만 재사용하는 미게시(published=false) 행이다.
+    // 제목/설명은 원 의뢰에서, 가격은 선택된 제안에서 그대로 가져오고, 공개 마켓에
+    // 카테고리로 노출될 일이 없으므로 category는 고정값을 쓴다.
+    const listing = await createDraftListing({
+      title: toolRequest.title,
+      description: toolRequest.description,
+      price: proposal.price,
+      category: "기타",
+      codeUrl,
+      sourceType,
+      sellerId,
+      sourceRequestId: requestId,
+    });
+
+    const findings = await runScan(files);
+    const report = await saveScanReport({
+      listingId: listing.id,
+      authorId: sellerId,
+      findings,
+      ruleEngineVersion: RULE_ENGINE_VERSION,
+    });
+
+    const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
+    const proofImageUrls = await storeDeliveryProofImages(requestId, proposalId, proofImageBuffers);
+    const proofVideoUrl = await storeDeliveryProofVideoIfPresent(requestId, proposalId, proofVideoBuffer);
+
+    await markProposalDelivered(proposalId, listing.id);
+    await updateProposalDeliveryGuide(proposalId, deliveryGuide);
+    await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
+    await replaceToolProposalDeliveryProofs(proposalId, proofImageUrls);
+    await updateProposalDeliveryProofVideo(proposalId, proofVideoUrl);
+
+    if (!hasUnresolvedFindings(report.findings)) {
+      await passDeliveryGate(requestId, proposalId);
+      nextPath = `/requests/${requestId}`;
+    } else {
+      nextPath = `/requests/${requestId}/deliver/review`;
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      return { error: error.message };
+    }
+    throw error;
   }
 
-  const deliveryGuide = requireDeliveryGuide(formData);
-  // 파일 검증은 DB/Blob에 아무것도 쓰기 전에 먼저 끝낸다(app/api/requests/route.ts와
-  // 동일한 원칙) - 검증 실패 시 아직 아무 상태도 바뀌지 않아 롤백이 필요 없다.
-  const proofImageBuffers = await collectDeliveryProofImages(formData);
-  const proofVideoBuffer = await collectDeliveryProofVideo(formData);
-
-  // 재제출인 경우, 새 완성본이 스캔 게이트를 통과하기 전까지는 의뢰자 화면에
-  // 이전 제출물의 "확인 완료" 상태가 남아있으면 안 된다(delivered_listing_id는
-  // 곧 새 리스팅으로 옮겨가므로 확인 시점 기록을 먼저 되돌린다).
-  await clearProposalDeliveryConfirmation(proposalId);
-
-  const sourceType = await parseSourceType(formData);
-  const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
-
-  // 납품용 리스팅은 스캔/리뷰 로직만 재사용하는 미게시(published=false) 행이다.
-  // 제목/설명은 원 의뢰에서, 가격은 선택된 제안에서 그대로 가져오고, 공개 마켓에
-  // 카테고리로 노출될 일이 없으므로 category는 고정값을 쓴다.
-  const listing = await createDraftListing({
-    title: toolRequest.title,
-    description: toolRequest.description,
-    price: proposal.price,
-    category: "기타",
-    codeUrl,
-    sourceType,
-    sellerId,
-    sourceRequestId: requestId,
-  });
-
-  const findings = await runScan(files);
-  const report = await saveScanReport({
-    listingId: listing.id,
-    authorId: sellerId,
-    findings,
-    ruleEngineVersion: RULE_ENGINE_VERSION,
-  });
-
-  const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
-  const proofImageUrls = await storeDeliveryProofImages(requestId, proposalId, proofImageBuffers);
-  const proofVideoUrl = await storeDeliveryProofVideoIfPresent(requestId, proposalId, proofVideoBuffer);
-
-  await markProposalDelivered(proposalId, listing.id);
-  await updateProposalDeliveryGuide(proposalId, deliveryGuide);
-  await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
-  await replaceToolProposalDeliveryProofs(proposalId, proofImageUrls);
-  await updateProposalDeliveryProofVideo(proposalId, proofVideoUrl);
-
-  if (!hasUnresolvedFindings(report.findings)) {
-    await passDeliveryGate(requestId, proposalId);
-    redirect(`/requests/${requestId}`);
-  }
-
-  redirect(`/requests/${requestId}/deliver/review`);
+  redirect(nextPath);
 }
 
 // /listings/[id]/review의 publishAnywayAction에 대응하지만, publishListing()을
 // 호출하지 않는다(납품물은 공개 마켓에 올라가지 않는다).
 export async function deliverPublishAnywayAction(formData: FormData) {
-  const { requestId, proposalId } = await requireDeliverableProposal(formData);
+  const sellerId = await requireCurrentSellerId();
+  const { requestId, proposalId } = await requireDeliverableProposal(sellerId, formData);
 
   const proposal = await getToolProposalById(proposalId);
   if (!proposal?.deliveredListingId) {
@@ -277,57 +312,72 @@ export async function deliverPublishAnywayAction(formData: FormData) {
   redirect(`/requests/${requestId}`);
 }
 
-export async function deliverRescanAction(formData: FormData) {
-  const { sellerId, requestId, proposalId } = await requireDeliverableProposal(formData);
+export async function deliverRescanAction(
+  _prevState: DeliveryFormState,
+  formData: FormData
+): Promise<DeliveryFormState> {
+  const sellerId = await requireCurrentSellerId();
 
-  // 클라이언트가 보낸 listing id를 믿지 않고, 제안 행에 기록된 납품 리스팅을 쓴다.
-  const proposal = await getToolProposalById(proposalId);
-  const listingId = proposal?.deliveredListingId;
-  if (!listingId) {
-    throw new Error("제출된 완성본을 찾을 수 없습니다.");
+  let nextPath: string;
+  try {
+    const { requestId, proposalId } = await requireDeliverableProposal(sellerId, formData);
+
+    // 클라이언트가 보낸 listing id를 믿지 않고, 제안 행에 기록된 납품 리스팅을 쓴다.
+    const proposal = await getToolProposalById(proposalId);
+    const listingId = proposal?.deliveredListingId;
+    if (!listingId) {
+      throw new Error("제출된 완성본을 찾을 수 없습니다.");
+    }
+
+    const listing = await getListingForOwner(listingId, sellerId);
+    if (!listing) {
+      throw new Error("완성본을 찾을 수 없거나 접근 권한이 없습니다.");
+    }
+
+    const deliveryGuide = requireDeliveryGuide(formData);
+    const proofImageBuffers = await collectDeliveryProofImages(formData);
+    const proofVideoBuffer = await collectDeliveryProofVideo(formData);
+
+    const sourceType = await parseSourceType(formData);
+    const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
+
+    // submitDeliveryAction과 동일한 이유: 소스를 교체하기 전에, 이전 제출물이 남긴
+    // "확인 완료" 상태부터 되돌린다 - 새 코드가 게이트를 통과하기 전까지 의뢰자 화면에
+    // 이전 확인 상태가 남아있으면 안 된다.
+    await clearProposalDeliveryConfirmation(proposalId);
+
+    const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
+    const proofImageUrls = await storeDeliveryProofImages(requestId, proposalId, proofImageBuffers);
+    const proofVideoUrl = await storeDeliveryProofVideoIfPresent(requestId, proposalId, proofVideoBuffer);
+
+    await updateListingSource(listingId, { codeUrl, sourceType });
+    await updateProposalDeliveryGuide(proposalId, deliveryGuide);
+    await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
+    await replaceToolProposalDeliveryProofs(proposalId, proofImageUrls);
+    await updateProposalDeliveryProofVideo(proposalId, proofVideoUrl);
+
+    const findings = await runScan(files);
+    const report = await saveScanReport({
+      listingId,
+      authorId: sellerId,
+      findings,
+      ruleEngineVersion: RULE_ENGINE_VERSION,
+    });
+
+    if (!hasUnresolvedFindings(report.findings)) {
+      await passDeliveryGate(requestId, proposalId);
+      nextPath = `/requests/${requestId}`;
+    } else {
+      nextPath = `/requests/${requestId}/deliver/review`;
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      return { error: error.message };
+    }
+    throw error;
   }
 
-  const listing = await getListingForOwner(listingId, sellerId);
-  if (!listing) {
-    throw new Error("완성본을 찾을 수 없거나 접근 권한이 없습니다.");
-  }
-
-  const deliveryGuide = requireDeliveryGuide(formData);
-  const proofImageBuffers = await collectDeliveryProofImages(formData);
-  const proofVideoBuffer = await collectDeliveryProofVideo(formData);
-
-  const sourceType = await parseSourceType(formData);
-  const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
-
-  // submitDeliveryAction과 동일한 이유: 소스를 교체하기 전에, 이전 제출물이 남긴
-  // "확인 완료" 상태부터 되돌린다 - 새 코드가 게이트를 통과하기 전까지 의뢰자 화면에
-  // 이전 확인 상태가 남아있으면 안 된다.
-  await clearProposalDeliveryConfirmation(proposalId);
-
-  const deliveryFileUrl = await storeDeliveryFileIfZip(requestId, proposalId, zipBuffer);
-  const proofImageUrls = await storeDeliveryProofImages(requestId, proposalId, proofImageBuffers);
-  const proofVideoUrl = await storeDeliveryProofVideoIfPresent(requestId, proposalId, proofVideoBuffer);
-
-  await updateListingSource(listingId, { codeUrl, sourceType });
-  await updateProposalDeliveryGuide(proposalId, deliveryGuide);
-  await updateProposalDeliveryFile(proposalId, deliveryFileUrl);
-  await replaceToolProposalDeliveryProofs(proposalId, proofImageUrls);
-  await updateProposalDeliveryProofVideo(proposalId, proofVideoUrl);
-
-  const findings = await runScan(files);
-  const report = await saveScanReport({
-    listingId,
-    authorId: sellerId,
-    findings,
-    ruleEngineVersion: RULE_ENGINE_VERSION,
-  });
-
-  if (!hasUnresolvedFindings(report.findings)) {
-    await passDeliveryGate(requestId, proposalId);
-    redirect(`/requests/${requestId}`);
-  }
-
-  redirect(`/requests/${requestId}/deliver/review`);
+  redirect(nextPath);
 }
 
 // 의뢰인이 스캔 요약+실행 가이드+작동 증빙을 확인한 뒤 "수락"한다. 이 시점부터
