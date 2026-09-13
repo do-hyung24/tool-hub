@@ -35,11 +35,21 @@ async function getOrigin(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-// Vercel은 요청을 프록시해 전달하므로 실제 접속 IP는 x-forwarded-for의 첫
-// 값이다(로컬 개발 등 헤더가 없는 환경에서는 "unknown"으로 뭉뚱그려 그 경로
-// 전체가 하나의 버킷으로 제한받게 둔다 - 과도하게 막히지도, 무제한도 아니게).
+// x-forwarded-for는 클라이언트가 직접 보낼 수 있는 값이라(첫 값을 그대로
+// 쓰면 매 요청마다 다른 값을 넣어 IP 카운터를 무력화할 수 있다) 그것만으로는
+// 신뢰할 수 없다. x-vercel-forwarded-for는 Vercel 엣지가 직접 설정하는
+// 값으로, 실측 결과 클라이언트가 같은 이름으로 헤더를 덮어써 보내도 무시되고
+// 실제 접속 IP로 기록된다(아래 검증 결과 참고) - 이 값을 우선 사용한다.
+// Vercel 밖(로컬 개발 등)에서는 이 헤더가 없으므로 x-forwarded-for로
+// 대체하고, 그마저 없으면 "unknown"으로 뭉뚱그려 그 경로 전체가 하나의
+// 버킷으로 제한받게 둔다(과도하게 막히지도, 무제한도 아니게).
 async function getClientIp(): Promise<string> {
   const headerList = await headers();
+  const vercelForwardedFor = headerList.get("x-vercel-forwarded-for");
+  if (vercelForwardedFor) {
+    const first = vercelForwardedFor.split(",")[0]?.trim();
+    if (first) return first;
+  }
   const forwardedFor = headerList.get("x-forwarded-for");
   if (forwardedFor) {
     const first = forwardedFor.split(",")[0]?.trim();
