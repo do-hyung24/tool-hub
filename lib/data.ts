@@ -563,6 +563,74 @@ export async function resetPasswordWithToken(
   return "ok";
 }
 
+export type RateLimitConfig = {
+  windowMs: number;
+  maxAttempts: number;
+  lockoutMs: number;
+};
+
+// 로그인/회원가입/비밀번호 재설정 요청의 남용을 막는 범용 카운터. key는
+// 호출부가 "scope:식별자" 형태로 만들어 넘긴다 - 이 함수는 이메일이 실제
+// 가입되어 있는지 전혀 알지 못한 채 동작하므로, 존재하지 않는 이메일에 대해서도
+// 존재하는 이메일과 완전히 동일하게 카운트/잠금된다(계정 존재 여부 비노출).
+export async function isRateLimited(
+  key: string
+): Promise<{ locked: boolean; retryAfterMs: number }> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT locked_until FROM auth_rate_limits WHERE key = ${key}
+  `) as Array<{ locked_until: string | null }>;
+  const lockedUntil = rows[0]?.locked_until;
+  if (!lockedUntil) return { locked: false, retryAfterMs: 0 };
+  const retryAfterMs = new Date(lockedUntil).getTime() - Date.now();
+  if (retryAfterMs <= 0) return { locked: false, retryAfterMs: 0 };
+  return { locked: true, retryAfterMs };
+}
+
+// 실패(혹은 남용성 시도) 1회를 기록한다. 같은 윈도우 안에서 maxAttempts를
+// 넘기면 lockoutMs만큼 잠근다. 윈도우가 지난 뒤의 첫 기록은 새 윈도우로
+// 취급한다(잠금도 함께 해제). INSERT ... ON CONFLICT 한 번으로 원자적으로
+// 처리해 동시 요청에도 카운트가 씹히거나 이중으로 잠기지 않게 한다.
+export async function recordRateLimitFailure(
+  key: string,
+  config: RateLimitConfig
+): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const windowCutoffIso = new Date(now - config.windowMs).toISOString();
+  const lockedUntilIso = new Date(now + config.lockoutMs).toISOString();
+
+  await sql`
+    INSERT INTO auth_rate_limits (key, attempts, window_started_at, locked_until, updated_at)
+    VALUES (${key}, 1, ${nowIso}, NULL, ${nowIso})
+    ON CONFLICT (key) DO UPDATE SET
+      attempts = CASE
+        WHEN auth_rate_limits.window_started_at < ${windowCutoffIso} THEN 1
+        ELSE auth_rate_limits.attempts + 1
+      END,
+      window_started_at = CASE
+        WHEN auth_rate_limits.window_started_at < ${windowCutoffIso} THEN ${nowIso}
+        ELSE auth_rate_limits.window_started_at
+      END,
+      locked_until = CASE
+        WHEN auth_rate_limits.window_started_at < ${windowCutoffIso} THEN NULL
+        WHEN auth_rate_limits.attempts + 1 >= ${config.maxAttempts} THEN ${lockedUntilIso}
+        ELSE auth_rate_limits.locked_until
+      END,
+      updated_at = ${nowIso}
+  `;
+}
+
+// 성공 시 카운터를 지운다 - 다음 실패는 처음부터 다시 센다.
+export async function clearRateLimit(key: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`DELETE FROM auth_rate_limits WHERE key = ${key}`;
+}
+
 // 매물을 "미게시(초안)" 상태로 생성한다. 스캔 결과를 작성자가 확인하고
 // 게시를 결정하기 전까지는 공개 목록/상세 페이지에 나타나지 않는다.
 export async function createDraftListing(input: {
@@ -876,6 +944,27 @@ export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: numb
   }
 
   return { purgedCount };
+}
+
+// auth_rate_limits의 오래된 행을 정리한다. 계정 탈퇴 배치(같은 크론)에 얹어
+// 매일 함께 실행된다 - 별도 크론/엔드포인트를 두지 않는다. 현재 잠겨 있는
+// 행(locked_until이 아직 안 지남)은 절대 건드리지 않고, 그 외에 24시간 이상
+// 갱신되지 않은 행만 지운다(가장 넓은 윈도우인 회원가입·비밀번호 재설정의
+// 1시간보다 충분히 넉넉하게 잡아, 정리가 카운팅 도중에 끼어들 일이 없게 한다).
+export async function purgeExpiredRateLimits(): Promise<{ purgedCount: number }> {
+  await ensureInitialized();
+  const sql = getSql();
+  const now = new Date().toISOString();
+  const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const rows = (await sql`
+    DELETE FROM auth_rate_limits
+    WHERE (locked_until IS NULL OR locked_until < ${now})
+      AND updated_at < ${staleCutoff}
+    RETURNING key
+  `) as Array<{ key: string }>;
+
+  return { purgedCount: rows.length };
 }
 
 type FeedbackVoiceRow = {
