@@ -946,6 +946,27 @@ export async function purgeExpiredDeletedAccounts(): Promise<{ purgedCount: numb
   return { purgedCount };
 }
 
+// auth_rate_limits의 오래된 행을 정리한다. 계정 탈퇴 배치(같은 크론)에 얹어
+// 매일 함께 실행된다 - 별도 크론/엔드포인트를 두지 않는다. 현재 잠겨 있는
+// 행(locked_until이 아직 안 지남)은 절대 건드리지 않고, 그 외에 24시간 이상
+// 갱신되지 않은 행만 지운다(가장 넓은 윈도우인 회원가입·비밀번호 재설정의
+// 1시간보다 충분히 넉넉하게 잡아, 정리가 카운팅 도중에 끼어들 일이 없게 한다).
+export async function purgeExpiredRateLimits(): Promise<{ purgedCount: number }> {
+  await ensureInitialized();
+  const sql = getSql();
+  const now = new Date().toISOString();
+  const staleCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const rows = (await sql`
+    DELETE FROM auth_rate_limits
+    WHERE (locked_until IS NULL OR locked_until < ${now})
+      AND updated_at < ${staleCutoff}
+    RETURNING key
+  `) as Array<{ key: string }>;
+
+  return { purgedCount: rows.length };
+}
+
 type FeedbackVoiceRow = {
   id: string;
   seller_id: string;

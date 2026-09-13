@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { purgeExpiredDeletedAccounts } from "@/lib/data";
+import { purgeExpiredDeletedAccounts, purgeExpiredRateLimits } from "@/lib/data";
 
 // Vercel Cron이 매일 호출한다 (vercel.json 참고). 외부에서 함부로 호출하지 못하도록
 // CRON_SECRET과 정확히 일치하는 Authorization: Bearer 헤더를 요구한다.
@@ -18,5 +18,11 @@ export async function GET(request: Request) {
 
   const { purgedCount } = await purgeExpiredDeletedAccounts();
   console.log(`[계정 영구 삭제 배치] ${purgedCount}개 계정을 삭제했습니다.`);
-  return NextResponse.json({ purgedCount });
+
+  // 같은 일일 배치에 얹어 auth_rate_limits의 오래된 행도 함께 정리한다(별도
+  // 크론을 두지 않는다).
+  const { purgedCount: purgedRateLimitCount } = await purgeExpiredRateLimits();
+  console.log(`[rate limit 정리] ${purgedRateLimitCount}개 만료된 카운터를 삭제했습니다.`);
+
+  return NextResponse.json({ purgedCount, purgedRateLimitCount });
 }
