@@ -79,6 +79,45 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   }
 }
 
+// 의뢰(자동화 툴 의뢰) 완성본이 보안 스캔 게이트를 통과했을 때 의뢰자에게 보낸다.
+// 발송 실패해도 납품 처리 자체는 이미 DB에 반영된 뒤이므로 throw하지 않는다.
+export async function sendRequestDeliveryReadyEmail(
+  to: string,
+  requestTitle: string,
+  requestUrl: string
+): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.log(
+      `[의뢰 완성 알림] RESEND_API_KEY가 설정되지 않아 실제 발송을 건너뜁니다.\n` +
+        `  받는 사람: ${to}\n` +
+        `  의뢰 제목: ${requestTitle}\n` +
+        `  의뢰 링크: ${requestUrl}`
+    );
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: "[툴허브] 의뢰하신 자동화 툴이 완성되었습니다",
+      html:
+        `<p>안녕하세요, 툴허브입니다.</p>` +
+        `<p>의뢰하신 <strong>${requestTitle}</strong>의 완성본이 제출되어 자동 보안 스캔을 마쳤습니다.</p>` +
+        `<p>아래 링크에서 스캔 요약을 확인하고 결제를 완료해주세요.</p>` +
+        `<p><a href="${requestUrl}">${requestUrl}</a></p>`,
+      text:
+        `의뢰하신 "${requestTitle}"의 완성본이 제출되어 자동 보안 스캔을 마쳤습니다.\n` +
+        `아래 링크에서 스캔 요약을 확인하고 결제를 완료해주세요:\n${requestUrl}`,
+    });
+  } catch (error) {
+    console.error("[의뢰 완성 알림] Resend 발송 실패:", error);
+  }
+}
+
 // 플랫폼 피드백 제출 시 관리자(SUPPORT_EMAIL)에게 알림을 보낸다. 발송 실패는
 // 호출부(app/api/feedback)에서 이미 DB 저장 이후에 호출하므로 피드백 저장 자체에
 // 영향을 주지 않는다.

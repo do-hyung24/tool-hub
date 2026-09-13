@@ -3,7 +3,7 @@ import yauzl from "yauzl";
 import type { ScannableFile } from "./scannableFile";
 
 // 업로드된 zip 자체의 최대 크기
-export const MAX_ZIP_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
+export const MAX_ZIP_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB
 // zip 안에 들어있을 수 있는 최대 엔트리(파일+폴더) 수
 const MAX_ENTRIES = 2000;
 // 스캔 대상으로 읽어올 파일 1개의 최대 크기

@@ -1,30 +1,74 @@
-import Link from "next/link";
-import { AuthStatus } from "./AuthStatus";
+"use client";
 
-export function SiteHeader() {
+import { type ReactNode, useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const NAV_LINKS = [
+  { href: "/requests", label: "자동화 툴 의뢰" },
+  { href: "/listings", label: "마켓" },
+  { href: "/community", label: "커뮤니티" },
+] as const;
+
+const SCROLL_THRESHOLD_PX = 24;
+
+// AuthStatus는 서버 컴포넌트(세션/DB 조회)라서 이 클라이언트 컴포넌트가 직접
+// import할 수 없다 - 부모(app/layout.tsx)에서 children으로 내려받아 그대로 렌더링한다.
+export function SiteHeader({ authStatus }: { authStatus: ReactNode }) {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!isHome) return;
+
+    setIsScrolled(window.scrollY >= SCROLL_THRESHOLD_PX);
+
+    let ticking = false;
+    function handleScroll() {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        setIsScrolled(window.scrollY >= SCROLL_THRESHOLD_PX);
+        ticking = false;
+      });
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isHome]);
+
+  // 홈 & 스크롤 전: 히어로와 같은 bg-ink 솔리드 배경(경계 없음)으로 히어로의
+  // 연장처럼 이어 붙인다(투명 배경은 sticky 특성상 스크롤 전에는 히어로와
+  // 겹치지 않아 body의 흰 배경이 그대로 비쳐 글씨가 안 보이는 문제가 있었다).
+  // 홈 & 스크롤 후, 다른 모든 페이지: 항상 동일한 밝은 헤더(다른 페이지는 변경 없음).
+  const transparentHome = isHome && !isScrolled;
+  const headerClass = transparentHome
+    ? "dark border-transparent bg-ink"
+    : isHome
+    ? "border-zinc-200 bg-paper/85"
+    : "border-zinc-200 bg-white/80 dark:border-zinc-800 dark:bg-black/80";
+
   return (
-    <header className="border-b border-zinc-200 dark:border-zinc-800">
+    <header
+      className={`sticky top-0 z-40 border-b backdrop-blur transition-colors duration-200 ${headerClass}`}
+    >
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-6">
           <Link href="/" className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
             툴허브
           </Link>
-          <Link
-            href="/community"
-            className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
-          >
-            커뮤니티
-          </Link>
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-50"
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
-        <div className="flex items-center gap-4">
-          <AuthStatus />
-          <Link
-            href="/listings/new"
-            className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            매물 등록하기
-          </Link>
-        </div>
+        <div className="flex items-center gap-4">{authStatus}</div>
       </div>
     </header>
   );

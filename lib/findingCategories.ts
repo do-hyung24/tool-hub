@@ -26,6 +26,12 @@ export function categoryForType(type: string): CategoryId | null {
   return TYPE_TO_CATEGORY[type] ?? null;
 }
 
+// TYPE_TO_CATEGORY 자체는 비공개(위 categoryForType을 통해서만 조회)라, 랜딩
+// 페이지가 "몇 종의 탐지 규칙이 있는지"를 하드코딩하지 않고 이 함수로 읽는다.
+export function getDetectorTypeCount(): number {
+  return Object.keys(TYPE_TO_CATEGORY).length;
+}
+
 const EXPERT_LABELS: Record<CategoryId, string> = {
   "secret-exposure": "시크릿/자격 증명 노출",
   "dangerous-code-execution": "위험 함수 호출(eval/셸 실행)",
@@ -45,6 +51,12 @@ const DEFAULT_EASY_LABELS: Record<CategoryId, string> = {
   "insecure-deserialization": "믿을 수 없는 데이터를 위험하게 불러오는 코드가 발견되어 확인이 필요해요",
   "data-exfiltration": "정보를 외부로 보낼 수 있는 코드가 발견되어 확인이 필요해요",
 };
+
+// EXPERT_LABELS 자체는 비공개라, 랜딩 페이지의 카테고리 칩 목록이 CATEGORY_IDS
+// 순서 그대로 라벨을 뽑아 쓸 수 있도록 이 배열을 export한다.
+export const CATEGORY_LABELS: Array<{ id: CategoryId; label: string }> = CATEGORY_IDS.map(
+  (id) => ({ id, label: EXPERT_LABELS[id] })
+);
 
 const SECRET_EXPOSURE_DECLARATIVE_EASY_LABEL = "비밀번호나 API 키가 코드에 그대로 적혀 있어요";
 const SECRET_EXPOSURE_DECLARATIVE_TRIGGER_TYPE = "hardcoded-secret";

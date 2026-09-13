@@ -2,6 +2,19 @@ import { notFound } from "next/navigation";
 import { getListingById, getPublicScanSummary, getSellerById } from "@/lib/data";
 import { formatDate, formatPrice } from "@/lib/format";
 import { ScanSummaryCard } from "@/app/_components/ScanSummaryCard";
+import type { Seller } from "@/lib/types";
+
+// contact가 비어 있거나 로그인 이메일과 같은 값이면 로그인 이메일이 그대로
+// 노출되는 것이므로 공개하지 않는다. 판매자가 로그인 이메일과 다른 값을
+// 직접 남긴 경우에만(예: 계정에 로그인 경로가 없는 시드 판매자) 노출한다.
+function getPublicContact(seller: Seller): string | null {
+  const contact = seller.contact.trim();
+  if (!contact) return null;
+  if (seller.email && contact.toLowerCase() === seller.email.trim().toLowerCase()) {
+    return null;
+  }
+  return contact;
+}
 
 export default async function ListingDetailPage(
   props: PageProps<"/listings/[id]">
@@ -14,6 +27,7 @@ export default async function ListingDetailPage(
   }
 
   const seller = await getSellerById(listing.sellerId);
+  const publicContact = seller ? getPublicContact(seller) : null;
   const scanSummary = await getPublicScanSummary(listing.id);
 
   return (
@@ -74,7 +88,11 @@ export default async function ListingDetailPage(
             <p className="font-medium text-zinc-900 dark:text-zinc-50">
               {seller.nickname}
             </p>
-            <p className="mt-1">{seller.contact}</p>
+            <p className="mt-1">
+              {publicContact ?? (
+                <span className="text-zinc-400 dark:text-zinc-500">연락처 미등록</span>
+              )}
+            </p>
           </div>
         ) : (
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">

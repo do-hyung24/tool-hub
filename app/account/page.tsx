@@ -30,6 +30,19 @@ export default async function AccountPage() {
       </section>
 
       <section className="mt-10 border-t border-zinc-200 pt-8 dark:border-zinc-800">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">정산 계좌</h2>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          완성본을 납품하고 의뢰자가 수락하면 대금을 직접 이체받을 계좌입니다.
+        </p>
+        <Link
+          href="/account/settlement"
+          className="mt-3 inline-block text-xs font-medium text-accent hover:opacity-80"
+        >
+          정산 계좌 등록/수정 →
+        </Link>
+      </section>
+
+      <section className="mt-10 border-t border-zinc-200 pt-8 dark:border-zinc-800">
         <h2 className="text-sm font-semibold text-red-600 dark:text-red-400">회원 탈퇴</h2>
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           탈퇴 시 계정과 등록한 매물 정보는 14일간 보관 후 영구 삭제됩니다.

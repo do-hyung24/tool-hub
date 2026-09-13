@@ -1,228 +1,618 @@
 import Link from "next/link";
+import { groupFindingsForBuyer, CATEGORY_IDS, CATEGORY_LABELS, getDetectorTypeCount } from "@/lib/findingCategories";
 import { getListings } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
-import { groupFindingsForBuyer } from "@/lib/findingCategories";
+import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 import type { Finding } from "@/lib/types";
-import { ListingBrowser } from "./_components/ListingBrowser";
+import { HeroPrompt } from "./_components/HeroPrompt";
+import { Reveal } from "./_components/Reveal";
+import { ScanShowcase } from "./_components/ScanShowcase";
 import { ScanSummaryCard } from "./_components/ScanSummaryCard";
-import { HowItWorksTabs } from "./_components/HowItWorksTabs";
+import { TransactionFlowTimeline } from "./_components/TransactionFlowTimeline";
 
-// 매물 목록은 DB에서 실시간으로 바뀌므로 빌드 타임에 정적으로 굳히지 않는다.
-export const dynamic = "force-dynamic";
-
-// 히어로의 스캔 요약 카드는 실제 매물이 아니라 예시다. groupFindingsForBuyer로
-// 실제 판매자 화면과 동일한 로직을 태워서, 실제 서비스와 다르게 보이지 않게 한다.
-const HERO_EXAMPLE_FINDINGS: Finding[] = [
+// 보안 스캔 쇼케이스 섹션의 예시 findings. ScanShowcase의 코드 패널과 줄 번호가
+// 맞춰져 있다(2행 critical, 5행 medium, 8행 high) - 실제 서비스 로직
+// (groupFindingsForBuyer)을 그대로 태워서 카드 내용이 실제 화면과 달라 보이지
+// 않게 한다.
+const SCAN_SHOWCASE_FINDINGS: Finding[] = [
   {
-    id: "example-1",
-    severity: "high",
+    id: "showcase-1",
+    severity: "critical",
     confidence: "high",
     type: "hardcoded-secret",
     cwe: "CWE-798",
-    filePath: "config.py",
-    location: "12번째 줄",
-    maskedEvidence: "AIz***...f2a",
+    filePath: "sync_orders.py",
+    location: "2번째 줄",
+    maskedEvidence: "sk-l***...c9e2",
     description: "API 키로 보이는 문자열이 하드코딩되어 있습니다.",
   },
   {
-    id: "example-2",
-    severity: "medium",
-    confidence: "medium",
+    id: "showcase-2",
+    severity: "high",
+    confidence: "high",
     type: "dangerous-shell",
     cwe: "CWE-78",
-    filePath: "runner.py",
-    location: "44번째 줄",
+    filePath: "sync_orders.py",
+    location: "8번째 줄",
     maskedEvidence: null,
     description: "외부 입력을 셸 명령으로 그대로 실행합니다.",
   },
   {
-    id: "example-3",
-    severity: "low",
-    confidence: "low",
-    type: "data-exfiltration",
-    cwe: "CWE-200",
-    filePath: "sync.py",
-    location: "9번째 줄",
+    id: "showcase-3",
+    severity: "medium",
+    confidence: "medium",
+    type: "insecure-tls",
+    cwe: "CWE-295",
+    filePath: "sync_orders.py",
+    location: "5번째 줄",
     maskedEvidence: null,
-    description: "외부 서버로 데이터를 전송하는 패턴이 발견되었습니다.",
+    description: "TLS 인증서 검증을 비활성화한 상태로 통신합니다.",
   },
 ];
 
-export default async function Home() {
-  const [listings, sellerId] = await Promise.all([getListings(), getCurrentSellerId()]);
+const PROMISES = [
+  {
+    label: "수수료",
+    big: "중개 수수료 0%",
+    small: "타 외주 플랫폼은 제작자에게 최대 20% 이상, 툴허브는 0%",
+  },
+  { label: "보안 스캔", sentence: "모든 완성본과 매물이 자동 검사를 거칩니다." },
+  { label: "비공개 조율", sentence: "세부 협의는 의뢰자와 선택된 제작자만 봅니다." },
+  { label: "결제 시점", sentence: "완성본과 스캔 결과를 확인한 뒤에만 결제합니다." },
+] as const;
 
-  // 실제 등록된 매물에 존재하는 카테고리만 필터 옵션으로 노출한다 (하드코딩 금지).
-  const categories = Array.from(new Set(listings.map((listing) => listing.category))).sort();
-  const heroExampleGroups = groupFindingsForBuyer(HERO_EXAMPLE_FINDINGS);
-  const registerHref = sellerId ? "/listings/new" : "/login";
+// CATEGORY_LABELS 칩에 호버/탭 시 뜨는 쉬운말 한 줄 설명. EXPERT_LABELS/detector.ts의
+// 카테고리 의미를 그대로 풀어 쓴 것으로, 실제 발견 항목(findings)과는 무관하게 카테고리
+// 자체가 무엇을 뜻하는지 설명한다 - lib/findingCategories.ts의 DEFAULT_EASY_LABELS는
+// "~발견되어 확인이 필요해요" 식으로 실제 스캔 결과 문맥에 쓰이는 문구라 여기엔 맞지 않는다.
+const CATEGORY_TOOLTIPS: Record<string, string> = {
+  "secret-exposure": "비밀번호나 API 키 같은 값이 코드에 그대로 적혀 있는지 확인해요",
+  "dangerous-code-execution": "외부 명령을 실행할 수 있는 위험한 코드가 있는지 확인해요",
+  "insecure-network": "인터넷 통신 시 보안 검증을 건너뛰는 코드가 있는지 확인해요",
+  "insecure-deserialization": "출처를 믿을 수 없는 데이터를 위험하게 불러오는지 확인해요",
+  "data-exfiltration": "내 정보를 외부로 몰래 보낼 수 있는 코드가 있는지 확인해요",
+};
+
+const DIY_ROWS = [
+  {
+    label: "환경설정·API 연동",
+    diy: "패키지 설치·키 발급을 직접 삽질",
+    toolhub: "제작자가 환경까지 맞춰서 전달",
+  },
+  {
+    label: "디버깅·예외처리",
+    diy: "에러 나면 원인부터 직접 추적",
+    toolhub: "제작자가 재현·수정까지 처리",
+  },
+  {
+    label: "보안 검수",
+    diy: "위험한 코드가 섞여도 모름",
+    toolhub: "전달 전 자동 보안 스캔",
+  },
+] as const;
+
+const USE_CASES = [
+  {
+    title: "쇼핑몰 주문 정리",
+    sentence:
+      "스마트스토어 주문 내역을 매일 아침 엑셀로 내려받아 재고 시트에 정리하는 작업을 자동화하고 싶어요.",
+  },
+  {
+    title: "SNS 댓글·DM 수집",
+    sentence: "인스타그램 게시물의 댓글과 DM을 모아 구글시트에 정리하고 싶어요.",
+  },
+  {
+    title: "엑셀 보고서 자동화",
+    sentence: "여러 엑셀 파일을 합쳐 매주 월요일 보고서를 자동으로 만들고 싶어요.",
+  },
+  {
+    title: "이메일 자동 분류",
+    sentence: "Gmail로 오는 견적 요청 메일을 분류해서 시트에 기록하고 싶어요.",
+  },
+  {
+    title: "가격·재고 모니터링",
+    sentence: "경쟁사 사이트의 가격 변동을 매일 확인해서 알림을 받고 싶어요.",
+  },
+  {
+    title: "알림 자동 발송",
+    sentence: "주문 상태가 바뀌면 고객에게 카카오톡 알림을 자동으로 보내고 싶어요.",
+  },
+] as const;
+
+type ComparisonMark = "check" | "x" | "dash" | "partial";
+type ComparisonColumnKey = "toolhub" | "agency" | "diy";
+type ComparisonRow = {
+  label: string;
+  toolhub: [ComparisonMark, string];
+  agency: [ComparisonMark, string];
+  diy: [ComparisonMark, string];
+};
+
+const COMPARISON_ROWS: ComparisonRow[] = [
+  {
+    label: "완성본 보안 검사",
+    toolhub: ["check", "자동 스캔"],
+    agency: ["x", "없음"],
+    diy: ["dash", "본인 판단"],
+  },
+  {
+    label: "플랫폼 수수료",
+    toolhub: ["check", "0원"],
+    agency: ["x", "발생"],
+    diy: ["check", "없음"],
+  },
+  {
+    label: "여러 제작자 제안 비교",
+    toolhub: ["check", ""],
+    agency: ["check", ""],
+    diy: ["dash", "해당 없음"],
+  },
+  {
+    label: "시작 방법",
+    toolhub: ["check", "설명과 사진"],
+    agency: ["partial", "요구사항 문서"],
+    diy: ["x", "직접 코딩"],
+  },
+  {
+    label: "결과물 확인 방식",
+    toolhub: ["check", "스캔 리포트 확인 후 결제"],
+    agency: ["partial", "수령 후 직접 확인"],
+    diy: ["dash", ""],
+  },
+];
+
+const COMPARISON_COLUMNS: Array<{ key: ComparisonColumnKey; title: string; highlight: boolean }> = [
+  { key: "toolhub", title: "툴허브", highlight: true },
+  { key: "agency", title: "일반 외주 플랫폼", highlight: false },
+  { key: "diy", title: "직접 개발", highlight: false },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: "의뢰 등록에 비용이 드나요?",
+    answer: "등록과 제안 받기는 무료입니다. 완성본을 확인한 뒤에만 결제합니다.",
+  },
+  {
+    question: "완성본은 누가 볼 수 있나요?",
+    answer: "의뢰자와 선택된 제작자만 봅니다. 마켓에 자동 공개되지 않습니다.",
+  },
+  {
+    question: "저작권은 누구에게 있나요?",
+    answer: COPYRIGHT_POLICY_NOTICE,
+  },
+  {
+    question: "보안 스캔은 무엇을 검사하나요?",
+    answer:
+      "시크릿 노출, 위험 함수 호출, 안전하지 않은 통신, 안전하지 않은 역직렬화, 외부 데이터 전송 패턴 5개 카테고리를 규칙 기반으로 자동 분석합니다. 모든 문제를 찾아내는 것은 아닙니다.",
+  },
+  {
+    question: "스캔에서 문제가 발견되면 어떻게 되나요?",
+    answer:
+      "제작자가 수정 후 다시 스캔하거나, 발견 항목을 공개한 채로 전달할 수 있습니다. 의뢰자는 결과를 보고 확인 여부를 결정합니다.",
+  },
+  {
+    question: "개발 지식이 없어도 되나요?",
+    answer:
+      "지금 하는 일과 원하는 결과를 글과 사진으로 설명하면 됩니다. 사용하는 프로그램은 목록에서 고르기만 하면 됩니다.",
+  },
+] as const;
+
+export default async function Home() {
+  const sellerId = await getCurrentSellerId();
+  const scanShowcaseGroups = groupFindingsForBuyer(SCAN_SHOWCASE_FINDINGS);
+  const listings = await getListings();
+  const scanPassedListings = listings
+    .filter((listing) => listing.scanStatus === "completed" && !listing.hasUnresolvedFindings)
+    .slice(0, 2);
 
   return (
     <main className="flex-1">
-      {/* ── Hero ── */}
-      <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-10 px-6 py-16 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-24">
-        <div>
-          <h1 className="max-w-xl text-4xl font-bold tracking-tight break-keep text-zinc-900 sm:text-5xl dark:text-zinc-50">
-            안심하고 거래하는 개인 제작 자동화 툴 마켓
-          </h1>
-          <p className="mt-4 max-w-lg text-base break-keep text-zinc-600 dark:text-zinc-400">
-            직접 만든 자동화 봇/스크립트를 등록하면 하드코딩된 시크릿, 위험한
-            코드 실행 같은 문제를 자동으로 찾아 구매자에게 투명하게 보여드립니다.
+      {/* ── A. Hero (dark) ── */}
+      <section className="dark relative flex flex-col items-center justify-center overflow-hidden bg-ink px-6 pb-20 pt-28 text-center text-offwhite lg:pb-24 lg:pt-36">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: "radial-gradient(60% 50% at 50% 0%, rgba(140,207,176,0.10), transparent 70%)",
+          }}
+        />
+        <div className="relative">
+          <p className="text-xs font-medium tracking-[0.04em] text-muted">
+            자동화 툴 의뢰 플랫폼
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href={registerHref}
-              className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
-              내 툴 등록하고 스캔받기
-            </Link>
-            <a
-              href="#marketplace"
-              className="rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              안전한 매물 둘러보기
-            </a>
+          <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.15] tracking-[-0.035em] break-keep sm:text-5xl lg:text-[3.5rem]">
+            글로 설명하면, 검증된 자동화 툴로.
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-muted lg:text-base">
+            어려운 개발 용어는 몰라도 괜찮습니다. 평소 하던 일 그대로 편하게 적어보세요.
+          </p>
+          <div className="mt-10">
+            <HeroPrompt isLoggedIn={!!sellerId} />
           </div>
         </div>
+      </section>
 
-        <div>
-          <p className="mb-2 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-            구매자에게 보이는 화면 (예시)
-          </p>
-          <ScanSummaryCard groups={heroExampleGroups} />
+      {/* ── B. 약속 4개 (light, grid bg) ── */}
+      <section className="relative bg-paper px-6 py-20 lg:py-24">
+        <div aria-hidden className="lp-grid-bg pointer-events-none absolute inset-0" />
+        <Reveal className="relative mx-auto max-w-6xl">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+            {PROMISES.map((item) => (
+              <div key={item.label} className="border-t border-zinc-950/[0.10] pt-5 text-center">
+                <p className="text-xs font-medium tracking-[0.04em] text-zinc-500">{item.label}</p>
+                <p className="mt-2 flex items-center justify-center gap-1.5 break-keep text-balance text-[15px] font-medium leading-snug text-zinc-900 tabular-nums">
+                  {"big" in item && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+                  )}
+                  {"big" in item ? item.big : item.sentence}
+                </p>
+                {"small" in item && (
+                  <p className="mt-1 break-keep text-balance text-xs leading-snug text-zinc-500">
+                    {item.small}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── C. 활용 사례 6개 (light) ── */}
+      <section className="border-t border-zinc-950/[0.06] bg-paper-2 px-6 py-20 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <p className="text-xs font-medium tracking-[0.04em] text-accent">이런 일을 의뢰합니다</p>
+            <h2 className="mt-3 text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+              의뢰는 이렇게 시작됩니다
+            </h2>
+          </Reveal>
+          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {USE_CASES.map((useCase) => (
+              <Reveal key={useCase.title}>
+                <Link
+                  href={`/requests/new?desc=${encodeURIComponent(useCase.sentence)}`}
+                  className="flex h-full flex-col rounded-2xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-950/[0.06] transition-shadow hover:shadow-md hover:ring-zinc-950/[0.14]"
+                >
+                  <h3 className="break-keep text-balance text-lg font-semibold tracking-[-0.01em] text-zinc-900">
+                    {useCase.title}
+                  </h3>
+                  <p className="mt-2 line-clamp-2 break-keep text-pretty text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+                    {useCase.sentence}
+                  </p>
+                  <span className="mt-4 text-sm font-medium text-accent">이 예시로 시작 →</span>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ── Trust 띠 ── */}
-      <section className="border-y border-zinc-100 bg-zinc-50 dark:border-zinc-900 dark:bg-zinc-950/60">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap gap-3 px-6 py-6">
-          <TrustBadge>등록되는 모든 매물, AI 자동 보안 스캔 완료</TrustBadge>
-          <TrustBadge>판매자 전용 상세 리포트 + 구매자 공개 요약, 예외 없이 제공</TrustBadge>
-          <TrustBadge>수수료 없는 개인 간 직거래</TrustBadge>
+      {/* ── D. 보안 스캔 쇼케이스 (light 섹션 + 다크 패널) ── */}
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <p className="text-xs font-medium tracking-[0.04em] text-accent">자동 보안 스캔</p>
+            <h2 className="mt-3 text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+              완성본을 받기 전, 보안 스캔을 먼저 거칩니다.
+            </h2>
+            <p className="mt-4 max-w-2xl break-keep text-pretty text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+              제작자가 보낸 완성본은 의뢰자에게 도착하기 전에 자동 보안 스캔을 거칩니다. 발견된
+              항목은 숨기지 않고 심각도별로 그대로 보여드립니다.
+            </p>
+            <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 break-keep text-xs text-zinc-500">
+              <span>탐지</span>
+              <span aria-hidden>→</span>
+              <span>제작자가 수정 후 재검사</span>
+              <span aria-hidden>→</span>
+              <span>의뢰인이 결제 전 확인</span>
+            </p>
+          </Reveal>
+
+          <Reveal className="mt-12">
+            <div className="dark rounded-3xl bg-ink p-8 text-offwhite ring-1 ring-white/5 lg:p-12">
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                <ScanShowcase />
+                <div>
+                  <p className="text-xs font-medium text-muted">
+                    의뢰자에게 보이는 결과 (예시)
+                  </p>
+                  <div className="mt-2">
+                    <ScanSummaryCard groups={scanShowcaseGroups} />
+                  </div>
+                  <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+                    <div className="flex items-baseline justify-center gap-1.5">
+                      <span className="text-2xl font-semibold tabular-nums text-accent-soft">
+                        {CATEGORY_IDS.length}
+                      </span>
+                      <span className="break-keep text-xs text-muted">검사 위험 유형</span>
+                    </div>
+                    <div className="flex items-baseline justify-center gap-1.5">
+                      <span className="text-2xl font-semibold tabular-nums text-accent-soft">
+                        {getDetectorTypeCount()}
+                      </span>
+                      <span className="break-keep text-xs text-muted">탐지 규칙</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent-soft"
+                        aria-hidden
+                      />
+                      <span className="break-keep text-xs text-muted">예외 없이 전수 검사</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-12 flex flex-wrap justify-center gap-2">
+                {CATEGORY_LABELS.map((item) => (
+                  <span
+                    key={item.id}
+                    title={CATEGORY_TOOLTIPS[item.id]}
+                    className="cursor-help break-keep rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]"
+                  >
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-6 break-keep text-pretty text-center text-xs text-muted">
+                규칙 기반 자동 검사로 대표적 위험을 걸러냅니다. 모든 문제를 잡는 보증은 아닙니다.
+              </p>
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      {/* ── Feature Highlight ── */}
-      <section className="mx-auto w-full max-w-5xl px-6 py-16">
-        <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          등록부터 게시까지, 자동으로 확인해요
-        </h2>
-
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-          <FeatureCard icon="📦" title="쉬운 등록">
-            zip 압축 파일이나 GitHub 저장소 링크만 있으면 바로 등록할 수 있어요.
-          </FeatureCard>
-          <FeatureCard icon="🔍" title="AI 자동 정밀 스캔">
-            시크릿 노출, 위험한 코드 실행, 안전하지 않은 통신 등 여러 카테고리를
-            자동으로 확인해요.
-          </FeatureCard>
-          <FeatureCard icon="📋" title="스캔 완료 매물로 게시">
-            스캔이 끝나면 결과와 관계없이 &ldquo;스캔 완료&rdquo; 표시가 동일하게
-            붙어요. 어떤 항목이 발견됐는지는 상세 페이지에서 그대로 확인할 수
-            있어요.
-          </FeatureCard>
-        </div>
-
-        <div className="mt-10 overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full min-w-[480px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                <th className="p-4 font-medium text-zinc-500 dark:text-zinc-400">구분</th>
-                <th className="p-4 font-medium text-zinc-500 dark:text-zinc-400">
-                  일반 코드 거래
-                </th>
-                <th className="p-4 font-medium text-emerald-700 dark:text-emerald-400">
-                  툴허브
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <ComparisonRow
-                label="코드 내용 확인"
-                baseline="구매 전에는 내용을 확인할 수 없음"
-                toolhub="스캔 리포트로 발견 항목을 투명하게 공개"
-              />
-              <ComparisonRow
-                label="위험 여부 판단"
-                baseline="구매자가 스스로 판단할 방법이 없음"
-                toolhub="카테고리별 심각도를 확인하고 구매 결정 가능"
-              />
-              <ComparisonRow
-                label="스캔 리포트 제공"
-                baseline="해당 없음"
-                toolhub="결과와 무관하게 모든 매물에 동일하게 제공"
-                last
-              />
-            </tbody>
-          </table>
+      {/* ── E. 이용 방법 (light) ── */}
+      <section className="border-t border-zinc-950/[0.06] bg-paper-2 px-6 py-20 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <p className="text-xs font-medium tracking-[0.04em] text-accent">이용 방법</p>
+            <h2 className="mt-3 text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+              다섯 단계로 완료됩니다
+            </h2>
+          </Reveal>
+          <div className="mt-12">
+            <Reveal>
+              <TransactionFlowTimeline />
+            </Reveal>
+          </div>
         </div>
       </section>
 
-      {/* ── Live Marketplace Preview ── */}
-      <section id="marketplace" className="mx-auto w-full max-w-5xl scroll-mt-6 px-6 py-16">
-        <h2 className="mb-8 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          지금 등록된 매물
-        </h2>
-        <ListingBrowser listings={listings} categories={categories} />
+      {/* ── F. 비교 (light) ── */}
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <h2 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+              왜 툴허브인가
+            </h2>
+          </Reveal>
+          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {COMPARISON_COLUMNS.map((column) => (
+              <Reveal key={column.key}>
+                <div
+                  className={
+                    column.highlight
+                      ? "dark h-full rounded-2xl bg-ink p-6 text-offwhite ring-1 ring-white/[0.06]"
+                      : "h-full rounded-2xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-zinc-950/[0.06]"
+                  }
+                >
+                  <h3
+                    className={`break-keep text-balance text-lg font-semibold tracking-[-0.01em] ${
+                      column.highlight ? "text-offwhite" : "text-zinc-900"
+                    }`}
+                  >
+                    {column.title}
+                  </h3>
+                  <ul className="mt-4 flex flex-col gap-4">
+                    {COMPARISON_ROWS.map((row) => {
+                      const [mark, text] = row[column.key];
+                      return (
+                        <li key={row.label} className="flex items-start gap-3">
+                          <ComparisonMarkIcon mark={mark} dark={column.highlight} />
+                          <div>
+                            <p
+                              className={`break-keep ${column.highlight ? "text-xs text-muted" : "text-xs text-zinc-500"}`}
+                            >
+                              {row.label}
+                            </p>
+                            {text && (
+                              <p
+                                className={`break-keep text-pretty ${
+                                  column.highlight ? "text-sm text-offwhite" : "text-sm text-zinc-700"
+                                }`}
+                              >
+                                {text}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
       </section>
 
-      {/* ── How It Works ── */}
-      <section className="border-t border-zinc-100 dark:border-zinc-900">
-        <div className="mx-auto w-full max-w-5xl px-6 py-16">
-          <h2 className="mb-8 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-            이용 방법
-          </h2>
-          <HowItWorksTabs />
+      {/* ── G. 마켓 티저 (light, 얇은 배너) ── */}
+      <section className="border-y border-zinc-950/[0.06] bg-paper-2 px-6 py-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <p className="break-keep text-sm text-zinc-600">완성된 툴이 필요하다면</p>
+          <Link href="/listings" className="text-sm font-medium text-accent hover:opacity-80">
+            마켓 둘러보기 →
+          </Link>
+        </div>
+        <div className="mx-auto mt-5 w-full max-w-6xl">
+          {scanPassedListings.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {scanPassedListings.map((listing) => (
+                <Link
+                  key={listing.id}
+                  href={`/listings/${listing.id}`}
+                  className="flex items-center gap-2 rounded-xl bg-paper px-3 py-2 ring-1 ring-zinc-950/[0.08] transition-colors hover:ring-zinc-950/[0.16]"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-tint text-sm font-semibold text-accent">
+                    {listing.title.trim().charAt(0) || "T"}
+                  </span>
+                  <span className="max-w-[10rem] truncate text-sm font-medium text-zinc-800">
+                    {listing.title}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent">
+                    검사 통과
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 text-sm text-zinc-500">
+              <svg
+                aria-hidden
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                className="h-4 w-4 shrink-0"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10 2.5l6 2v4.5c0 4-2.5 6.8-6 8.5-3.5-1.7-6-4.5-6-8.5V4.5l6-2z"
+                />
+              </svg>
+              <span className="break-keep">모든 매물은 구매 전 보안 검사를 거칩니다</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── G2. 직접 만들면 되지 않나요? (light) ── */}
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
+        <div className="mx-auto max-w-3xl">
+          <Reveal>
+            <h2 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+              직접 만들면 되지 않나요?
+            </h2>
+          </Reveal>
+          <Reveal className="mt-10">
+            <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-950/[0.08]">
+              <div className="grid grid-cols-[auto_1fr_1fr] bg-paper-2 text-sm font-medium text-zinc-500">
+                <div className="px-5 py-3" />
+                <div className="break-keep px-5 py-3">직접 AI로</div>
+                <div className="break-keep px-5 py-3 text-accent">툴허브</div>
+              </div>
+              {DIY_ROWS.map((row) => (
+                <div
+                  key={row.label}
+                  className="grid grid-cols-[auto_1fr_1fr] border-t border-zinc-950/[0.06]"
+                >
+                  <div className="break-keep px-5 py-4 text-xs font-medium text-zinc-400">
+                    {row.label}
+                  </div>
+                  <div className="break-keep text-pretty px-5 py-4 text-sm text-zinc-600">
+                    {row.diy}
+                  </div>
+                  <div className="break-keep text-pretty px-5 py-4 text-sm font-medium text-zinc-900">
+                    {row.toolhub}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-6 break-keep text-pretty text-center text-sm leading-[1.7] text-zinc-500">
+              바이브코딩으로 80%는 만들어도, 나머지 20% 디버깅·연동이 귀찮을 때 툴허브가
+              해결합니다.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── H. FAQ (light) ── */}
+      <section className="border-t border-zinc-950/[0.06] bg-paper px-6 py-20 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <Reveal>
+            <h2 className="text-balance font-display text-3xl font-semibold leading-tight tracking-[-0.02em] break-keep text-zinc-900 lg:text-4xl">
+              자주 묻는 질문
+            </h2>
+          </Reveal>
+          <div className="mt-10 flex flex-col divide-y divide-zinc-950/[0.08]">
+            {FAQ_ITEMS.map((item) => (
+              <details key={item.question} className="group py-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between break-keep text-sm font-medium text-zinc-900">
+                  {item.question}
+                  <span
+                    aria-hidden
+                    className="ml-4 shrink-0 text-lg text-zinc-400 transition-transform group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 break-keep text-pretty text-[15px] leading-[1.7] text-zinc-600 lg:text-base">
+                  {item.answer}
+                </p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
     </main>
   );
 }
 
-function TrustBadge({ children }: { children: React.ReactNode }) {
+function ComparisonMarkIcon({ mark, dark = false }: { mark: ComparisonMark; dark?: boolean }) {
+  if (mark === "check") {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        className={`mt-0.5 h-5 w-5 shrink-0 ${dark ? "text-accent-soft" : "text-accent"}`}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 10.5l3.5 3.5L16 6" />
+      </svg>
+    );
+  }
+  if (mark === "x") {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        className="mt-0.5 h-5 w-5 shrink-0 text-zinc-400"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5l10 10M15 5L5 15" />
+      </svg>
+    );
+  }
+  if (mark === "partial") {
+    return (
+      <svg
+        aria-hidden
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        className="mt-0.5 h-5 w-5 shrink-0 text-amber-500"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 4v8m0 4h.01" />
+      </svg>
+    );
+  }
   return (
-    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-400">
-      {children}
-    </span>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  children,
-}: {
-  icon: string;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-      <span className="text-2xl" aria-hidden>
-        {icon}
-      </span>
-      <h3 className="mt-3 font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-      <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{children}</p>
-    </div>
-  );
-}
-
-function ComparisonRow({
-  label,
-  baseline,
-  toolhub,
-  last = false,
-}: {
-  label: string;
-  baseline: string;
-  toolhub: string;
-  last?: boolean;
-}) {
-  const rowClass = last ? "" : "border-b border-zinc-100 dark:border-zinc-900";
-  return (
-    <tr className={rowClass}>
-      <td className="p-4 font-medium text-zinc-700 dark:text-zinc-300">{label}</td>
-      <td className="p-4 text-zinc-500 dark:text-zinc-400">{baseline}</td>
-      <td className="p-4 text-zinc-700 dark:text-zinc-300">{toolhub}</td>
-    </tr>
+    <svg
+      aria-hidden
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      className="mt-0.5 h-5 w-5 shrink-0 text-zinc-300"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10h10" />
+    </svg>
   );
 }
