@@ -293,6 +293,20 @@ async function initialize(): Promise<void> {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_seller ON password_reset_tokens(seller_id)`;
 
+  // 로그인/회원가입/비밀번호 재설정 요청의 남용을 막는 범용 카운터. key는
+  // 호출부가 "scope:식별자"(예: "login_email:foo@bar.com", "login_ip:1.2.3.4")
+  // 형태로 만들어 넘긴다 - 이메일이 실제 가입되어 있는지와 무관하게 항상 같은
+  // 방식으로 동작해야 하므로, 이 테이블 자체는 sellers를 전혀 참조하지 않는다.
+  await sql`
+    CREATE TABLE IF NOT EXISTS auth_rate_limits (
+      key TEXT PRIMARY KEY,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      window_started_at TEXT NOT NULL,
+      locked_until TEXT,
+      updated_at TEXT NOT NULL
+    )
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS listings (
       id TEXT PRIMARY KEY,

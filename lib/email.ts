@@ -6,6 +6,19 @@ import { SUPPORT_EMAIL } from "./constants";
 // 필요 시 RESEND_FROM_EMAIL로 덮어쓸 수 있다.
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "툴허브 <noreply@mail.tool-hub.dev>";
 
+// 이메일 HTML 본문에 사용자 입력(닉네임/의뢰 제목/피드백 내용 등)을 넣기 전에
+// 항상 거친다. React JSX와 달리 이 문자열은 Resend에 그대로 넘어가는 순수
+// HTML이라 자동 이스케이프가 없다 - 여기서 직접 처리하지 않으면 사용자 입력에
+// 담긴 태그가 그대로 메일 클라이언트에서 렌더링된다.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendVerificationEmail(
   to: string,
   code: string,
@@ -106,7 +119,7 @@ export async function sendRequestDeliveryReadyEmail(
       subject: "[툴허브] 의뢰하신 자동화 툴이 완성되었습니다",
       html:
         `<p>안녕하세요, 툴허브입니다.</p>` +
-        `<p>의뢰하신 <strong>${requestTitle}</strong>의 완성본이 제출되어 자동 보안 스캔을 마쳤습니다.</p>` +
+        `<p>의뢰하신 <strong>${escapeHtml(requestTitle)}</strong>의 완성본이 제출되어 자동 보안 스캔을 마쳤습니다.</p>` +
         `<p>아래 링크에서 스캔 요약을 확인하고 결제를 완료해주세요.</p>` +
         `<p><a href="${requestUrl}">${requestUrl}</a></p>`,
       text:
@@ -146,10 +159,10 @@ export async function sendFeedbackNotificationEmail(input: {
       subject: `[툴허브] 새 피드백 도착 (${input.category})`,
       html:
         `<p>새로운 피드백이 접수되었습니다.</p>` +
-        `<p><strong>작성자:</strong> ${input.nickname}</p>` +
+        `<p><strong>작성자:</strong> ${escapeHtml(input.nickname)}</p>` +
         `<p><strong>카테고리:</strong> ${input.category}</p>` +
         `<p><strong>내용:</strong></p>` +
-        `<p style="white-space:pre-wrap;">${input.message}</p>`,
+        `<p style="white-space:pre-wrap;">${escapeHtml(input.message)}</p>`,
       text:
         `새로운 피드백이 접수되었습니다.\n` +
         `작성자: ${input.nickname}\n` +
