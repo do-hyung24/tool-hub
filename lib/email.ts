@@ -10,7 +10,7 @@ const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "툴허브 <noreply@mail.too
 // 항상 거친다. React JSX와 달리 이 문자열은 Resend에 그대로 넘어가는 순수
 // HTML이라 자동 이스케이프가 없다 - 여기서 직접 처리하지 않으면 사용자 입력에
 // 담긴 태그가 그대로 메일 클라이언트에서 렌더링된다.
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
