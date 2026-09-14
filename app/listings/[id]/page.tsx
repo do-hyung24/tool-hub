@@ -41,7 +41,13 @@ export default async function ListingDetailPage(
         등록일 {formatDate(listing.createdAt)}
       </p>
 
-      <p className="mt-6 text-2xl font-semibold">{formatPrice(listing.price)}</p>
+      <p className="mt-6 text-2xl font-semibold">
+        {listing.price === 0 ? (
+          <span className="text-emerald-600 dark:text-emerald-400">무료</span>
+        ) : (
+          formatPrice(listing.price)
+        )}
+      </p>
 
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">

@@ -8,12 +8,12 @@ import { ProfileImageUploader } from "./ProfileImageUploader";
 export default async function AccountPage() {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/account");
   }
 
   const seller = await getSellerById(sellerId);
   if (!seller) {
-    redirect("/login");
+    redirect("/login?next=/account");
   }
 
   return (

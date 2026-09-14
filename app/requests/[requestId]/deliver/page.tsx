@@ -26,7 +26,7 @@ export default async function DeliverRequestPage(
           완성본을 제출하려면 먼저 로그인해주세요.
         </p>
         <Link
-          href="/login"
+          href={`/login?next=${encodeURIComponent(`/requests/${requestId}/deliver`)}`}
           className="mt-6 inline-block rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           확인

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { groupFindingsForBuyer, CATEGORY_IDS, CATEGORY_LABELS, getDetectorTypeCount } from "@/lib/findingCategories";
-import { getListings } from "@/lib/data";
+import { filterListingIdsWithScanReport, getListings } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 import type { Finding } from "@/lib/types";
@@ -201,8 +201,17 @@ export default async function Home() {
   const sellerId = await getCurrentSellerId();
   const scanShowcaseGroups = groupFindingsForBuyer(SCAN_SHOWCASE_FINDINGS);
   const listings = await getListings();
-  const scanPassedListings = listings
-    .filter((listing) => listing.scanStatus === "completed" && !listing.hasUnresolvedFindings)
+  // has_unresolved_findings=false만으로는 "실제로 스캔해서 문제가 없었다"를 보장하지
+  // 않는다(오래된 시드 매물처럼 스캔을 거치지 않고도 기본값으로 false인 경우가 있다) -
+  // "검사 통과" 문구는 실제 scan_reports 행이 있는 매물에만 붙인다.
+  const scanCleanCandidates = listings.filter(
+    (listing) => listing.scanStatus === "completed" && !listing.hasUnresolvedFindings
+  );
+  const verifiedScanListingIds = await filterListingIdsWithScanReport(
+    scanCleanCandidates.map((listing) => listing.id)
+  );
+  const scanPassedListings = scanCleanCandidates
+    .filter((listing) => verifiedScanListingIds.has(listing.id))
     .slice(0, 2);
 
   return (

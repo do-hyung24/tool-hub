@@ -94,13 +94,14 @@ async function requireVerifiedSellerId(): Promise<string> {
 export async function createListingAction(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
-  const price = Number(formData.get("price"));
   const category = String(formData.get("category") ?? "");
+  const isFree = String(formData.get("pricingType") ?? "") === "free";
+  const price = isFree ? 0 : Number(formData.get("price"));
 
   if (!title || !description) {
     throw new Error("제목과 설명은 필수입니다.");
   }
-  if (!Number.isFinite(price) || price < 0) {
+  if (!isFree && (!Number.isFinite(price) || price <= 0)) {
     throw new Error("가격을 올바르게 입력해주세요.");
   }
   if (!CATEGORIES.includes(category as Category)) {

@@ -7,6 +7,7 @@ import {
   checkNicknameAvailabilityAction,
   signupAction,
 } from "@/app/authActions";
+import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, NICKNAME_PATTERN } from "@/lib/nickname";
 
 type CheckStatus = "unchecked" | "checking" | "available" | "taken" | "invalid" | "stale";
 
@@ -152,6 +153,9 @@ export function SignupForm({ next }: { next?: string }) {
             name="nickname"
             type="text"
             required
+            minLength={NICKNAME_MIN_LENGTH}
+            maxLength={NICKNAME_MAX_LENGTH}
+            pattern={NICKNAME_PATTERN.source}
             placeholder="봇공작소"
             value={nickname}
             onChange={(event) => handleNicknameChange(event.target.value)}
@@ -172,6 +176,9 @@ export function SignupForm({ next }: { next?: string }) {
           takenText="이미 사용 중인 닉네임입니다"
           invalidMessage={nicknameInvalidMessage}
         />
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          {NICKNAME_MIN_LENGTH}~{NICKNAME_MAX_LENGTH}자, 한글/영문/숫자/&lsquo;_&rsquo;/&lsquo;-&rsquo;만 사용할 수 있습니다.
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">

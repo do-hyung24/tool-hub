@@ -11,7 +11,7 @@ export default async function ListingReviewPage(
   const { id } = await props.params;
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/listings/${id}/review`)}`);
   }
 
   const listing = await getListingForOwner(id, sellerId);

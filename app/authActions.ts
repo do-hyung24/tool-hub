@@ -24,6 +24,7 @@ import { hashPassword } from "@/lib/password";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { SUPPORT_EMAIL } from "@/lib/constants";
 import { safeNextPath } from "@/lib/safeNext";
+import { validateNickname } from "@/lib/nickname";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -127,6 +128,10 @@ export async function checkNicknameAvailabilityAction(
   if (!nickname) {
     return { status: "invalid", message: "닉네임을 입력해주세요." };
   }
+  const validation = validateNickname(nickname);
+  if (!validation.valid) {
+    return { status: "invalid", message: validation.message };
+  }
   const existing = await getSellerByNickname(nickname);
   return existing ? { status: "taken" } : { status: "available" };
 }
@@ -155,6 +160,10 @@ export async function signupAction(formData: FormData) {
   }
   if (!nickname) {
     throw new Error("닉네임을 입력해주세요.");
+  }
+  const nicknameValidation = validateNickname(nickname);
+  if (!nicknameValidation.valid) {
+    throw new Error(nicknameValidation.message);
   }
   const agreedToPrivacy = formData.get("agreedToPrivacy") === "on";
   if (!agreedToPrivacy) {
@@ -242,7 +251,7 @@ export async function logoutAction() {
 export async function requestAccountDeletionAction() {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/account/delete");
   }
 
   await requestAccountDeletion(sellerId);
@@ -252,7 +261,7 @@ export async function requestAccountDeletionAction() {
 export async function resendVerificationAction() {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/verify-email");
   }
 
   const seller = await getSellerById(sellerId);
@@ -281,7 +290,7 @@ export async function resendVerificationAction() {
 export async function verifyEmailCodeAction(formData: FormData) {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/verify-email");
   }
 
   const code = String(formData.get("code") ?? "").trim();

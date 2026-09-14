@@ -11,7 +11,7 @@ import { updateSellerSettlementAccount } from "@/lib/data";
 export async function updateSettlementAccountAction(formData: FormData) {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/account/settlement");
   }
 
   const bankName = String(formData.get("bankName") ?? "").trim();

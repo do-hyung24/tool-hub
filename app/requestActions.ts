@@ -155,10 +155,12 @@ function requireDeliveryGuide(formData: FormData): string {
 // redirect()는 try/catch 안에서 호출하면 안 된다(던져진 리다이렉트 신호를
 // 검증 에러로 오인해 삼켜버릴 수 있다) - 그래서 로그인 확인은 항상 아래
 // 위험 구간(try) 밖, 각 액션의 맨 앞에서 먼저 끝낸다.
-async function requireCurrentSellerId(): Promise<string> {
+async function requireCurrentSellerId(formData: FormData): Promise<string> {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    const requestId = String(formData.get("requestId") ?? "");
+    const nextPath = requestId ? `/requests/${requestId}` : "/";
+    redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
   return sellerId;
 }
@@ -219,7 +221,7 @@ export async function submitDeliveryAction(
   _prevState: DeliveryFormState,
   formData: FormData
 ): Promise<DeliveryFormState> {
-  const sellerId = await requireCurrentSellerId();
+  const sellerId = await requireCurrentSellerId(formData);
 
   let nextPath: string;
   try {
@@ -300,7 +302,7 @@ export async function submitDeliveryAction(
 // /listings/[id]/review의 publishAnywayAction에 대응하지만, publishListing()을
 // 호출하지 않는다(납품물은 공개 마켓에 올라가지 않는다).
 export async function deliverPublishAnywayAction(formData: FormData) {
-  const sellerId = await requireCurrentSellerId();
+  const sellerId = await requireCurrentSellerId(formData);
   const { requestId, proposalId } = await requireDeliverableProposal(sellerId, formData);
 
   const proposal = await getToolProposalById(proposalId);
@@ -317,7 +319,7 @@ export async function deliverRescanAction(
   _prevState: DeliveryFormState,
   formData: FormData
 ): Promise<DeliveryFormState> {
-  const sellerId = await requireCurrentSellerId();
+  const sellerId = await requireCurrentSellerId(formData);
 
   let nextPath: string;
   try {
@@ -385,12 +387,12 @@ export async function deliverRescanAction(
 // 제작자 계좌가 공개되고 이체 단계로 넘어간다. 이미 수락된 상태의 재호출(뒤로가기/
 // 중복 클릭)은 acceptProposalDelivery가 멱등하게 true를 반환해 에러 없이 넘어간다.
 export async function acceptDeliveryAction(formData: FormData) {
+  const requestId = String(formData.get("requestId") ?? "");
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/requests/${requestId}`)}`);
   }
 
-  const requestId = String(formData.get("requestId") ?? "");
   const proposalId = String(formData.get("proposalId") ?? "");
   const accepted = await acceptProposalDelivery(requestId, proposalId, sellerId);
   if (!accepted) {
@@ -405,12 +407,12 @@ export async function acceptDeliveryAction(formData: FormData) {
 // 의뢰인이 제작자 계좌로 이체한 뒤 "이체 완료"를 표시한다. 이체 증빙 스크린샷은
 // 선택이다.
 export async function markTransferSentAction(formData: FormData) {
+  const requestId = String(formData.get("requestId") ?? "");
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/requests/${requestId}`)}`);
   }
 
-  const requestId = String(formData.get("requestId") ?? "");
   const proposalId = String(formData.get("proposalId") ?? "");
 
   const proofFile = formData.get("transferProof");
@@ -439,12 +441,12 @@ export async function markTransferSentAction(formData: FormData) {
 // 제작자가 "입금 확인"을 표시한다. 이 호출이 성공하면 의뢰가 완료 처리되고,
 // 의뢰인의 완성본 다운로드가 그때부터 열린다(다운로드 라우트가 별도로 확인).
 export async function confirmPaymentAction(formData: FormData) {
+  const requestId = String(formData.get("requestId") ?? "");
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/requests/${requestId}`)}`);
   }
 
-  const requestId = String(formData.get("requestId") ?? "");
   const proposalId = String(formData.get("proposalId") ?? "");
   const confirmed = await confirmProposalPayment(requestId, proposalId, sellerId);
   if (!confirmed) {
@@ -457,12 +459,12 @@ export async function confirmPaymentAction(formData: FormData) {
 // 완료 사례 공개 정책((a)완료 후 의뢰 내용 공개 / (b)제작자 귀속 표시 동의)을
 // 의뢰인 본인만 바꿀 수 있다 - 완료 이전/이후 상태와 무관하게 언제든 토글 가능.
 export async function updateRequestDisclosureAction(formData: FormData) {
+  const requestId = String(formData.get("requestId") ?? "");
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/requests/${requestId}`)}`);
   }
 
-  const requestId = String(formData.get("requestId") ?? "");
   const toolRequest = await getToolRequestById(requestId);
   if (!toolRequest || toolRequest.requesterSellerId !== sellerId) {
     // throw는 500(서버 예외)로 응답해 의도된 거부와 실제 오류를 구분할 수 없게

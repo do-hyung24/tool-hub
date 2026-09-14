@@ -19,7 +19,7 @@ export default async function DeliverReviewPage(
 
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/requests/${requestId}/deliver/review`)}`);
   }
 
   const toolRequest = await getToolRequestById(requestId);

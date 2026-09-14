@@ -13,9 +13,16 @@ export function ListingCard({ listing }: { listing: Listing }) {
           {listing.category}
         </span>
         {listing.scanStatus === "completed" && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-            🔍 스캔 완료
-          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+              🔍 스캔 완료
+            </span>
+            {listing.hasUnresolvedFindings && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                확인 필요
+              </span>
+            )}
+          </div>
         )}
       </div>
       <div>
@@ -27,7 +34,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
         </p>
       </div>
       <p className="mt-auto border-t border-zinc-100 pt-3 text-base font-semibold text-zinc-900 dark:border-zinc-800 dark:text-zinc-50">
-        {formatPrice(listing.price)}
+        {listing.price === 0 ? (
+          <span className="text-emerald-600 dark:text-emerald-400">무료</span>
+        ) : (
+          formatPrice(listing.price)
+        )}
       </p>
     </Link>
   );

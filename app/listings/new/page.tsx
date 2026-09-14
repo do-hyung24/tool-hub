@@ -5,6 +5,7 @@ import { getSellerById } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { CATEGORIES } from "@/lib/types";
 import { SourceTypeFields } from "./SourceTypeFields";
+import { PriceField } from "./PriceField";
 
 export default async function NewListingPage(props: PageProps<"/listings/new">) {
   const searchParams = await props.searchParams;
@@ -16,6 +17,12 @@ export default async function NewListingPage(props: PageProps<"/listings/new">) 
 
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
+    const params = new URLSearchParams();
+    if (sourceRequestId) params.set("sourceRequestId", sourceRequestId);
+    if (prefillTitle) params.set("title", prefillTitle);
+    if (prefillDescription) params.set("description", prefillDescription);
+    const suffix = params.toString();
+    const nextPath = `/listings/new${suffix ? `?${suffix}` : ""}`;
     return (
       <main className="mx-auto w-full max-w-md flex-1 px-6 py-10">
         <h1 className="text-2xl font-bold">로그인이 필요합니다</h1>
@@ -23,7 +30,7 @@ export default async function NewListingPage(props: PageProps<"/listings/new">) 
           매물을 등록하려면 먼저 로그인해주세요.
         </p>
         <Link
-          href="/login"
+          href={`/login?next=${encodeURIComponent(nextPath)}`}
           className="mt-6 inline-block rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           확인
@@ -85,21 +92,7 @@ export default async function NewListingPage(props: PageProps<"/listings/new">) 
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="price" className="text-sm font-medium">
-            가격 (원)
-          </label>
-          <input
-            id="price"
-            name="price"
-            type="number"
-            min={0}
-            step={1000}
-            required
-            placeholder="30000"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
+        <PriceField />
 
         <SourceTypeFields />
 

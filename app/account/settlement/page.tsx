@@ -10,7 +10,7 @@ export default async function SettlementAccountPage(
   const searchParams = await props.searchParams;
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/account/settlement");
   }
 
   const account = await getSellerSettlementAccount(sellerId);

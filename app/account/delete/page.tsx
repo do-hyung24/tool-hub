@@ -6,7 +6,7 @@ import { SUPPORT_EMAIL } from "@/lib/constants";
 export default async function DeleteAccountPage() {
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/account/delete");
   }
 
   return (

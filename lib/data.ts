@@ -131,6 +131,20 @@ export async function getListings(): Promise<Listing[]> {
   return rows.map(rowToListing);
 }
 
+// "검사 통과" 같은 단정적 문구를 쓰는 화면(랜딩 마켓 티저 등)에서, has_unresolved_findings
+// 플래그만으로는 부족할 때 쓴다 - 오래된 시드 매물 중 일부는 실제 스캔을 한 번도 거치지
+// 않은 채 이 플래그가 기본값(false)으로 남아 있어("스캔 완료"라 주장하지만 근거가 되는
+// scan_reports 행이 없음), 그런 매물까지 "통과"로 잘못 표시되는 것을 막는다.
+export async function filterListingIdsWithScanReport(listingIds: string[]): Promise<Set<string>> {
+  if (listingIds.length === 0) return new Set();
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT DISTINCT listing_id FROM scan_reports WHERE listing_id = ANY(${listingIds})
+  `) as Array<{ listing_id: string }>;
+  return new Set(rows.map((row) => row.listing_id));
+}
+
 // 공개 상세 페이지용 - 게시되지 않은(작성자 검토 중) 매물은 존재 자체를 숨긴다.
 // getListings()와 동일하게 탈퇴 처리 중인 판매자의 매물도 숨긴다.
 export async function getListingById(id: string): Promise<Listing | null> {
@@ -1040,7 +1054,13 @@ type CommunityPostRow = {
   author_profile_image_url: string | null;
 };
 
+// '공지' 카테고리는 운영자 계정만 작성할 수 있다(app/api/community/posts에서 강제) -
+// 표시할 때는 운영자 개인 닉네임 대신 운영 주체명을 보여준다. author_seller_id 등
+// 나머지 데이터는 그대로 두므로 수정/삭제 권한 등 로직에는 영향이 없다.
+const NOTICE_AUTHOR_DISPLAY_NAME = "툴허브 운영팀";
+
 function rowToCommunityPostWithAuthor(row: CommunityPostRow): CommunityPostWithAuthor {
+  const isNotice = row.category === "공지";
   return {
     id: row.id,
     authorSellerId: row.author_seller_id,
@@ -1049,8 +1069,8 @@ function rowToCommunityPostWithAuthor(row: CommunityPostRow): CommunityPostWithA
     content: row.content,
     hidden: row.hidden,
     createdAt: row.created_at,
-    authorNickname: row.author_nickname,
-    authorProfileImageUrl: row.author_profile_image_url,
+    authorNickname: isNotice ? NOTICE_AUTHOR_DISPLAY_NAME : row.author_nickname,
+    authorProfileImageUrl: isNotice ? null : row.author_profile_image_url,
   };
 }
 

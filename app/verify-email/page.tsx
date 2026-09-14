@@ -23,12 +23,12 @@ export default async function VerifyEmailPage(
   const searchParams = await props.searchParams;
   const sellerId = await getCurrentSellerId();
   if (!sellerId) {
-    redirect("/login");
+    redirect("/login?next=/verify-email");
   }
 
   const seller = await getSellerById(sellerId);
   if (!seller) {
-    redirect("/login");
+    redirect("/login?next=/verify-email");
   }
 
   const justVerified = searchParams.verified === "1";
