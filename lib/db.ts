@@ -598,6 +598,9 @@ async function initialize(): Promise<void> {
     `;
   }
 
+  // scan_status/has_unresolved_findings는 UPDATE 대상에서 뺀다(라운드5) - 이
+  // 두 값은 실제 재스캔이 갱신하는 값이라, 콜드스타트마다 여기 하드코딩된
+  // 값으로 되돌리면 재스캔 결과가 조용히 덮어써진다.
   for (const listing of SEED_LISTINGS) {
     await sql`
       INSERT INTO listings (
@@ -614,9 +617,7 @@ async function initialize(): Promise<void> {
       ON CONFLICT (id) DO UPDATE SET
         source_type = EXCLUDED.source_type,
         published = EXCLUDED.published,
-        scan_status = EXCLUDED.scan_status,
-        disclosure_note = EXCLUDED.disclosure_note,
-        has_unresolved_findings = EXCLUDED.has_unresolved_findings
+        disclosure_note = EXCLUDED.disclosure_note
     `;
   }
 

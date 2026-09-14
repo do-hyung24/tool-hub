@@ -75,6 +75,11 @@ export type PublicFindingGroup = {
   easyLabel: string;
 };
 
+export type PublicScanHeadline = {
+  hasFindings: boolean;
+  headline: string;
+};
+
 function higherSeverity(a: Severity, b: Severity): Severity {
   return SEVERITIES.indexOf(a) <= SEVERITIES.indexOf(b) ? a : b;
 }
@@ -110,4 +115,19 @@ export function groupFindingsForBuyer(findings: Finding[]): PublicFindingGroup[]
       easyLabel: easyLabelFor(categoryId, typesByCategory.get(categoryId) ?? []),
     }))
     .sort((a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity));
+}
+
+// groupFindingsForBuyer보다 한 단계 더 축약한 요약 - 완료된 의뢰를 공개로 볼 때
+// (비로그인 포함) 카테고리/심각도조차 없이 통과 여부와 건수만 알린다. 개별
+// finding 내용/파일 경로/증거는 groupFindingsForBuyer와 마찬가지로 절대
+// 포함하지 않는다.
+export function summarizeFindingsForPublicHeadline(findings: Finding[]): PublicScanHeadline {
+  const groupCount = groupFindingsForBuyer(findings).length;
+  if (groupCount === 0) {
+    return { hasFindings: false, headline: "보안 검사 통과 · 확인된 문제 없음" };
+  }
+  return {
+    hasFindings: true,
+    headline: `확인된 항목 ${groupCount}건 · 제작자 설명 후 의뢰자가 수락`,
+  };
 }

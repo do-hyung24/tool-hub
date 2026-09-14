@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   canAccessProposalThread,
   getDeliveryScanSummaryForViewer,
+  getPublicDeliveryScanSummary,
   getSettlementAccountForViewer,
   getToolRequestById,
   listToolProposalDeliveryProofs,
@@ -63,8 +64,11 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
 
   // 완료 + 공개 + 비당사자: 공개 화이트리스트(제목/필요환경/본문/소요기간/완료일,
   // (b)가 켜졌을 때만 제작자 귀속)만 렌더링한다. 금액·첨부파일·증빙·대화·계좌·
-  // 완성본은 이 분기에서 아예 조회하지 않는다.
+  // 완성본은 이 분기에서 아예 조회하지 않는다. 스캔 결과는 요약 한 줄 + 검사
+  // 시점만 추가로 보여준다(라운드5) - 개별 finding/파일 경로/증거는 여기서도
+  // 절대 조회하지 않는다(getPublicDeliveryScanSummary 자체가 반환하지 않음).
   if (toolRequest.status === "completed" && !isParty) {
+    const publicScanSummary = await getPublicDeliveryScanSummary(requestId);
     return (
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
         <Link href="/requests?status=completed" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
@@ -118,6 +122,16 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
               </div>
             )}
         </dl>
+
+        {publicScanSummary && (
+          <div className="mt-6 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+            <p className="text-zinc-700 dark:text-zinc-300">{publicScanSummary.headline}</p>
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+              검사일 {formatDate(publicScanSummary.scannedAt)} · 자동 규칙 기반 검사이며, 통과했다고
+              해서 100% 안전을 보장하지는 않습니다.
+            </p>
+          </div>
+        )}
       </main>
     );
   }

@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { ensureInitialized, getSql } from "./db";
-import { groupFindingsForBuyer } from "./findingCategories";
+import { groupFindingsForBuyer, summarizeFindingsForPublicHeadline } from "./findingCategories";
 import type { PublicFindingGroup } from "./findingCategories";
 import { BLOCKING_SEVERITIES } from "./types";
 import { SUPPORT_EMAIL } from "./constants";
@@ -2103,6 +2103,37 @@ export async function getDeliveryScanSummaryForViewer(
   const findings = scanReport ? groupFindingsForBuyer(scanReport.findings) : [];
 
   return { proposal, listing, findings };
+}
+
+// 완료 사례 공개(completed_content_public=true)일 때 비로그인을 포함한 누구나
+// 볼 수 있는 스캔 결과 요약 - summarizeFindingsForPublicHeadline이 만드는 한 줄
+// 문구와 검사 시점만 반환한다. 개별 finding/파일 경로/증거/완성본 파일/작동
+// 증빙은 이 함수가 애초에 조회하지 않는다.
+export async function getPublicDeliveryScanSummary(
+  requestId: string
+): Promise<{ headline: string; hasFindings: boolean; scannedAt: string } | null> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const proposalRows = (await sql`
+    SELECT delivered_listing_id FROM tool_proposals
+    WHERE request_id = ${requestId} AND status = 'selected' AND delivery_confirmed_at IS NOT NULL
+    LIMIT 1
+  `) as Array<{ delivered_listing_id: string | null }>;
+  const deliveredListingId = proposalRows[0]?.delivered_listing_id;
+  if (!deliveredListingId) return null;
+
+  const scanRows = (await sql`
+    SELECT findings, created_at FROM scan_reports
+    WHERE listing_id = ${deliveredListingId}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as Array<{ findings: Finding[]; created_at: string }>;
+  const scanReport = scanRows[0];
+  if (!scanReport) return null;
+
+  const { hasFindings, headline } = summarizeFindingsForPublicHeadline(scanReport.findings);
+  return { headline, hasFindings, scannedAt: scanReport.created_at };
 }
 
 // 제작자 계좌는 민감정보라 getSellerById 등 일반 조회에는 절대 포함하지 않고

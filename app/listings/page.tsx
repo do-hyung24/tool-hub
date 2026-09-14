@@ -30,6 +30,11 @@ export default async function ListingsPage() {
         </Link>
       </div>
 
+      <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
+        툴허브는 이제 막 문을 연 서비스입니다. 목록에는 서비스 흐름을 보여주기 위한 예시 매물이
+        포함되어 있습니다.
+      </p>
+
       <div className="mt-8">
         <ListingBrowser listings={listings} categories={categories} />
       </div>

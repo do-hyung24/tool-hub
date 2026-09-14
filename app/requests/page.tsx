@@ -68,6 +68,11 @@ export default async function RequestsPage(props: PageProps<"/requests">) {
         </Link>
       </div>
 
+      <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
+        툴허브는 이제 막 문을 연 서비스입니다. 목록에는 서비스 흐름을 보여주기 위한 예시 의뢰가
+        포함되어 있습니다.
+      </p>
+
       <div className="mt-6 inline-flex rounded-full border border-zinc-200 p-0.5 text-sm dark:border-zinc-800">
         {STATUS_TABS.map((tab) => (
           <Link
