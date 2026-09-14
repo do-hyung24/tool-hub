@@ -39,9 +39,11 @@ export default async function RequestsPage(props: PageProps<"/requests">) {
 
   // 완료 사례 공개 화이트리스트에 첨부파일(썸네일 포함)은 들어있지 않다 -
   // 당사자 여부와 무관하게 완료 탭 카드에는 썸네일을 아예 조회/노출하지 않는다.
+  // 그 외 탭도 비로그인 방문자에게는 이미지 id를 응답에 아예 포함하지 않는다
+  // (라운드5 - RequestImageGallery와 같은 이유).
   const thumbnails = await Promise.all(
     requests.map(async (request) => {
-      if (status === "completed") return null;
+      if (status === "completed" || !sellerId) return null;
       const images = await listToolRequestImages(request.id);
       return images[0] ?? null;
     })

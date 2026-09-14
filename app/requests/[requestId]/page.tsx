@@ -251,7 +251,25 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
         </div>
       </dl>
 
-      <RequestImageGallery images={images} />
+      {/* 비로그인 방문자에게는 이미지 id/URL을 RSC 페이로드에 아예 포함하지
+          않는다 - 존재(장수)만 알리고, 실제 <img> 태그는 로그인 후에만 렌더한다.
+          제목/본문/예산은 지금처럼 공개 유지(의도된 설계). */}
+      {sellerId ? (
+        <RequestImageGallery images={images} />
+      ) : (
+        images.length > 0 && (
+          <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">
+            첨부 이미지 {images.length}장 —{" "}
+            <Link
+              href={`/login?next=${encodeURIComponent(`/requests/${requestId}`)}`}
+              className="underline hover:text-zinc-700 dark:hover:text-zinc-200"
+            >
+              로그인
+            </Link>{" "}
+            후 볼 수 있습니다.
+          </p>
+        )
+      )}
 
       {toolRequest.referenceVideoUrl && (
         <p className="mt-4 text-sm">

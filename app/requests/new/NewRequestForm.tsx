@@ -498,6 +498,9 @@ export function NewRequestForm({
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">사진 첨부</label>
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          고객명·연락처 등 개인정보가 담긴 화면은 가리고 올려주세요.
+        </p>
         {existingImages.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {existingImages.map((image) => (
