@@ -46,3 +46,6 @@ demo-samples/
 
 # local git worktrees (not part of the app)
 .worktrees/
+
+# 1회성 시드 스크립트의 실행 상태(생성된 id 캐시) - 로컬 전용, 커밋하지 않는다
+scripts/.seed-state.json
