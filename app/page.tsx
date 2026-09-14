@@ -498,7 +498,7 @@ export default async function Home() {
           </Reveal>
           <Reveal className="mt-10">
             <div className="overflow-hidden rounded-2xl ring-1 ring-zinc-950/[0.08]">
-              <div className="grid grid-cols-[auto_1fr_1fr] bg-paper-2 text-sm font-medium text-zinc-500">
+              <div className="grid grid-cols-[auto_1fr_1fr] items-center bg-paper-2 text-sm font-medium text-zinc-500">
                 <div className="px-5 py-3" />
                 <div className="break-keep px-5 py-3">직접 AI로</div>
                 <div className="break-keep px-5 py-3 text-accent">툴허브</div>
@@ -506,9 +506,9 @@ export default async function Home() {
               {DIY_ROWS.map((row) => (
                 <div
                   key={row.label}
-                  className="grid grid-cols-[auto_1fr_1fr] border-t border-zinc-950/[0.06]"
+                  className="grid grid-cols-[auto_1fr_1fr] items-center border-t border-zinc-950/[0.06]"
                 >
-                  <div className="break-keep px-5 py-4 text-xs font-medium text-zinc-400">
+                  <div className="break-keep px-5 py-4 text-sm font-medium text-zinc-400">
                     {row.label}
                   </div>
                   <div className="break-keep text-pretty px-5 py-4 text-sm text-zinc-600">

@@ -93,7 +93,7 @@ export function HeroPrompt({
   return (
     <div ref={containerRef} className={compact ? "mx-auto w-full max-w-3xl" : "mx-auto w-full max-w-xl"}>
       {stage === "collapsed" ? (
-        <div className="flex items-end gap-2 rounded-2xl bg-white/[0.04] p-2 pl-5 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22]">
+        <div className="flex items-center gap-2 rounded-2xl bg-white/[0.04] p-2 pl-5 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22]">
           <input
             type="text"
             value={keyword}
@@ -107,7 +107,7 @@ export function HeroPrompt({
             type="button"
             onClick={expand}
             disabled={!keyword.trim()}
-            className="mb-1 shrink-0 rounded-xl bg-paper px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+            className="shrink-0 rounded-xl bg-paper px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
           >
             의뢰하기 ↵
           </button>
