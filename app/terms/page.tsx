@@ -48,7 +48,7 @@ export default function TermsPage() {
           <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
             <li>결제는 서비스를 거치지 않고 이용자 간 계좌 이체로 직접 이루어집니다.</li>
             <li>
-              완성본을 다운로드한 이후에는 이미 결과물이 전달된 상태이므로 환불이 어렵습니다. 다운로드
+              완성본을 다운로드한 이후에는 이미 전달이 완료된 상태이므로 환불이 어렵습니다. 다운로드
               전에 스캔 결과와 매물 설명을 충분히 확인해주세요.
             </li>
             <li>
