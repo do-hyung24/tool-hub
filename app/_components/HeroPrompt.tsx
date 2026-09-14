@@ -93,7 +93,7 @@ export function HeroPrompt({
   return (
     <div ref={containerRef} className={compact ? "mx-auto w-full max-w-3xl" : "mx-auto w-full max-w-xl"}>
       {stage === "collapsed" ? (
-        <div className="flex items-end gap-2 rounded-2xl bg-white/[0.04] p-2 pl-5 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22]">
+        <div className="flex flex-col items-stretch gap-2 rounded-2xl bg-white/[0.04] p-2 pl-5 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22] sm:flex-row sm:items-end">
           <input
             type="text"
             value={keyword}
@@ -101,13 +101,13 @@ export function HeroPrompt({
             onKeyDown={handleKeywordKeyDown}
             maxLength={KEYWORD_MAX_LENGTH}
             placeholder={KEYWORD_PLACEHOLDER}
-            className="flex-1 bg-transparent py-2 text-sm text-offwhite outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent py-2 text-sm text-offwhite outline-none placeholder:text-muted"
           />
           <button
             type="button"
             onClick={expand}
             disabled={!keyword.trim()}
-            className="mb-1 shrink-0 rounded-xl bg-paper px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full shrink-0 rounded-xl bg-paper px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 sm:mb-1 sm:w-auto"
           >
             의뢰하기 ↵
           </button>
