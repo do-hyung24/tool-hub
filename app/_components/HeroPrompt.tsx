@@ -99,7 +99,7 @@ export function HeroPrompt({
   return (
     <div ref={containerRef} className={compact ? "mx-auto w-full max-w-3xl" : "mx-auto w-full max-w-xl"}>
       {stage === "collapsed" ? (
-        <div className="flex flex-col items-stretch gap-2 rounded-2xl bg-white/[0.04] p-2 pl-5 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22] sm:flex-row sm:items-end">
+        <div className="flex flex-col items-stretch gap-2 rounded-2xl bg-white/[0.04] p-3 ring-1 ring-white/[0.10] transition-shadow focus-within:ring-2 focus-within:ring-white/[0.22] sm:flex-row sm:items-end sm:p-2 sm:pl-5">
           <input
             type="text"
             value={keyword}
@@ -107,7 +107,7 @@ export function HeroPrompt({
             onKeyDown={handleKeywordKeyDown}
             maxLength={KEYWORD_MAX_LENGTH}
             placeholder={KEYWORD_PLACEHOLDER_MOBILE}
-            className="min-w-0 flex-1 bg-transparent py-2 text-sm text-offwhite outline-none placeholder:text-muted sm:hidden"
+            className="min-w-0 flex-1 bg-transparent py-2 text-base text-offwhite outline-none placeholder:text-muted sm:hidden"
           />
           <input
             type="text"
@@ -116,7 +116,7 @@ export function HeroPrompt({
             onKeyDown={handleKeywordKeyDown}
             maxLength={KEYWORD_MAX_LENGTH}
             placeholder={KEYWORD_PLACEHOLDER}
-            className="hidden min-w-0 flex-1 bg-transparent py-2 text-sm text-offwhite outline-none placeholder:text-muted sm:block"
+            className="hidden min-w-0 flex-1 bg-transparent py-2 text-base text-offwhite outline-none placeholder:text-muted sm:block"
           />
           <button
             type="button"

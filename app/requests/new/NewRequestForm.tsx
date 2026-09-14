@@ -304,7 +304,7 @@ export function NewRequestForm({
           minLength={TITLE_MIN_LENGTH}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
         />
       </div>
 
@@ -353,7 +353,7 @@ export function NewRequestForm({
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder={DESCRIPTION_PLACEHOLDER}
-          className="resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className="resize-none rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
         />
         <div className="flex justify-end">
           <span
@@ -380,7 +380,7 @@ export function NewRequestForm({
             value={formatBudgetDisplay(budgetAmount)}
             onChange={(event) => setBudgetAmount(event.target.value.replace(/[^0-9]/g, ""))}
             placeholder="금액(원)"
-            className="w-40 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-40 rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
           />
           <label className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
             <input
@@ -419,7 +419,7 @@ export function NewRequestForm({
           max={maxDeadline}
           value={desiredDeadline}
           onChange={(event) => setDesiredDeadline(event.target.value)}
-          className={`w-fit rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 ${
+          className={`w-fit rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 ${
             desiredDeadline === ""
               ? "[&::-webkit-datetime-edit]:text-zinc-400 dark:[&::-webkit-datetime-edit]:text-zinc-500"
               : "[&::-webkit-datetime-edit]:text-zinc-900 dark:[&::-webkit-datetime-edit]:text-zinc-50"
@@ -470,7 +470,7 @@ export function NewRequestForm({
             onChange={(event) => setEtcText(event.target.value)}
             maxLength={ETC_MAX_LENGTH}
             placeholder="예: 특정 사내 시스템 이름"
-            className="mt-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+            className="mt-1 rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
           />
         )}
       </div>
@@ -492,7 +492,7 @@ export function NewRequestForm({
           value={referenceVideoUrl}
           onChange={(event) => setReferenceVideoUrl(event.target.value)}
           placeholder="https://..."
-          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
         />
       </div>
 
