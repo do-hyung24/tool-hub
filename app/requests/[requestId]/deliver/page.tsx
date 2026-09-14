@@ -49,7 +49,7 @@ export default async function DeliverRequestPage(
       <main className="mx-auto w-full max-w-md flex-1 px-6 py-10">
         <h1 className="text-2xl font-bold">접근할 수 없습니다</h1>
         <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-          완성본은 이 의뢰에서 선택된 판매자만 제출할 수 있습니다.
+          완성본은 이 의뢰에서 선택된 제작자만 제출할 수 있습니다.
         </p>
         <Link
           href={`/requests/${requestId}`}

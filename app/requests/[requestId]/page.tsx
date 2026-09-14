@@ -151,7 +151,7 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
     ? await listToolProposalDeliveryProofs(deliverySummary.proposal.id)
     : [];
 
-  // 제작자 계좌는 의뢰인 본인이 완성본을 수락한 뒤에만 채워진다(그 외에는
+  // 제작자 계좌는 의뢰자 본인이 완성본을 수락한 뒤에만 채워진다(그 외에는
   // 함수 자체가 null을 반환) - 함수 내부에서 이중으로 다시 확인한다.
   const settlementAccount =
     sellerId && isRequester ? await getSettlementAccountForViewer(toolRequest.id, sellerId) : null;

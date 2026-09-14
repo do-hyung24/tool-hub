@@ -809,7 +809,7 @@ export async function getPublicScanSummary(listingId: string): Promise<PublicFin
 // 매물을 게시한다. WHERE 절에 seller_id를 함께 걸어, 소유자가 아니면
 // 아무 행도 바뀌지 않도록 한다 (IDOR 방지). 반환값이 null이면 소유자가 아니거나
 // 존재하지 않는 매물이라는 뜻이다.
-// 추가로, 어떤 제안의 납품물(tool_proposals.delivered_listing_id가 가리키는 행)은
+// 추가로, 어떤 제안의 완성본(tool_proposals.delivered_listing_id가 가리키는 행)은
 // 그 의뢰자에게만 전달되는 비공개 산출물이므로 절대 published=true가 되면 안 된다 —
 // 같은 IDOR 가드 스타일로 WHERE 절에서 막는다(0행 → null 반환). 의뢰 완료 후
 // 판매자가 마켓에 재등록하는 경우는 source_request_id만 있고 어떤 제안도 가리키지
@@ -1405,7 +1405,7 @@ export async function createToolRequest(input: {
   // 신규 등록 폼의 체크박스 값을 그대로 받는다(기본 체크되어 있음). 컬럼
   // 자체의 DEFAULT는 FALSE라 기존 행이 소급 공개되지 않고, 신규 등록만
   // 이 값으로 명시적으로 채운다. maker_attribution_public은 여기서 받지
-  // 않는다 - 항상 false로 시작하고(제작자 귀속은 완료 뒤 의뢰인이 별도로
+  // 않는다 - 항상 false로 시작하고(제작자 귀속은 완료 뒤 의뢰자가 별도로
   // 켠다), 컬럼 DEFAULT가 그대로 적용된다.
   completedContentPublic: boolean;
 }): Promise<ToolRequest> {
@@ -1445,7 +1445,7 @@ export async function createToolRequest(input: {
   return request;
 }
 
-// 완료 사례 공개 정책 토글 전용 - 의뢰인이 아무 상태에서나(주로 완료 후) 켜고
+// 완료 사례 공개 정책 토글 전용 - 의뢰자가 아무 상태에서나(주로 완료 후) 켜고
 // 끌 수 있다. 호출부(서버 액션)에서 requester 본인인지 먼저 확인해야 한다.
 export async function updateToolRequestDisclosure(
   id: string,
@@ -2106,7 +2106,7 @@ export async function getDeliveryScanSummaryForViewer(
 }
 
 // 제작자 계좌는 민감정보라 getSellerById 등 일반 조회에는 절대 포함하지 않고
-// 이 함수를 통해서만, 그것도 의뢰인 본인이 이미 완성본을 수락한(buyer_accepted_at
+// 이 함수를 통해서만, 그것도 의뢰자 본인이 이미 완성본을 수락한(buyer_accepted_at
 // IS NOT NULL) 뒤에만 내려준다. 그 외(제3자/비로그인/미수락 상태)는 전부 null이다.
 export async function getSettlementAccountForViewer(
   requestId: string,
@@ -2149,7 +2149,7 @@ export async function getSettlementAccountForViewer(
 // 없음/선행 단계 미충족)를 반환한다. 뒤로가기·새로고침·버튼 중복 클릭으로 같은
 // 요청이 두 번 들어와도 두 번째 호출이 에러 없이 "이미 완료됨"으로 처리된다.
 
-// 의뢰인이 스캔 요약+실행 가이드+작동 증빙을 보고 "수락"한다. 수락 전에는
+// 의뢰자가 스캔 요약+실행 가이드+작동 증빙을 보고 "수락"한다. 수락 전에는
 // 제작자 계좌와 완성본 다운로드가 모두 비공개다(각각 getSettlementAccountForViewer/
 // 다운로드 라우트가 buyer_accepted_at 이후 단계를 별도로 다시 확인).
 export async function acceptProposalDelivery(
@@ -2181,7 +2181,7 @@ export async function acceptProposalDelivery(
   return alreadyAccepted.length > 0;
 }
 
-// 의뢰인이 "이체 완료"를 표시한다(수락 이후에만 가능). 이체 증빙 스크린샷은
+// 의뢰자가 "이체 완료"를 표시한다(수락 이후에만 가능). 이체 증빙 스크린샷은
 // 선택이며, 첫 표시 시점의 값만 저장한다(이미 표시된 뒤 재호출은 증빙을
 // 덮어쓰지 않고 그대로 멱등 성공만 반환).
 export async function markProposalTransferSent(

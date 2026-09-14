@@ -194,7 +194,7 @@ async function requireDeliverableProposal(
 }
 
 // 스캔 게이트를 통과한 시점의 공통 처리.
-// listings.published는 절대 건드리지 않는다 - 납품물은 공개 마켓에 노출되지 않고,
+// listings.published는 절대 건드리지 않는다 - 완성본은 공개 마켓에 노출되지 않고,
 // "게이트 통과 + 의뢰자 통보 완료"는 tool_proposals.delivery_confirmed_at으로만 표현한다.
 async function passDeliveryGate(requestId: string, proposalId: string): Promise<void> {
   await confirmProposalDelivery(proposalId);
@@ -300,7 +300,7 @@ export async function submitDeliveryAction(
 }
 
 // /listings/[id]/review의 publishAnywayAction에 대응하지만, publishListing()을
-// 호출하지 않는다(납품물은 공개 마켓에 올라가지 않는다).
+// 호출하지 않는다(완성본은 공개 마켓에 올라가지 않는다).
 export async function deliverPublishAnywayAction(formData: FormData) {
   const sellerId = await requireCurrentSellerId(formData);
   const { requestId, proposalId } = await requireDeliverableProposal(sellerId, formData);
@@ -383,7 +383,7 @@ export async function deliverRescanAction(
   redirect(nextPath);
 }
 
-// 의뢰인이 스캔 요약+실행 가이드+작동 증빙을 확인한 뒤 "수락"한다. 이 시점부터
+// 의뢰자가 스캔 요약+실행 가이드+작동 증빙을 확인한 뒤 "수락"한다. 이 시점부터
 // 제작자 계좌가 공개되고 이체 단계로 넘어간다. 이미 수락된 상태의 재호출(뒤로가기/
 // 중복 클릭)은 acceptProposalDelivery가 멱등하게 true를 반환해 에러 없이 넘어간다.
 export async function acceptDeliveryAction(formData: FormData) {
@@ -404,7 +404,7 @@ export async function acceptDeliveryAction(formData: FormData) {
   redirect(`/requests/${requestId}`);
 }
 
-// 의뢰인이 제작자 계좌로 이체한 뒤 "이체 완료"를 표시한다. 이체 증빙 스크린샷은
+// 의뢰자가 제작자 계좌로 이체한 뒤 "이체 완료"를 표시한다. 이체 증빙 스크린샷은
 // 선택이다.
 export async function markTransferSentAction(formData: FormData) {
   const requestId = String(formData.get("requestId") ?? "");
@@ -439,7 +439,7 @@ export async function markTransferSentAction(formData: FormData) {
 }
 
 // 제작자가 "입금 확인"을 표시한다. 이 호출이 성공하면 의뢰가 완료 처리되고,
-// 의뢰인의 완성본 다운로드가 그때부터 열린다(다운로드 라우트가 별도로 확인).
+// 의뢰자의 완성본 다운로드가 그때부터 열린다(다운로드 라우트가 별도로 확인).
 export async function confirmPaymentAction(formData: FormData) {
   const requestId = String(formData.get("requestId") ?? "");
   const sellerId = await getCurrentSellerId();
@@ -457,7 +457,7 @@ export async function confirmPaymentAction(formData: FormData) {
 }
 
 // 완료 사례 공개 정책((a)완료 후 의뢰 내용 공개 / (b)제작자 귀속 표시 동의)을
-// 의뢰인 본인만 바꿀 수 있다 - 완료 이전/이후 상태와 무관하게 언제든 토글 가능.
+// 의뢰자 본인만 바꿀 수 있다 - 완료 이전/이후 상태와 무관하게 언제든 토글 가능.
 export async function updateRequestDisclosureAction(formData: FormData) {
   const requestId = String(formData.get("requestId") ?? "");
   const sellerId = await getCurrentSellerId();

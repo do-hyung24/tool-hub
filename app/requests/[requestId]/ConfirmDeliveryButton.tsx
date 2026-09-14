@@ -14,7 +14,7 @@ import type {
 
 // 직거래 결제/정산(에스크로 없음) 단계를 tool_proposals의 타임스탬프로 판정한다.
 //   summary 없음                     → 아직 스캔 게이트 전(표시 안 함)
-//   buyerAcceptedAt 없음              → A. 의뢰인 수락 대기
+//   buyerAcceptedAt 없음              → A. 의뢰자 수락 대기
 //   buyerAcceptedAt만 있음            → B. 계좌 공개 + 이체 대기
 //   transferMarkedAt까지 있음         → C. 제작자 입금 확인 대기
 //   paymentConfirmedAt까지 있음       → D. 완료(다운로드 가능)
@@ -106,7 +106,7 @@ export function ConfirmDeliveryButton({
       </h2>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         {isRequester
-          ? "선택한 판매자가 완성본을 제출했고 자동 보안 스캔을 마쳤습니다. 이 완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다."
+          ? "선택한 제작자가 완성본을 제출했고 자동 보안 스캔을 마쳤습니다. 이 완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다."
           : "제출한 완성본이 자동 보안 스캔을 마치고 의뢰자에게 전달되었습니다. 이 완성본은 의뢰자에게만 전달되며 공개 마켓에는 올라가지 않습니다."}
       </p>
 
@@ -163,7 +163,7 @@ export function ConfirmDeliveryButton({
         </div>
       )}
 
-      {/* A. 의뢰인 수락 대기 */}
+      {/* A. 의뢰자 수락 대기 */}
       {stage === "awaiting_accept" &&
         (isRequester ? (
           <form action={acceptDeliveryAction} className="mt-4 flex flex-col gap-3">

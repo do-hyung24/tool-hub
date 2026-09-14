@@ -133,7 +133,7 @@ export default async function RequestsPage(props: PageProps<"/requests">) {
                       {request.title}
                     </p>
                     {status === "completed" ? (
-                      // 완료 공개 화이트리스트에 의뢰인 닉네임은 포함되지 않는다 -
+                      // 완료 공개 화이트리스트에 의뢰자 닉네임은 포함되지 않는다 -
                       // 제작자 귀속 공개(maker_attribution_public)가 켜졌을 때만 표시한다.
                       request.selectedSellerNickname && (
                         <span className="text-xs text-zinc-500 dark:text-zinc-400">

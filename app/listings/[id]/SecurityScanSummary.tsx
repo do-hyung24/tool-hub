@@ -55,7 +55,18 @@ export function SecurityScanSummary({ groups }: { groups: PublicFindingGroup[] }
               {SEVERITY_LABEL[group.severity]}
             </span>
             <span className="text-zinc-700 dark:text-zinc-300">
-              {mode === "easy" ? group.easyLabel : group.expertLabel}
+              {mode === "easy" ? (
+                group.easyLabel
+              ) : (
+                <>
+                  {group.expertLabel}
+                  {/* 상세 보기에서도 전문용어를 지우지 않고, 비개발자용 한 줄 설명을
+                      함께 보여준다(용어 자체는 그대로 유지). */}
+                  <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                    {group.easyLabel}
+                  </span>
+                </>
+              )}
             </span>
           </li>
         ))}

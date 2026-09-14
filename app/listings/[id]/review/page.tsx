@@ -1,9 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { getListingForOwner, getScanReportForOwner } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
-import { publishAnywayAction, rescanListingAction } from "@/app/actions";
+import { publishAnywayAction } from "@/app/actions";
 import { SEVERITY_LABEL, SEVERITY_ORDER, SEVERITY_STYLE } from "@/lib/severityStyle";
-import { SourceTypeFields } from "../../new/SourceTypeFields";
+import { RescanForm } from "./RescanForm";
 
 export default async function ListingReviewPage(
   props: PageProps<"/listings/[id]/review">
@@ -106,16 +106,7 @@ export default async function ListingReviewPage(
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           코드를 고친 뒤 아래에서 다시 입력하면 재스캔 후 게시됩니다.
         </p>
-        <form action={rescanListingAction} className="mt-4 flex flex-col gap-4">
-          <input type="hidden" name="listingId" value={listing.id} />
-          <SourceTypeFields defaultCodeUrl={listing.codeUrl ?? undefined} />
-          <button
-            type="submit"
-            className="self-start rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            다시 스캔하기
-          </button>
-        </form>
+        <RescanForm listingId={listing.id} defaultCodeUrl={listing.codeUrl ?? undefined} />
       </section>
     </main>
   );

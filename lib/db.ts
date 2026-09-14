@@ -63,7 +63,11 @@ const SEED_LISTINGS: Listing[] = [
       "관심 상품의 가격이 설정한 기준 이하로 떨어지면 텔레그램으로 알림을 보내주는 스크립트입니다. 파이썬 기반, 설치 가이드 포함.",
     price: 30000,
     category: "알림/모니터링 봇",
-    codeUrl: "https://github.com/example/coupang-price-bot",
+    // 실제로 존재하는 공개 저장소로 교체(2026-09 라운드4) - 이전 값은
+    // github.com/example/... 형태의 가짜 저장소라 재스캔이 원천적으로
+    // 불가능했다. 주제(가격 추적+텔레그램 알림)가 매물 설명과 가장 가까운
+    // 공개 저장소를 선택했다.
+    codeUrl: "https://github.com/Uchchhas4G3NT52/price-tracker-bot",
     sourceType: "github",
     published: true,
     scanStatus: "completed",
@@ -98,7 +102,9 @@ const SEED_LISTINGS: Listing[] = [
       "매일 반복되는 엑셀 취합/보고서 작성 업무를 자동화하는 매크로입니다. 비개발자도 설정 파일만 수정하면 바로 사용 가능합니다.",
     price: 20000,
     category: "업무 자동화(RPA)",
-    codeUrl: "https://github.com/example/excel-report-macro",
+    // l1과 같은 이유로 교체(2026-09 라운드4) - "반복 업무 자동화" 주제에
+    // 가장 가까운 공개 저장소를 선택했다.
+    codeUrl: "https://github.com/m-shahzaib9/Excel-automation",
     sourceType: "github",
     published: true,
     scanStatus: "completed",
@@ -174,9 +180,9 @@ const SEED_COMMUNITY_POSTS: Array<{
       "원하는 자동화 봇/스크립트를 직접 만들어달라고 요청할 수 있는 '자동화 툴 의뢰' 게시판이 열렸습니다.\n\n" +
       "이용 방법은 다음과 같습니다.\n" +
       "- 원하는 툴 내용과 사진, 예산을 함께 올려 의뢰를 등록합니다.\n" +
-      "- 여러 개발자가 가격/기간/설명을 담아 제안을 보내오면, 의뢰자가 그중 하나를 선택합니다.\n" +
-      "- 선택 이후에는 해당 제안의 비공개 스레드에서 개발자와 세부 사항을 조율합니다.\n" +
-      "- 개발자가 완성본을 제출하면 기존 매물과 동일한 보안 스캔을 거쳐 전달되고, 의뢰자가 확인 후 결제를 완료하면 거래가 마무리됩니다.\n\n" +
+      "- 여러 제작자가 가격/기간/설명을 담아 제안을 보내오면, 의뢰자가 그중 하나를 선택합니다.\n" +
+      "- 선택 이후에는 해당 제안의 비공개 스레드에서 제작자와 세부 사항을 조율합니다.\n" +
+      "- 제작자가 완성본을 제출하면 기존 매물과 동일한 보안 스캔을 거쳐 전달되고, 의뢰자가 확인 후 결제를 완료하면 거래가 마무리됩니다.\n\n" +
       "지금 바로 '자동화 툴 의뢰' 메뉴 또는 /requests 에서 이용해보세요.",
   },
 ];
@@ -228,7 +234,7 @@ async function initialize(): Promise<void> {
   // 제작자 정산(직거래 이체 수신용) 계좌 정보. 본인이 직접 입력하고(휴대폰 인증·
   // 계좌 실명대조 없음), 노출은 getSellerById 등 일반 조회 함수에는 전혀 포함하지
   // 않고 lib/data.ts의 getSellerSettlementAccount(본인 전용)/
-  // getSettlementAccountForViewer(의뢰인이 완성본을 수락한 뒤에만) 두 전용 함수를
+  // getSettlementAccountForViewer(의뢰자가 완성본을 수락한 뒤에만) 두 전용 함수를
   // 통해서만 읽는다.
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_bank_name TEXT`;
   await sql`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS settlement_account_holder TEXT`;
@@ -501,8 +507,8 @@ async function initialize(): Promise<void> {
   // 아래 5개 컬럼은 "에스크로 없는 직거래 결제/정산" 흐름의 단계별 시각을
   // 기록한다. 병렬 상태 테이블을 새로 두지 않고 기존 delivery_confirmed_at
   // (스캔 게이트 통과) 뒤를 잇는 타임스탬프로만 표현한다.
-  //   제출+스캔 통과(delivery_confirmed_at) → 의뢰인 수락(buyer_accepted_at)
-  //   → 의뢰인 이체 완료 표시(transfer_marked_at) → 제작자 입금 확인
+  //   제출+스캔 통과(delivery_confirmed_at) → 의뢰자 수락(buyer_accepted_at)
+  //   → 의뢰자 이체 완료 표시(transfer_marked_at) → 제작자 입금 확인
   //   (payment_confirmed_at, 이 시점에만 tool_requests.status가 completed로
   //   바뀌고 완성본 다운로드가 열린다). 재제출(재스캔) 시에는 아래에서
   //   clearProposalDeliveryConfirmation이 이 3개도 함께 초기화한다 - 새로
@@ -510,7 +516,7 @@ async function initialize(): Promise<void> {
   await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS buyer_accepted_at TEXT`;
   await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS transfer_marked_at TEXT`;
   await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS payment_confirmed_at TEXT`;
-  // 의뢰인이 "이체 완료" 표시 시 선택적으로 첨부하는 이체 증빙 스크린샷(private Blob URL).
+  // 의뢰자가 "이체 완료" 표시 시 선택적으로 첨부하는 이체 증빙 스크린샷(private Blob URL).
   await sql`ALTER TABLE tool_proposals ADD COLUMN IF NOT EXISTS transfer_proof_url TEXT`;
   // 완성본 제출 시 작동 증빙으로 첨부하는 짧은 영상(선택, private Blob URL).
   // 스크린샷은 별도 테이블(tool_proposal_delivery_proofs, 1장 이상)에 보관한다.
@@ -533,7 +539,7 @@ async function initialize(): Promise<void> {
   `;
 
   // 완성본 제출 시 첨부하는 작동 증빙 스크린샷(1장 이상). tool_request_images와
-  // 동일한 패턴(부모별 다건, sort_order로 순서 유지)이다. 당사자(의뢰인/선택된
+  // 동일한 패턴(부모별 다건, sort_order로 순서 유지)이다. 당사자(의뢰자/선택된
   // 제작자) 한정 게이트 라우트(app/api/requests/[requestId]/delivery/asset)를
   // 통해서만 조회되며, 다른 조회 함수는 이 테이블을 읽지 않는다.
   await sql`

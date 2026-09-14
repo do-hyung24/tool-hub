@@ -94,7 +94,7 @@ export function DeliverRescanForm({
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 10.5l3.5 3.5L16 6" />
           </svg>
-          작동 영상을 함께 올리면 의뢰인이 더 빨리 수락하고 결제합니다.
+          작동 영상을 함께 올리면 의뢰자가 더 빨리 수락하고 결제합니다.
         </p>
       </div>
 

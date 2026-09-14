@@ -8,7 +8,7 @@ import { getCurrentSellerId } from "@/lib/session";
 // open/in_progress 의뢰의 사진은 게시판 성격상 원래 공개 정보라 로그인/소유권
 // 체크를 하지 않는다(기존 동작 그대로). 다만 완료된 의뢰는 완료 사례 공개
 // 정책상 첨부파일이 공개 여부(completed_content_public)와 무관하게 항상
-// 비공개이므로, 그 경우에만 당사자(의뢰인 본인 또는 선택된 제안의 판매자
+// 비공개이므로, 그 경우에만 당사자(의뢰자 본인 또는 선택된 제안의 판매자
 // 본인) 확인을 추가한다.
 export async function GET(
   _request: Request,

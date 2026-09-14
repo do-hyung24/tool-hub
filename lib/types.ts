@@ -199,7 +199,7 @@ export type ToolProposal = {
   deliveryFileUrl: string | null;
   proposedCompletionDate: string | null;
   // 직거래 결제/정산 흐름(에스크로 없음)의 단계별 시각. delivery_confirmed_at
-  // (스캔 게이트 통과) 다음을 잇는다: 의뢰인 수락(buyerAcceptedAt) → 의뢰인
+  // (스캔 게이트 통과) 다음을 잇는다: 의뢰자 수락(buyerAcceptedAt) → 의뢰자
   // 이체 완료 표시(transferMarkedAt, 선택적으로 transferProofUrl 첨부) → 제작자
   // 입금 확인(paymentConfirmedAt, 이 시점에만 완성본 다운로드가 열린다).
   buyerAcceptedAt: string | null;

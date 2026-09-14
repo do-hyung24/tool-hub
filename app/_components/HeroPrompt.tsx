@@ -26,7 +26,7 @@ function buildDescription(keyword: string, q1: string, q2: string, q3: string): 
   const lines = [keyword.trim()];
   if (q1.trim()) lines.push(`사용 중인 프로그램/사이트: ${q1.trim()}`);
   if (q2.trim()) lines.push(`반복되는 방식과 주기: ${q2.trim()}`);
-  if (q3.trim()) lines.push(`원하는 최종 결과물: ${q3.trim()}`);
+  if (q3.trim()) lines.push(`원하는 최종 완성본: ${q3.trim()}`);
   return lines.join("\n");
 }
 
@@ -171,7 +171,7 @@ export function HeroPrompt({
             </div>
             <div className="flex flex-col gap-1.5 text-left">
               <label htmlFor="hero-q3" className="text-xs font-medium text-muted">
-                원하는 최종 결과물
+                원하는 최종 완성본
               </label>
               <input
                 id="hero-q3"

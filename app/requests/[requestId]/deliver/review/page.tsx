@@ -59,7 +59,7 @@ export default async function DeliverReviewPage(
       <h1 className="mt-4 text-2xl font-bold">보안 스캔 리포트</h1>
       <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
         &quot;{toolRequest.title}&quot; 의뢰의 완성본은 아직 의뢰자에게 전달되지
-        않았습니다. 이 리포트는 제출한 판매자 본인에게만 보입니다.
+        않았습니다. 이 리포트는 제출한 제작자 본인에게만 보입니다.
       </p>
 
       {sortedFindings.length === 0 ? (

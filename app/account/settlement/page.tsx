@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentSellerId } from "@/lib/session";
 import { getSellerSettlementAccount } from "@/lib/data";
-import { updateSettlementAccountAction } from "./actions";
+import { SettlementForm } from "./SettlementForm";
 
 export default async function SettlementAccountPage(
   props: PageProps<"/account/settlement">
@@ -35,55 +35,7 @@ export default async function SettlementAccountPage(
         </p>
       )}
 
-      <form action={updateSettlementAccountAction} className="mt-6 flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="bankName" className="text-sm font-medium">
-            은행명
-          </label>
-          <input
-            id="bankName"
-            name="bankName"
-            type="text"
-            defaultValue={account?.bankName ?? ""}
-            placeholder="예: 국민은행"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="accountHolder" className="text-sm font-medium">
-            예금주명
-          </label>
-          <input
-            id="accountHolder"
-            name="accountHolder"
-            type="text"
-            defaultValue={account?.accountHolder ?? ""}
-            placeholder="예: 홍길동"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="accountNumber" className="text-sm font-medium">
-            계좌번호
-          </label>
-          <input
-            id="accountNumber"
-            name="accountNumber"
-            type="text"
-            inputMode="numeric"
-            defaultValue={account?.accountNumber ?? ""}
-            placeholder="- 없이 숫자만 입력"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="mt-2 self-start rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          저장하기
-        </button>
-      </form>
+      <SettlementForm account={account} />
 
       <p className="mt-6 text-xs text-zinc-400 dark:text-zinc-500">
         이 정보는 의뢰자가 완성본을 수락하기 전에는 누구에게도(마켓, 공개 프로필,

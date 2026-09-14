@@ -154,7 +154,7 @@ const COMPARISON_ROWS: ComparisonRow[] = [
     diy: ["x", "직접 코딩"],
   },
   {
-    label: "결과물 확인 방식",
+    label: "완성본 확인 방식",
     toolhub: ["check", "스캔 리포트 확인 후 결제"],
     agency: ["partial", "수령 후 직접 확인"],
     diy: ["dash", ""],
@@ -181,9 +181,9 @@ const FAQ_ITEMS = [
     answer: COPYRIGHT_POLICY_NOTICE,
   },
   {
-    question: "보안 스캔은 무엇을 검사하나요?",
+    question: "보안 검사는 무엇을 보나요? 통과하면 안전한가요?",
     answer:
-      "시크릿 노출, 위험 함수 호출, 안전하지 않은 통신, 안전하지 않은 역직렬화, 외부 데이터 전송 패턴 5개 카테고리를 규칙 기반으로 자동 분석합니다. 모든 문제를 찾아내는 것은 아닙니다.",
+      "시크릿 노출, 위험 함수 호출, 안전하지 않은 통신, 안전하지 않은 역직렬화, 외부 데이터 전송 패턴 5개 카테고리를 규칙 기반으로 자동 분석합니다. 사람이 직접 코드를 읽는 검사가 아니라서, 문제가 나오지 않았다고 100% 안전하다고 보증하지는 않습니다. 참고 자료로 활용해주세요.",
   },
   {
     question: "스캔에서 문제가 발견되면 어떻게 되나요?",
@@ -194,6 +194,31 @@ const FAQ_ITEMS = [
     question: "개발 지식이 없어도 되나요?",
     answer:
       "지금 하는 일과 원하는 결과를 글과 사진으로 설명하면 됩니다. 사용하는 프로그램은 목록에서 고르기만 하면 됩니다.",
+  },
+  {
+    question: "받은 완성본은 어떻게 실행하나요?",
+    answer:
+      "의뢰로 받은 완성본은 제작자가 함께 남기는 실행 가이드를 따라 실행하면 됩니다. 마켓에서 구매한 매물은 등록된 설명에 안내된 방법을 참고해주세요. 실행 방법이 불명확하면 판매자·제작자에게 직접 문의할 수 있습니다.",
+  },
+  {
+    question: "돈은 어떻게 주고받나요?",
+    answer:
+      "툴허브는 대금을 대신 보관하지 않는 직거래입니다. 의뢰든 매물 구매든, 이체 계좌는 거래가 확정된 뒤 당사자 두 사람에게만 공개되고 이체·입금 확인도 두 사람이 직접 진행합니다.",
+  },
+  {
+    question: "환불이 되나요?",
+    answer:
+      "완성본을 다운로드하기 전이라면 판매자·제작자와 협의해 진행 여부를 조정할 수 있지만, 다운로드 이후에는 환불이 어렵습니다. 결제 전에 스캔 결과와 설명을 충분히 확인해주세요.",
+  },
+  {
+    question: "내가 올린 의뢰는 누가 볼 수 있나요?",
+    answer:
+      "모집 중이거나 진행 중인 의뢰는 누구나 제목·설명·예산·사진까지 볼 수 있습니다(비공개 협의 대화와 계좌 정보는 예외). 완료된 의뢰는 등록 시 선택한 공개 여부에 따라 다르며, 비공개로 설정했다면 의뢰자와 선택된 제작자만 볼 수 있습니다.",
+  },
+  {
+    question: "무료 툴과 유료 툴은 뭐가 다른가요?",
+    answer:
+      "무료로 등록된 매물은 누구나 코드 링크나 설명을 보고 바로 받아 쓸 수 있습니다. 유료 매물은 등록 시 전달용 파일을 미리 받아두고, 구매자가 이체를 완료하고 판매자가 입금을 확인한 뒤에만 그 파일을 다운로드할 수 있습니다.",
   },
 ] as const;
 
@@ -313,7 +338,7 @@ export default async function Home() {
               <span aria-hidden>→</span>
               <span>제작자가 수정 후 재검사</span>
               <span aria-hidden>→</span>
-              <span>의뢰인이 결제 전 확인</span>
+              <span>의뢰자가 결제 전 확인</span>
             </p>
           </Reveal>
 
@@ -449,7 +474,7 @@ export default async function Home() {
       {/* ── G. 마켓 티저 (light, 얇은 배너) ── */}
       <section className="border-y border-zinc-950/[0.06] bg-paper-2 px-6 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="break-keep text-sm text-zinc-600">완성된 툴이 필요하다면</p>
+          <p className="break-keep text-sm text-zinc-600">이미 만들어진 툴을 바로 구매하고 싶다면</p>
           <Link href="/listings" className="text-sm font-medium text-accent hover:opacity-80">
             마켓 둘러보기 →
           </Link>
@@ -530,8 +555,8 @@ export default async function Home() {
               ))}
             </div>
             <p className="mt-6 break-keep text-pretty text-center text-sm leading-[1.7] text-zinc-500">
-              바이브코딩으로 80%는 만들어도, 나머지 20% 디버깅·연동이 귀찮을 때 툴허브가
-              해결합니다.
+              AI로 코드는 금방 만들어도, 내 컴퓨터에서 실제로 돌아가게 만드는 건 또 다른
+              문제입니다. 그 마지막 단계를 제작자가 대신 처리해드립니다.
             </p>
           </Reveal>
         </div>
