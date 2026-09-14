@@ -2313,8 +2313,10 @@ export type CreatePurchaseResult =
   | { purchaseId: string }
   | { error: "not_found" | "not_for_sale" | "own_listing" };
 
-// 본인 매물 구매 금지, 무료(price=0)/미게시 매물 구매 금지, 이미 진행 중인
-// (완료되지 않은) 구매가 있으면 새로 만들지 않고 그 건으로 보낸다.
+// 본인 매물 구매 금지, 무료(price=0)/미게시 매물 구매 금지, 이미 구매 건이
+// 있으면(진행 중이든 완료든) 새로 만들지 않고 그 건으로 보낸다 - "구매하기"
+// 버튼은 상태와 무관하게 항상 같은 문구로 노출되므로, 완료된 건에 대해서도
+// 재클릭이 새 구매를 만들면 안 된다(라운드 4에서 실측 확인된 중복 생성 버그).
 export async function createOrGetPurchase(
   listingId: string,
   buyerSellerId: string
@@ -2333,7 +2335,6 @@ export async function createOrGetPurchase(
   const existing = (await sql`
     SELECT id FROM purchases
     WHERE listing_id = ${listingId} AND buyer_seller_id = ${buyerSellerId}
-      AND payment_confirmed_at IS NULL
     ORDER BY created_at DESC
     LIMIT 1
   `) as Array<{ id: string }>;
