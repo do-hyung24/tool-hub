@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createListingAction } from "@/app/actions";
-import { getSellerById } from "@/lib/data";
+import { getSellerById, getSellerSettlementAccount } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { CATEGORIES } from "@/lib/types";
-import { SourceTypeFields } from "./SourceTypeFields";
-import { PriceField } from "./PriceField";
+import { ListingFormFields } from "./ListingFormFields";
 
 export default async function NewListingPage(props: PageProps<"/listings/new">) {
   const searchParams = await props.searchParams;
@@ -43,6 +42,10 @@ export default async function NewListingPage(props: PageProps<"/listings/new">) 
   if (!seller?.emailVerified) {
     redirect("/verify-email");
   }
+
+  const settlementAccount = await getSellerSettlementAccount(sellerId);
+  const settlementAccountExists =
+    !!settlementAccount?.bankName && !!settlementAccount.accountHolder && !!settlementAccount.accountNumber;
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
@@ -92,9 +95,7 @@ export default async function NewListingPage(props: PageProps<"/listings/new">) 
           </select>
         </div>
 
-        <PriceField />
-
-        <SourceTypeFields />
+        <ListingFormFields settlementAccountExists={settlementAccountExists} />
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="description" className="text-sm font-medium">

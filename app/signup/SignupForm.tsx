@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 import {
   checkEmailAvailabilityAction,
   checkNicknameAvailabilityAction,
   signupAction,
+  type SignupState,
 } from "@/app/authActions";
 import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, NICKNAME_PATTERN } from "@/lib/nickname";
+
+const initialSignupState: SignupState = {};
 
 type CheckStatus = "unchecked" | "checking" | "available" | "taken" | "invalid" | "stale";
 
@@ -53,6 +56,7 @@ function StatusMessage({
 }
 
 export function SignupForm({ next }: { next?: string }) {
+  const [state, formAction, pending] = useActionState(signupAction, initialSignupState);
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
   const [emailStatus, setEmailStatus] = useState<CheckStatus>("unchecked");
@@ -108,7 +112,7 @@ export function SignupForm({ next }: { next?: string }) {
     emailStatus === "available" && nicknameStatus === "available" && agreedToPrivacy;
 
   return (
-    <form action={signupAction} className="mt-8 flex flex-col gap-6">
+    <form action={formAction} className="mt-8 flex flex-col gap-6">
       <input type="hidden" name="next" value={next ?? ""} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="email" className="text-sm font-medium">
@@ -218,9 +222,13 @@ export function SignupForm({ next }: { next?: string }) {
         </label>
       </div>
 
+      {state.error && (
+        <p className="text-sm font-medium text-red-600 dark:text-red-400">{state.error}</p>
+      )}
+
       <button
         type="submit"
-        disabled={!canSubmit}
+        disabled={!canSubmit || pending}
         className="mt-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
       >
         가입하기

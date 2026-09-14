@@ -335,6 +335,11 @@ async function initialize(): Promise<void> {
   await sql`ALTER TABLE listings ALTER COLUMN code_url DROP NOT NULL`;
   await sql`ALTER TABLE listings DROP COLUMN IF EXISTS scan_result`;
   await sql`ALTER TABLE listings DROP COLUMN IF EXISTS is_verified`;
+  // 유료 매물의 전달 파일(스캔한 바로 그 zip을 private Blob에 저장한 URL).
+  // code_url을 재사용하지 않는다 - tool_proposals.delivery_file_url과 같은 이유로,
+  // 공개적으로 노출되는 code_url과 구매자 전용 다운로드 게이트로만 접근 가능한
+  // 이 필드의 노출 범위를 분리한다. GitHub 소스이거나 무료 매물이면 NULL.
+  await sql`ALTER TABLE listings ADD COLUMN IF NOT EXISTS delivery_file_url TEXT`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS scan_reports (
@@ -555,6 +560,29 @@ async function initialize(): Promise<void> {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_tool_proposal_messages_proposal ON tool_proposal_messages(proposal_id, created_at)`;
+
+  // 마켓 유료 매물 구매(에스크로 없는 직거래) - tool_proposals의 결제 흐름과
+  // 같은 패턴이다. 다만 여기는 "제안 선택" 단계가 없어 구매 행 생성 자체가
+  // 곧 수락이다: 행이 생기는 순간부터 판매자 계좌가 구매자에게 공개된다.
+  //   구매(생성, created_at) → 이체 완료 표시(transfer_marked_at)
+  //   → 판매자 입금 확인(payment_confirmed_at, 이 시점에만 다운로드가 열린다).
+  // seller_id는 listings.seller_id에서 생성 시점에 복사해 둔다(조인 없이
+  // 권한 검사를 WHERE 절 하나로 끝내기 위해) - tool_proposals.seller_id와
+  // 같은 이유의 비정규화.
+  await sql`
+    CREATE TABLE IF NOT EXISTS purchases (
+      id TEXT PRIMARY KEY,
+      listing_id TEXT NOT NULL REFERENCES listings(id),
+      buyer_seller_id TEXT NOT NULL REFERENCES sellers(id),
+      seller_id TEXT NOT NULL REFERENCES sellers(id),
+      transfer_marked_at TEXT,
+      payment_confirmed_at TEXT,
+      created_at TEXT NOT NULL
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_purchases_listing_buyer ON purchases(listing_id, buyer_seller_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_purchases_buyer ON purchases(buyer_seller_id, created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_purchases_seller ON purchases(seller_id, created_at)`;
 
   for (const seller of SEED_SELLERS) {
     await sql`

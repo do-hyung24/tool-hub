@@ -259,6 +259,30 @@ export type MyWorkSummary = {
   createdAt: string;
 };
 
+// 마켓 유료 매물 구매(에스크로 없는 직거래). 상태는 별도 컬럼이 아니라
+// tool_proposals와 같은 방식으로 타임스탬프 유무로 표현한다:
+//   transferMarkedAt=null           → 결제대기
+//   transferMarkedAt!=null, payment=null → 입금확인대기
+//   paymentConfirmedAt!=null        → 완료
+export type Purchase = {
+  id: string;
+  listingId: string;
+  buyerSellerId: string;
+  sellerId: string;
+  transferMarkedAt: string | null;
+  paymentConfirmedAt: string | null;
+  createdAt: string;
+};
+
+// 목록/상세 화면 표시용 - 계좌 정보는 절대 포함하지 않는다(별도 함수로,
+// 구매자 본인에게만 조회).
+export type PurchaseWithDetails = Purchase & {
+  listingTitle: string;
+  listingPrice: number;
+  buyerNickname: string;
+  sellerNickname: string;
+};
+
 export type ToolProposalMessage = {
   id: string;
   proposalId: string;

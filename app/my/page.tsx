@@ -1,11 +1,63 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { listMyRequests, listMyWork } from "@/lib/data";
+import { listMyPurchasesAsBuyer, listMyPurchasesAsSeller, listMyRequests, listMyWork } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { formatPrice } from "@/lib/format";
 import { DATE_ONLY_PATTERN, getKstTodayDateString } from "@/lib/dday";
 import { DDayBadge } from "@/app/_components/DDayBadge";
-import type { MyRequestSummary, MyWorkSummary, ToolRequestStatus } from "@/lib/types";
+import type { MyRequestSummary, MyWorkSummary, PurchaseWithDetails, ToolRequestStatus } from "@/lib/types";
+
+const PURCHASE_STAGE_LABELS = {
+  pending: "결제대기",
+  awaiting_confirm: "입금확인대기",
+  done: "완료",
+} as const;
+
+function getPurchaseStage(purchase: PurchaseWithDetails): keyof typeof PURCHASE_STAGE_LABELS {
+  if (purchase.paymentConfirmedAt) return "done";
+  if (purchase.transferMarkedAt) return "awaiting_confirm";
+  return "pending";
+}
+
+// 항목이 없으면 통째로 렌더링하지 않는다(RequestGroup/WorkGroup과 동일 원칙).
+function PurchaseGroup({
+  title,
+  items,
+  counterpartyLabel,
+}: {
+  title: string;
+  items: PurchaseWithDetails[];
+  // 구매 목록엔 판매자 닉네임을, 판매 목록엔 구매자 닉네임을 보여준다.
+  counterpartyLabel: (purchase: PurchaseWithDetails) => string;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <h3 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{title}</h3>
+      <ul className="mt-1.5 flex flex-col gap-2">
+        {items.map((purchase) => (
+          <li key={purchase.id}>
+            <Link
+              href={`/purchases/${purchase.id}`}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
+            >
+              <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {PURCHASE_STAGE_LABELS[getPurchaseStage(purchase)]}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                {purchase.listingTitle}
+              </span>
+              <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                {formatPrice(purchase.listingPrice)} · {counterpartyLabel(purchase)}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 const STATUS_LABELS: Record<ToolRequestStatus, string> = {
   open: "모집중",
@@ -140,7 +192,12 @@ export default async function MyActivityPage() {
     redirect("/login?next=/my");
   }
 
-  const [myRequests, myWork] = await Promise.all([listMyRequests(sellerId), listMyWork(sellerId)]);
+  const [myRequests, myWork, myPurchases, mySales] = await Promise.all([
+    listMyRequests(sellerId),
+    listMyWork(sellerId),
+    listMyPurchasesAsBuyer(sellerId),
+    listMyPurchasesAsSeller(sellerId),
+  ]);
   const today = getKstTodayDateString();
 
   const requestsInProgress = myRequests.filter((request) => request.status === "in_progress");
@@ -155,8 +212,15 @@ export default async function MyActivityPage() {
   );
   const workCompleted = myWork.filter((work) => work.requestStatus === "completed");
 
+  const purchasesPending = myPurchases.filter((p) => getPurchaseStage(p) !== "done");
+  const purchasesDone = myPurchases.filter((p) => getPurchaseStage(p) === "done");
+  const salesPending = mySales.filter((p) => getPurchaseStage(p) !== "done");
+  const salesDone = mySales.filter((p) => getPurchaseStage(p) === "done");
+
   const hasAnyRequests = myRequests.length > 0;
   const hasAnyWork = myWork.length > 0;
+  const hasAnyPurchases = myPurchases.length > 0;
+  const hasAnySales = mySales.length > 0;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
@@ -170,7 +234,7 @@ export default async function MyActivityPage() {
         </Link>
       </div>
 
-      {!hasAnyRequests && !hasAnyWork ? (
+      {!hasAnyRequests && !hasAnyWork && !hasAnyPurchases && !hasAnySales ? (
         <div className="mt-16 flex flex-col items-center gap-4 text-center">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             아직 의뢰하거나 제안한 활동이 없어요.
@@ -221,6 +285,42 @@ export default async function MyActivityPage() {
               </p>
             )}
           </section>
+
+          {(hasAnyPurchases || hasAnySales) && (
+            <section className="mt-6">
+              <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+                마켓 거래
+              </h2>
+              {hasAnyPurchases && (
+                <>
+                  <PurchaseGroup
+                    title="구매 · 진행중"
+                    items={purchasesPending}
+                    counterpartyLabel={(p) => `판매자 ${p.sellerNickname}`}
+                  />
+                  <PurchaseGroup
+                    title="구매 · 완료"
+                    items={purchasesDone}
+                    counterpartyLabel={(p) => `판매자 ${p.sellerNickname}`}
+                  />
+                </>
+              )}
+              {hasAnySales && (
+                <>
+                  <PurchaseGroup
+                    title="판매 · 진행중"
+                    items={salesPending}
+                    counterpartyLabel={(p) => `구매자 ${p.buyerNickname}`}
+                  />
+                  <PurchaseGroup
+                    title="판매 · 완료"
+                    items={salesDone}
+                    counterpartyLabel={(p) => `구매자 ${p.buyerNickname}`}
+                  />
+                </>
+              )}
+            </section>
+          )}
         </>
       )}
     </main>

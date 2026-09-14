@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SourceType } from "@/lib/types";
 
 // lib/zipExtract.ts의 MAX_ZIP_UPLOAD_BYTES와 반드시 같은 값이어야 한다(그쪽은
@@ -12,12 +12,21 @@ const MAX_ZIP_UPLOAD_MB = MAX_ZIP_UPLOAD_BYTES / 1024 / 1024;
 
 export function SourceTypeFields({
   defaultCodeUrl,
+  forceZip = false,
 }: {
   defaultCodeUrl?: string;
+  // 유료 매물은 전달할 파일이 있어야 하므로 zip 업로드로 고정한다(공개
+  // 저장소 링크만으로는 결제 후에 내려줄 것이 없다) - ListingFormFields가
+  // 가격 선택에 따라 이 값을 넘겨준다.
+  forceZip?: boolean;
 }) {
   const [sourceType, setSourceType] = useState<SourceType>("github");
   const [zipSizeError, setZipSizeError] = useState<string | null>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (forceZip) setSourceType("zip");
+  }, [forceZip]);
 
   function handleZipFileChange(file: File | null) {
     if (file && file.size > MAX_ZIP_UPLOAD_BYTES) {
@@ -33,34 +42,40 @@ export function SourceTypeFields({
   return (
     <div className="flex flex-col gap-3">
       <span className="text-sm font-medium">코드 입력 방식</span>
-      <div className="flex gap-4 text-sm">
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="sourceType"
-            value="github"
-            checked={sourceType === "github"}
-            onChange={() => setSourceType("github")}
-          />
-          GitHub 저장소 링크
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name="sourceType"
-            value="zip"
-            checked={sourceType === "zip"}
-            onChange={() => setSourceType("zip")}
-          />
-          zip 파일 업로드
-        </label>
-      </div>
+      {forceZip ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          유료 매물은 결제 후 전달할 파일이 있어야 해서 zip 업로드만 가능합니다.
+        </p>
+      ) : (
+        <div className="flex gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="sourceType"
+              value="github"
+              checked={sourceType === "github"}
+              onChange={() => setSourceType("github")}
+            />
+            GitHub 저장소 링크
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="sourceType"
+              value="zip"
+              checked={sourceType === "zip"}
+              onChange={() => setSourceType("zip")}
+            />
+            zip 파일 업로드
+          </label>
+        </div>
+      )}
       <div className="flex flex-col gap-0.5 text-xs text-zinc-500 dark:text-zinc-400">
         <p>
           완성본은 하나의 zip 파일로 제출해 주세요. 파일이 여러 개면 압축해서 하나로
           올리면 됩니다.
         </p>
-        <p>최대 용량 50MB. 더 큰 경우 GitHub 링크로 제출해 주세요.</p>
+        <p>최대 용량 50MB.{!forceZip && " 더 큰 경우 GitHub 링크로 제출해 주세요."}</p>
       </div>
 
       {sourceType === "github" ? (
@@ -87,7 +102,9 @@ export function SourceTypeFields({
             <p className="text-xs font-medium text-red-600 dark:text-red-400">{zipSizeError}</p>
           ) : (
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              업로드된 코드는 스캔에만 사용되며 서버에 저장/실행되지 않습니다.
+              {forceZip
+                ? "업로드된 파일은 스캔 후 결제 완료 시 구매자에게 전달할 보관본으로 저장됩니다."
+                : "업로드된 코드는 스캔에만 사용되며 서버에 저장/실행되지 않습니다."}
             </p>
           )}
         </div>

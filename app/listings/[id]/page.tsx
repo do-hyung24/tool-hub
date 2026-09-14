@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { getListingById, getPublicScanSummary, getSellerById } from "@/lib/data";
+import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, formatPrice } from "@/lib/format";
 import { ScanSummaryCard } from "@/app/_components/ScanSummaryCard";
+import { createPurchaseAction } from "@/app/purchaseActions";
 import type { Seller } from "@/lib/types";
 
 // contact가 비어 있거나 로그인 이메일과 같은 값이면 로그인 이메일이 그대로
@@ -29,6 +31,8 @@ export default async function ListingDetailPage(
   const seller = await getSellerById(listing.sellerId);
   const publicContact = seller ? getPublicContact(seller) : null;
   const scanSummary = await getPublicScanSummary(listing.id);
+  const viewerSellerId = await getCurrentSellerId();
+  const isOwnListing = viewerSellerId === listing.sellerId;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
@@ -48,6 +52,23 @@ export default async function ListingDetailPage(
           formatPrice(listing.price)
         )}
       </p>
+
+      {listing.price > 0 && !isOwnListing && (
+        <div className="mt-4">
+          <form action={createPurchaseAction}>
+            <input type="hidden" name="listingId" value={listing.id} />
+            <button
+              type="submit"
+              className="w-fit rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            >
+              구매하기
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            툴허브는 대금을 보관하지 않는 직거래이며, 다운로드 후에는 환불이 어렵습니다.
+          </p>
+        </div>
+      )}
 
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
@@ -71,6 +92,11 @@ export default async function ListingDetailPage(
           >
             {listing.codeUrl}
           </a>
+        ) : listing.price > 0 ? (
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            zip 업로드로 등록된 유료 매물이라 공개 코드 링크가 없습니다. 구매 후 결제가
+            확인되면 파일로 전달됩니다.
+          </p>
         ) : (
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
             zip 업로드로 등록된 매물이라 공개 코드 링크가 없습니다. 판매자에게

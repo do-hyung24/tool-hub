@@ -1,13 +1,17 @@
 "use server";
 
 import { notFound, redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
+import { put } from "@vercel/blob";
 import {
   createDraftListing,
   getListingForOwner,
   getSellerById,
+  getSellerSettlementAccount,
   hasConfirmedDeliveryForRequest,
   publishListing,
   saveScanReport,
+  updateListingDeliveryFile,
   updateListingSource,
 } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
@@ -108,9 +112,30 @@ export async function createListingAction(formData: FormData) {
     throw new Error("카테고리를 선택해주세요.");
   }
 
-  const sourceType = await parseSourceType(formData);
-  const { files, codeUrl } = await collectFilesForSource(sourceType, formData);
   const sellerId = await requireVerifiedSellerId();
+
+  // 유료 매물은 정산계좌가 먼저 등록되어 있어야 한다 - 등록 폼(PriceField)도
+  // 안내를 보여주지만, 폼을 우회한 직접 POST를 막기 위해 서버에서도 다시 막는다.
+  if (!isFree) {
+    const settlementAccount = await getSellerSettlementAccount(sellerId);
+    const hasSettlementAccount =
+      !!settlementAccount?.bankName &&
+      !!settlementAccount.accountHolder &&
+      !!settlementAccount.accountNumber;
+    if (!hasSettlementAccount) {
+      throw new Error("유료 매물을 등록하려면 먼저 정산계좌를 등록해야 합니다.");
+    }
+  }
+
+  const sourceType = await parseSourceType(formData);
+  // 유료 매물은 결제 완료 후 구매자에게 전달할 파일이 있어야 한다 - 공개
+  // 저장소 링크만으로는 결제로 얻는 게 없다. 클라이언트(SourceTypeFields)도
+  // zip으로 강제하지만 폼 우회를 막기 위해 서버에서도 다시 확인한다.
+  if (!isFree && sourceType !== "zip") {
+    throw new Error("유료 매물은 zip 파일 업로드로만 등록할 수 있습니다.");
+  }
+
+  const { files, codeUrl, zipBuffer } = await collectFilesForSource(sourceType, formData);
 
   // 클라이언트가 보낸 sourceRequestId는 그대로 신뢰하지 않는다(IDOR 방지).
   // 이 판매자가 실제로 해당 의뢰를 납품 완료한 경우에만 매물-의뢰를 연결한다.
@@ -130,6 +155,16 @@ export async function createListingAction(formData: FormData) {
     sellerId,
     sourceRequestId,
   });
+
+  // 유료 매물은 스캔한 바로 그 zip을 private Blob에 보관해 결제 완료 후
+  // 구매자에게 전달한다(app/requestActions.ts storeDeliveryFileIfZip과 같은 방식).
+  if (!isFree && zipBuffer) {
+    const blob = await put(`listing-deliveries/${listing.id}/${randomUUID()}.zip`, zipBuffer, {
+      access: "private",
+      contentType: "application/zip",
+    });
+    await updateListingDeliveryFile(listing.id, blob.url);
+  }
 
   const findings = await runScan(files);
   const report = await saveScanReport({

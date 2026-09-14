@@ -18,6 +18,8 @@ import type {
   Listing,
   MyRequestSummary,
   MyWorkSummary,
+  Purchase,
+  PurchaseWithDetails,
   ScanReport,
   Seller,
   SellerPublicProfile,
@@ -708,6 +710,22 @@ export async function updateListingSource(
     UPDATE listings
     SET code_url = ${input.codeUrl}, source_type = ${input.sourceType}, scan_status = 'pending'
     WHERE id = ${id}
+  `;
+}
+
+// 유료 매물의 전달 파일 URL을 기록한다. tool_proposals.delivery_file_url과
+// 마찬가지로 이 값은 일반 Listing 타입/조회(getListings, getListingById 등)에는
+// 절대 포함하지 않는다 - 공개 마켓 페이지의 RSC 페이로드로 새어나가면 결제 없이
+// 그 URL로 파일을 바로 받을 수 있게 되기 때문이다. 구매 완료 당사자 전용
+// 다운로드 게이트(getListingDeliveryFileUrlForPurchase)에서만 조회한다.
+export async function updateListingDeliveryFile(
+  listingId: string,
+  deliveryFileUrl: string | null
+): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`
+    UPDATE listings SET delivery_file_url = ${deliveryFileUrl} WHERE id = ${listingId}
   `;
 }
 
@@ -2260,6 +2278,249 @@ export async function hasConfirmedDeliveryForRequest(
     WHERE request_id = ${requestId} AND seller_id = ${sellerId} AND delivered_listing_id IS NOT NULL
   `) as Array<{ id: string }>;
   return rows.length > 0;
+}
+
+// ============================================================
+// 마켓 유료 매물 구매 (에스크로 없는 직거래) - tool_proposals의 결제 흐름과
+// 같은 패턴(원자적 UPDATE ... WHERE ... RETURNING, 0행이면 "이미 그 단계"인지
+// 재조회해 멱등 처리)이지만, 여기는 "제안 선택" 단계가 없어 구매 행 생성
+// 자체가 곧 수락이다 - 행이 생기는 순간부터 판매자 계좌가 구매자에게 공개된다.
+// ============================================================
+
+type PurchaseRow = {
+  id: string;
+  listing_id: string;
+  buyer_seller_id: string;
+  seller_id: string;
+  transfer_marked_at: string | null;
+  payment_confirmed_at: string | null;
+  created_at: string;
+};
+
+function rowToPurchase(row: PurchaseRow): Purchase {
+  return {
+    id: row.id,
+    listingId: row.listing_id,
+    buyerSellerId: row.buyer_seller_id,
+    sellerId: row.seller_id,
+    transferMarkedAt: row.transfer_marked_at,
+    paymentConfirmedAt: row.payment_confirmed_at,
+    createdAt: row.created_at,
+  };
+}
+
+export type CreatePurchaseResult =
+  | { purchaseId: string }
+  | { error: "not_found" | "not_for_sale" | "own_listing" };
+
+// 본인 매물 구매 금지, 무료(price=0)/미게시 매물 구매 금지, 이미 진행 중인
+// (완료되지 않은) 구매가 있으면 새로 만들지 않고 그 건으로 보낸다.
+export async function createOrGetPurchase(
+  listingId: string,
+  buyerSellerId: string
+): Promise<CreatePurchaseResult> {
+  await ensureInitialized();
+  const sql = getSql();
+
+  const listingRows = (await sql`
+    SELECT id, seller_id, price, published FROM listings WHERE id = ${listingId}
+  `) as Array<{ id: string; seller_id: string; price: number; published: boolean }>;
+  const listing = listingRows[0];
+  if (!listing || !listing.published) return { error: "not_found" };
+  if (listing.price <= 0) return { error: "not_for_sale" };
+  if (listing.seller_id === buyerSellerId) return { error: "own_listing" };
+
+  const existing = (await sql`
+    SELECT id FROM purchases
+    WHERE listing_id = ${listingId} AND buyer_seller_id = ${buyerSellerId}
+      AND payment_confirmed_at IS NULL
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as Array<{ id: string }>;
+  if (existing[0]) return { purchaseId: existing[0].id };
+
+  const id = randomUUID();
+  await sql`
+    INSERT INTO purchases (id, listing_id, buyer_seller_id, seller_id, created_at)
+    VALUES (${id}, ${listingId}, ${buyerSellerId}, ${listing.seller_id}, ${new Date().toISOString()})
+  `;
+  return { purchaseId: id };
+}
+
+// 구매 상세 화면 - 당사자(구매자 또는 판매자)만 조회할 수 있다. 그 외에는
+// 존재 여부까지 감추도록 null을 반환한다(호출부가 notFound() 처리).
+export async function getPurchaseForParty(
+  purchaseId: string,
+  viewerSellerId: string
+): Promise<PurchaseWithDetails | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT purchases.*, listings.title AS listing_title, listings.price AS listing_price,
+           buyer.nickname AS buyer_nickname, seller.nickname AS seller_nickname
+    FROM purchases
+    JOIN listings ON listings.id = purchases.listing_id
+    JOIN sellers buyer ON buyer.id = purchases.buyer_seller_id
+    JOIN sellers seller ON seller.id = purchases.seller_id
+    WHERE purchases.id = ${purchaseId}
+      AND (purchases.buyer_seller_id = ${viewerSellerId} OR purchases.seller_id = ${viewerSellerId})
+  `) as Array<
+    PurchaseRow & { listing_title: string; listing_price: number; buyer_nickname: string; seller_nickname: string }
+  >;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    ...rowToPurchase(row),
+    listingTitle: row.listing_title,
+    listingPrice: row.listing_price,
+    buyerNickname: row.buyer_nickname,
+    sellerNickname: row.seller_nickname,
+  };
+}
+
+// 판매자 계좌는 민감정보라 일반 조회에 절대 포함하지 않고, 이 함수를 통해서만
+// - 그것도 이 구매 건의 구매자 본인에게만 - 내려준다. 구매 행이 존재하는
+// 시점부터(생성=수락) 바로 공개된다(의뢰 결제 흐름과 달리 별도 수락 단계 없음).
+// 그 외(제3자/판매자 본인/비로그인)는 전부 null이다.
+export async function getPurchaseSettlementAccountForViewer(
+  purchaseId: string,
+  viewerSellerId: string
+): Promise<SellerSettlementAccount | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT sellers.settlement_bank_name, sellers.settlement_account_holder,
+           sellers.settlement_account_number
+    FROM purchases
+    JOIN sellers ON sellers.id = purchases.seller_id
+    WHERE purchases.id = ${purchaseId} AND purchases.buyer_seller_id = ${viewerSellerId}
+  `) as Array<{
+    settlement_bank_name: string | null;
+    settlement_account_holder: string | null;
+    settlement_account_number: string | null;
+  }>;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    bankName: row.settlement_bank_name,
+    accountHolder: row.settlement_account_holder,
+    accountNumber: row.settlement_account_number,
+  };
+}
+
+// 구매자가 "이체 완료"를 표시한다(결제대기 상태에서만).
+export async function markPurchaseTransferSent(
+  purchaseId: string,
+  buyerSellerId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE purchases
+    SET transfer_marked_at = ${new Date().toISOString()}
+    WHERE id = ${purchaseId} AND buyer_seller_id = ${buyerSellerId} AND transfer_marked_at IS NULL
+    RETURNING id
+  `) as Array<{ id: string }>;
+  if (rows.length > 0) return true;
+
+  const already = (await sql`
+    SELECT id FROM purchases
+    WHERE id = ${purchaseId} AND buyer_seller_id = ${buyerSellerId} AND transfer_marked_at IS NOT NULL
+  `) as Array<{ id: string }>;
+  return already.length > 0;
+}
+
+// 판매자가 "입금 확인"을 표시한다(이체 표시 이후에만, 본인 매물 구매 건만).
+// 이 시점에만 완성본 다운로드가 열린다(다운로드 라우트가 payment_confirmed_at을
+// 직접 확인).
+export async function confirmPurchasePayment(
+  purchaseId: string,
+  sellerId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE purchases
+    SET payment_confirmed_at = ${new Date().toISOString()}
+    WHERE id = ${purchaseId} AND seller_id = ${sellerId}
+      AND transfer_marked_at IS NOT NULL AND payment_confirmed_at IS NULL
+    RETURNING id
+  `) as Array<{ id: string }>;
+  if (rows.length > 0) return true;
+
+  const already = (await sql`
+    SELECT id FROM purchases
+    WHERE id = ${purchaseId} AND seller_id = ${sellerId} AND payment_confirmed_at IS NOT NULL
+  `) as Array<{ id: string }>;
+  return already.length > 0;
+}
+
+// 완성본(zip) 다운로드 게이트 전용 - 결제(입금 확인)가 끝난 이 구매 건의
+// 구매자 본인에게만 delivery_file_url을 내려준다. 그 외에는 전부 null이라
+// 호출부(다운로드 라우트)가 404로 응답한다.
+export async function getListingDeliveryFileUrlForPurchase(
+  purchaseId: string,
+  buyerSellerId: string
+): Promise<string | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT listings.delivery_file_url
+    FROM purchases
+    JOIN listings ON listings.id = purchases.listing_id
+    WHERE purchases.id = ${purchaseId} AND purchases.buyer_seller_id = ${buyerSellerId}
+      AND purchases.payment_confirmed_at IS NOT NULL
+  `) as Array<{ delivery_file_url: string | null }>;
+  return rows[0]?.delivery_file_url ?? null;
+}
+
+// /my(내 활동) 진입점용 - 평평한 목록만 반환하고 상태 분류는 페이지 쪽에서.
+export async function listMyPurchasesAsBuyer(buyerSellerId: string): Promise<PurchaseWithDetails[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT purchases.*, listings.title AS listing_title, listings.price AS listing_price,
+           buyer.nickname AS buyer_nickname, seller.nickname AS seller_nickname
+    FROM purchases
+    JOIN listings ON listings.id = purchases.listing_id
+    JOIN sellers buyer ON buyer.id = purchases.buyer_seller_id
+    JOIN sellers seller ON seller.id = purchases.seller_id
+    WHERE purchases.buyer_seller_id = ${buyerSellerId}
+    ORDER BY purchases.created_at DESC
+  `) as Array<
+    PurchaseRow & { listing_title: string; listing_price: number; buyer_nickname: string; seller_nickname: string }
+  >;
+  return rows.map((row) => ({
+    ...rowToPurchase(row),
+    listingTitle: row.listing_title,
+    listingPrice: row.listing_price,
+    buyerNickname: row.buyer_nickname,
+    sellerNickname: row.seller_nickname,
+  }));
+}
+
+export async function listMyPurchasesAsSeller(sellerId: string): Promise<PurchaseWithDetails[]> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT purchases.*, listings.title AS listing_title, listings.price AS listing_price,
+           buyer.nickname AS buyer_nickname, seller.nickname AS seller_nickname
+    FROM purchases
+    JOIN listings ON listings.id = purchases.listing_id
+    JOIN sellers buyer ON buyer.id = purchases.buyer_seller_id
+    JOIN sellers seller ON seller.id = purchases.seller_id
+    WHERE purchases.seller_id = ${sellerId}
+    ORDER BY purchases.created_at DESC
+  `) as Array<
+    PurchaseRow & { listing_title: string; listing_price: number; buyer_nickname: string; seller_nickname: string }
+  >;
+  return rows.map((row) => ({
+    ...rowToPurchase(row),
+    listingTitle: row.listing_title,
+    listingPrice: row.listing_price,
+    buyerNickname: row.buyer_nickname,
+    sellerNickname: row.seller_nickname,
+  }));
 }
 
 // ============================================================

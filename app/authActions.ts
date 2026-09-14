@@ -136,7 +136,14 @@ export async function checkNicknameAvailabilityAction(
   return existing ? { status: "taken" } : { status: "available" };
 }
 
-export async function signupAction(formData: FormData) {
+// loginAction과 같은 패턴(useActionState) - 유효성 검증 실패는 서버 오류(throw→500)가
+// 아니라 사용자에게 보여줄 메시지이므로 반환값으로 전달한다.
+export type SignupState = { error?: string };
+
+export async function signupAction(
+  _prevState: SignupState,
+  formData: FormData
+): Promise<SignupState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const nickname = String(formData.get("nickname") ?? "").trim();
@@ -148,35 +155,35 @@ export async function signupAction(formData: FormData) {
   const ipKey = `signup_ip:${await getClientIp()}`;
   const ipLimit = await isRateLimited(ipKey);
   if (ipLimit.locked) {
-    throw new Error(RATE_LIMIT_MESSAGE);
+    return { error: RATE_LIMIT_MESSAGE };
   }
   await recordRateLimitFailure(ipKey, SIGNUP_IP_LIMIT);
 
   if (!EMAIL_REGEX.test(email)) {
-    throw new Error("올바른 이메일 주소를 입력해주세요.");
+    return { error: "올바른 이메일 주소를 입력해주세요." };
   }
   if (password.length < 8) {
-    throw new Error("비밀번호는 8자 이상이어야 합니다.");
+    return { error: "비밀번호는 8자 이상이어야 합니다." };
   }
   if (!nickname) {
-    throw new Error("닉네임을 입력해주세요.");
+    return { error: "닉네임을 입력해주세요." };
   }
   const nicknameValidation = validateNickname(nickname);
   if (!nicknameValidation.valid) {
-    throw new Error(nicknameValidation.message);
+    return { error: nicknameValidation.message };
   }
   const agreedToPrivacy = formData.get("agreedToPrivacy") === "on";
   if (!agreedToPrivacy) {
-    throw new Error("개인정보처리방침에 동의해야 가입할 수 있습니다.");
+    return { error: "개인정보처리방침에 동의해야 가입할 수 있습니다." };
   }
 
   const existingEmail = await getSellerByEmail(email);
   if (existingEmail) {
-    throw new Error("이미 가입된 이메일입니다.");
+    return { error: "이미 가입된 이메일입니다." };
   }
   const existingNickname = await getSellerByNickname(nickname);
   if (existingNickname) {
-    throw new Error("이미 사용 중인 닉네임입니다.");
+    return { error: "이미 사용 중인 닉네임입니다." };
   }
 
   const passwordHash = await hashPassword(password);
@@ -184,13 +191,17 @@ export async function signupAction(formData: FormData) {
   try {
     await createSeller({ email, passwordHash, nickname });
   } catch {
-    throw new Error("이미 가입된 이메일이거나 닉네임이거나, 계정을 만들지 못했습니다.");
+    return { error: "이미 가입된 이메일이거나 닉네임이거나, 계정을 만들지 못했습니다." };
   }
 
   // 미인증 계정도 로그인은 가능하므로, 가입 직후 바로 로그인 상태로 전환한다.
   // 인증 코드 발송은 이제 /verify-email 페이지의 버튼 클릭으로만 시작된다
-  // (resendVerificationAction 참고).
+  // (resendVerificationAction 참고). signIn은 성공 시 redirect 신호를 던지므로
+  // 아래 return은 이론상 도달하지 않지만(타입상 필요), 실패해도 AuthError를
+  // 던질 뿐이라 이 함수가 그대로 처리하지 않고 상위로 전파된다 - 방금 만든
+  // 계정의 비밀번호가 그대로 넘어가므로 로그인 실패 자체가 발생할 일이 없다.
   await signIn("credentials", { email, password, redirectTo });
+  return {};
 }
 
 export type LoginState = { error?: string };
