@@ -34,6 +34,18 @@ function formatBudgetDisplay(rawDigits: string): string {
   return Number(rawDigits).toLocaleString("ko-KR");
 }
 
+// lib/piiMask가 본문에서 가린/의심되는 개인정보를, 이동할 상세 화면이 한 줄로
+// 알릴 수 있도록 쿼리 파라미터로 실어 보낸다(등록·수정 응답 모두 같은 모양).
+function buildPiiNoticeQuery(result: { maskedCount?: number; warnings?: string[] }): string {
+  const params = new URLSearchParams();
+  if (result.maskedCount) params.set("piiMasked", String(result.maskedCount));
+  if (result.warnings && result.warnings.length > 0) {
+    params.set("piiWarn", result.warnings.join("|||"));
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
 // "(필수)"/"(선택사항)" 뱃지 - 필수는 선택사항과 구분되는 강조색을 쓴다.
 function FieldBadge({ required }: { required: boolean }) {
   return (
@@ -259,7 +271,7 @@ export function NewRequestForm({
           setError(result.error ?? "수정에 실패했습니다.");
           return;
         }
-        router.push(`/requests/${requestId}`);
+        router.push(`/requests/${requestId}${buildPiiNoticeQuery(result)}`);
         return;
       }
 
@@ -273,7 +285,7 @@ export function NewRequestForm({
         return;
       }
       clearLandingDraft();
-      router.push(`/requests/${result.id}`);
+      router.push(`/requests/${result.id}${buildPiiNoticeQuery(result)}`);
     } catch {
       setError(
         mode === "edit"
@@ -355,6 +367,10 @@ export function NewRequestForm({
           placeholder={DESCRIPTION_PLACEHOLDER}
           className="resize-none rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          고객 이름·연락처 등 다른 사람의 개인정보는 적지 마세요. 어떤 종류의 데이터를
+          다루는지만 적어도 제안을 받을 수 있습니다.
+        </p>
         <div className="flex justify-end">
           <span
             className={`text-xs ${

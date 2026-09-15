@@ -40,7 +40,7 @@ export async function PATCH(
   if ("error" in validated) {
     return NextResponse.json({ error: validated.error }, { status: 400 });
   }
-  const { fields } = validated;
+  const { fields, maskedCount, warnings } = validated;
 
   // 유지할 기존 사진 id(순서대로 여러 개 append됨) + 새로 첨부한 파일.
   const keepImageIds = formData
@@ -92,7 +92,7 @@ export async function PATCH(
 
   await replaceToolRequestImages(requestId, [...keptImageUrls, ...newImageUrls]);
 
-  return NextResponse.json({ id: requestId }, { status: 200 });
+  return NextResponse.json({ id: requestId, maskedCount, warnings }, { status: 200 });
 }
 
 // 의뢰 삭제. 'open' 상태일 때만 허용한다(제안이 선택된 뒤에는 상대방이

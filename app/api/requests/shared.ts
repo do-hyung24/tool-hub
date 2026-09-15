@@ -1,5 +1,6 @@
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
+import { findObfuscatedDigitRuns, maskPersonalInfo } from "@/lib/piiMask";
 
 // POST /api/requests(등록)와 PATCH /api/requests/[requestId](수정)가
 // 공유하는 검증/이미지 처리 로직. 두 라우트의 필드 검증 규칙은 반드시
@@ -77,9 +78,12 @@ export type ParsedToolRequestFields = {
 
 // title/description/budget/desiredDeadline/requiredEnvironment/referenceVideoUrl
 // 텍스트 필드만 검증한다(이미지는 각 라우트가 개수 요건이 달라 별도 처리).
+// description은 실수로 적힌 제3자 개인정보를 저장 시점에 가린다(lib/piiMask) -
+// 원문은 어디에도 남기지 않는다. maskedCount/warnings는 등록·수정 라우트가
+// 응답 문구를 만드는 데 쓴다.
 export function validateToolRequestFields(
   formData: FormData
-): { error: string } | { fields: ParsedToolRequestFields } {
+): { error: string } | { fields: ParsedToolRequestFields; maskedCount: number; warnings: string[] } {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const budgetAmountRaw = formData.get("budgetAmount");
@@ -142,15 +146,20 @@ export function validateToolRequestFields(
     referenceVideoUrl = trimmed;
   }
 
+  const { text: maskedDescription, maskedCount } = maskPersonalInfo(description);
+  const warnings = findObfuscatedDigitRuns(maskedDescription);
+
   return {
     fields: {
       title,
-      description,
+      description: maskedDescription,
       budgetAmount,
       budgetNegotiable,
       desiredDeadline,
       requiredEnvironment,
       referenceVideoUrl,
     },
+    maskedCount,
+    warnings,
   };
 }

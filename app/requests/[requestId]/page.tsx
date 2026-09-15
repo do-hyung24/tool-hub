@@ -40,6 +40,11 @@ function formatDesiredDeadline(value: string): string {
 
 export default async function ToolRequestDetailPage(props: PageProps<"/requests/[requestId]">) {
   const { requestId } = await props.params;
+  const searchParams = await props.searchParams;
+  const piiMaskedCount =
+    typeof searchParams.piiMasked === "string" ? Number(searchParams.piiMasked) : 0;
+  const piiWarnings =
+    typeof searchParams.piiWarn === "string" ? searchParams.piiWarn.split("|||") : [];
 
   const [toolRequest, proposals, sellerId] = await Promise.all([
     getToolRequestById(requestId),
@@ -242,6 +247,24 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
       <p className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
         {toolRequest.description}
       </p>
+
+      {piiMaskedCount > 0 && (
+        <p className="mt-3 rounded-lg border border-zinc-200 p-3 text-sm text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
+          개인정보로 보이는 내용 {piiMaskedCount}곳이 자동으로 가려졌습니다. 연락처는 제안을
+          수락한 뒤 비공개 대화에서 주고받을 수 있습니다.
+        </p>
+      )}
+
+      {piiWarnings.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+          <p>전화번호처럼 보이는 표현이 있습니다. 개인정보라면 수정해주세요.</p>
+          <ul className="mt-1.5 flex flex-col gap-0.5 text-xs">
+            {piiWarnings.map((warning) => (
+              <li key={warning}>&quot;{warning}&quot;</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <dl className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
         <div>

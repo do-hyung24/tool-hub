@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   if ("error" in validated) {
     return NextResponse.json({ error: validated.error }, { status: 400 });
   }
-  const { fields } = validated;
+  const { fields, maskedCount, warnings } = validated;
 
   const imageFiles = formData.getAll("images").filter((value): value is File => value instanceof File);
 
@@ -70,5 +70,5 @@ export async function POST(request: Request) {
 
   await addToolRequestImages(toolRequest.id, imageUrls);
 
-  return NextResponse.json({ id: toolRequest.id }, { status: 201 });
+  return NextResponse.json({ id: toolRequest.id, maskedCount, warnings }, { status: 201 });
 }
