@@ -7,8 +7,8 @@
   </style>
   <path d="M0 0 L0 300"/>
   <path d="M0 0 L180 0"/>
-  <path d="M0 300 L180 300"/>
+  <path d="M0 300 L122 300"/>
   <path d="M0 150 L432 150"/>
-  <path d="M275 66 L349 66"/>
+  <path d="M312 74 L312 118"/>
   <circle cx="312" cy="306" r="98"/>
 </svg>

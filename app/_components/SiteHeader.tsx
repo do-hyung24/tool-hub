@@ -94,9 +94,9 @@ export function SiteHeader({ authStatus }: { authStatus: ReactNode }) {
             >
               <path d="M0 0 L0 372" />
               <path d="M0 0 L226 0" />
-              <path d="M0 372 L226 372" />
+              <path d="M0 372 L150 372" />
               <path d="M0 186 L565 186" />
-              <path d="M392 108 L470 108" />
+              <path d="M431 96 L431 148" />
               <circle cx="431" cy="350" r="108" />
             </svg>
             툴허브
