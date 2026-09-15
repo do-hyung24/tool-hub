@@ -78,8 +78,27 @@ export function SiteHeader({ authStatus }: { authStatus: ReactNode }) {
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="shrink-0 whitespace-nowrap text-lg font-bold text-zinc-900 dark:text-zinc-50"
+            className="inline-flex shrink-0 items-center gap-3 whitespace-nowrap text-lg font-bold text-zinc-900 dark:text-zinc-50"
           >
+            {/* 가로:세로 629:522 고정 - aspect-ratio로 고정해야 flex 안에서
+                width:auto가 눌려 마크가 납작해지는 걸 막을 수 있다. */}
+            <svg
+              aria-hidden
+              viewBox="-32 -32 629 522"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={44}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="aspect-[629/522] h-5 shrink-0 sm:h-6"
+            >
+              <path d="M0 0 L0 372" />
+              <path d="M0 0 L226 0" />
+              <path d="M0 372 L226 372" />
+              <path d="M0 186 L565 186" />
+              <path d="M392 108 L470 108" />
+              <circle cx="431" cy="350" r="108" />
+            </svg>
             툴허브
           </Link>
           <nav className="hidden items-center gap-6 sm:flex">
