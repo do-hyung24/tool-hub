@@ -5,13 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveLandingDraft } from "@/lib/landingDraft";
 
-const KEYWORD_PLACEHOLDER = "어떤 일로 시간을 빼앗기고 계신가요? 단어나 한 줄만 적으셔도 괜찮습니다.";
-// input의 placeholder는 미디어쿼리로 텍스트만 바꿀 수 없어(줄바꿈도 안 됨),
-// 390px에서 위 문구가 그대로 잘린다. 아래 입력창 밑에 이미 예시 문구
-// ("예: 스마트스토어 주문 정리 · ...")가 있어 안내가 부족하지 않으므로,
-// 좁은 화면 전용으로 더 짧은 버전을 따로 둔다(같은 상태를 공유하는 입력창
-// 두 개를 sm 기준으로 토글 - 새 훅/의존성 없이 CSS로만 분기).
-const KEYWORD_PLACEHOLDER_MOBILE = "어떤 일로 시간을 빼앗기고 계신가요?";
+// 원래 데스크톱 전용으로 더 긴 문구("... 단어나 한 줄만 적으셔도 괜찮습니다.")를
+// 따로 뒀으나, 1440px에서도 입력창 폭보다 렌더 폭이 넓어 끝이 잘렸다(실측:
+// 필요 463px vs 입력창 434px). 아래 입력창 밑에 이미 예시 문구가 있어 안내가
+// 부족하지 않으므로, 폭에 안전한 짧은 문구 하나로 통일한다.
+const KEYWORD_PLACEHOLDER = "어떤 일로 시간을 빼앗기고 계신가요?";
 const KEYWORD_MAX_LENGTH = 200;
 const ANSWER_MAX_LENGTH = 200;
 
@@ -106,17 +104,8 @@ export function HeroPrompt({
             onChange={(event) => setKeyword(event.target.value)}
             onKeyDown={handleKeywordKeyDown}
             maxLength={KEYWORD_MAX_LENGTH}
-            placeholder={KEYWORD_PLACEHOLDER_MOBILE}
-            className="min-w-0 flex-1 bg-transparent py-2 text-base text-offwhite outline-none placeholder:text-muted sm:hidden"
-          />
-          <input
-            type="text"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            onKeyDown={handleKeywordKeyDown}
-            maxLength={KEYWORD_MAX_LENGTH}
             placeholder={KEYWORD_PLACEHOLDER}
-            className="hidden min-w-0 flex-1 bg-transparent py-2 text-base text-offwhite outline-none placeholder:text-muted sm:block"
+            className="min-w-0 flex-1 bg-transparent py-2 text-base text-offwhite outline-none placeholder:text-muted"
           />
           <button
             type="button"
