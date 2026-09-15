@@ -8,8 +8,8 @@ export function ListingCard({ listing }: { listing: Listing }) {
       href={`/listings/${listing.id}`}
       className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-5 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           {listing.category}
         </span>
         {listing.scanStatus === "completed" && (
