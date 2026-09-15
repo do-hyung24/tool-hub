@@ -146,12 +146,21 @@ export function validateToolRequestFields(
     referenceVideoUrl = trimmed;
   }
 
-  const { text: maskedDescription, maskedCount } = maskPersonalInfo(description);
-  const warnings = findObfuscatedDigitRuns(maskedDescription);
+  // 제목도 의뢰 목록에 그대로 노출되므로 본문과 같은 규칙을 적용한다
+  // (lib/piiMask 재사용 - 새 함수를 두지 않는다). maskedCount/warnings는
+  // 두 필드를 합산한다.
+  const { text: maskedTitle, maskedCount: titleMaskedCount } = maskPersonalInfo(title);
+  const { text: maskedDescription, maskedCount: descriptionMaskedCount } =
+    maskPersonalInfo(description);
+  const maskedCount = titleMaskedCount + descriptionMaskedCount;
+  const warnings = [
+    ...findObfuscatedDigitRuns(maskedTitle),
+    ...findObfuscatedDigitRuns(maskedDescription),
+  ];
 
   return {
     fields: {
-      title,
+      title: maskedTitle,
       description: maskedDescription,
       budgetAmount,
       budgetNegotiable,
