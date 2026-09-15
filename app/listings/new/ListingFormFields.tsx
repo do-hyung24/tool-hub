@@ -14,12 +14,15 @@ export function ListingFormFields({
   defaultCodeUrl?: string;
 }) {
   const [pricingType, setPricingType] = useState<PricingType>("paid");
+  const [price, setPrice] = useState("");
 
   return (
     <>
       <PriceField
         pricingType={pricingType}
         onPricingTypeChange={setPricingType}
+        price={price}
+        onPriceChange={setPrice}
         settlementAccountExists={settlementAccountExists}
       />
       <SourceTypeFields defaultCodeUrl={defaultCodeUrl} forceZip={pricingType === "paid"} />

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ENVIRONMENT_CHIPS } from "@/lib/requestEnvironment";
+import { MoneyInput } from "@/app/_components/MoneyInput";
 import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
 import { clearLandingDraft, readLandingDraft } from "@/lib/landingDraft";
 
@@ -27,11 +28,6 @@ function getKstDateString(offsetMonths = 0): string {
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
   kstNow.setUTCMonth(kstNow.getUTCMonth() + offsetMonths);
   return kstNow.toISOString().slice(0, 10);
-}
-
-function formatBudgetDisplay(rawDigits: string): string {
-  if (!rawDigits) return "";
-  return Number(rawDigits).toLocaleString("ko-KR");
 }
 
 // lib/piiMask가 본문에서 가린/의심되는 개인정보를, 이동할 상세 화면이 한 줄로
@@ -389,14 +385,12 @@ export function NewRequestForm({
           예산 <FieldBadge required />
         </label>
         <div className="flex items-center gap-3">
-          <input
+          <MoneyInput
             id="budgetAmount"
-            type="text"
-            inputMode="numeric"
-            value={formatBudgetDisplay(budgetAmount)}
-            onChange={(event) => setBudgetAmount(event.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="금액(원)"
-            className="w-40 rounded-lg border border-zinc-300 px-3 py-2 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+            value={budgetAmount}
+            onChange={setBudgetAmount}
+            placeholder="금액"
+            className="w-40 rounded-lg border border-zinc-300 py-2 pl-3 pr-8 text-base outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
           />
           <label className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
             <input

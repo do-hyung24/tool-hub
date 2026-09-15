@@ -4,15 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getKstTodayDateString } from "@/lib/dday";
 import { DDayBadge } from "@/app/_components/DDayBadge";
+import { MoneyInput } from "@/app/_components/MoneyInput";
 
 const DESCRIPTION_MAX_LENGTH = 2000;
-
-// NewRequestForm의 예산 필드와 동일한 방식: state는 콤마 없는 숫자 문자열만
-// 들고, 화면 표시만 천단위 콤마를 붙인다.
-function formatPriceDisplay(rawDigits: string): string {
-  if (!rawDigits) return "";
-  return Number(rawDigits).toLocaleString("ko-KR");
-}
 
 // 등록 폼(app/requests/new/NewRequestForm.tsx)과 동일한 KST 기준 오늘/+6개월 계산.
 function getKstDateString(offsetMonths = 0): string {
@@ -64,20 +58,13 @@ export function ProposalForm({ requestId }: { requestId: string }) {
       <div className="flex items-start gap-2">
         <div className="flex w-1/2 flex-col gap-1">
           <span className="text-xs text-zinc-400 dark:text-zinc-500">가격</span>
-          <div className="relative">
-            <input
-              required
-              type="text"
-              inputMode="numeric"
-              value={formatPriceDisplay(price)}
-              onChange={(event) => setPrice(event.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="예: 100,000"
-              className="w-full rounded-lg border border-zinc-300 py-2 pl-3 pr-8 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-            />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 dark:text-zinc-500">
-              원
-            </span>
-          </div>
+          <MoneyInput
+            value={price}
+            onChange={setPrice}
+            required
+            placeholder="예: 100,000"
+            className="w-full rounded-lg border border-zinc-300 py-2 pl-3 pr-8 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          />
         </div>
         <div className="flex w-1/2 flex-col gap-1">
           <span className="text-xs text-zinc-400 dark:text-zinc-500">완료 예정일</span>

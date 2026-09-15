@@ -1,22 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { MoneyInput } from "@/app/_components/MoneyInput";
 
 export type PricingType = "paid" | "free";
 
-// pricingType은 부모(ListingFormFields)가 들고 있다 - 유료 선택 시 코드 입력
-// 방식(SourceTypeFields)도 zip으로 강제해야 해서, 두 필드가 같은 상태를
-// 공유해야 하기 때문이다.
+// pricingType/price 둘 다 부모(ListingFormFields)가 들고 있다 - 유료 선택 시
+// 코드 입력 방식(SourceTypeFields)도 zip으로 강제해야 해서 상태를 공유해야
+// 하고, price는 콤마 없는 숫자 문자열이다(서버로는 아래 hidden input이 그
+// 값을 그대로 실어 보낸다 - 화면에 보이는 입력창은 콤마가 붙어 있어 그대로
+// 제출하면 안 된다).
 export function PriceField({
   pricingType,
   onPricingTypeChange,
+  price,
+  onPriceChange,
   settlementAccountExists,
-  defaultPrice,
 }: {
   pricingType: PricingType;
   onPricingTypeChange: (type: PricingType) => void;
+  price: string;
+  onPriceChange: (value: string) => void;
   settlementAccountExists: boolean;
-  defaultPrice?: string;
 }) {
   const showSettlementWarning = pricingType === "paid" && !settlementAccountExists;
 
@@ -47,17 +52,17 @@ export function PriceField({
       </div>
 
       {pricingType === "paid" && (
-        <input
-          id="price"
-          name="price"
-          type="number"
-          min={1}
-          step={1000}
-          required
-          defaultValue={defaultPrice}
-          placeholder="30000"
-          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-        />
+        <>
+          <MoneyInput
+            id="price"
+            value={price}
+            onChange={onPriceChange}
+            required
+            placeholder="30000"
+            className="rounded-lg border border-zinc-300 py-2 pl-3 pr-8 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <input type="hidden" name="price" value={price} readOnly />
+        </>
       )}
 
       {showSettlementWarning && (
