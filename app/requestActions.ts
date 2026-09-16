@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import { fileTypeFromBuffer } from "file-type";
 import {
   acceptProposalDelivery,
@@ -11,11 +11,16 @@ import {
   clearProposalDeliveryConfirmation,
   confirmProposalDelivery,
   confirmProposalPayment,
+  countToolProposalsForRequest,
   createDraftListing,
+  deleteToolProposal,
+  deleteToolRequest,
   getListingForOwner,
   getSellerById,
   getToolProposalById,
   getToolRequestById,
+  hasMessageFromOtherParty,
+  listToolRequestImages,
   markProposalDelivered,
   markProposalTransferSent,
   replaceToolProposalDeliveryProofs,
@@ -477,4 +482,76 @@ export async function updateRequestDisclosureAction(formData: FormData) {
   await updateToolRequestDisclosure(requestId, { completedContentPublic, makerAttributionPublic });
 
   redirect(`/requests/${requestId}`);
+}
+
+export type DeletePostState = { error?: string };
+
+// 기존 DELETE /api/requests/[requestId] 라우트를 대체한다 - 그 라우트는
+// status='open'만 확인하고 제안 건수는 확인하지 않아, 제안이 붙은 의뢰도
+// 삭제되며 그 제안들까지 함께 지워지는 데이터 손실 버그가 있었다(이번
+// 라운드에서 발견, 여기서 함께 고친다). 첨부 사진 Blob도 DB 행만 지우고
+// 실제 파일은 남기고 있었다 - 아래에서 Blob도 함께 지운다.
+export async function deleteToolRequestAction(
+  _prevState: DeletePostState,
+  formData: FormData
+): Promise<DeletePostState> {
+  const requestId = String(formData.get("requestId") ?? "");
+  const sellerId = await getCurrentSellerId();
+  if (!sellerId) {
+    redirect(`/login?next=${encodeURIComponent(`/requests/${requestId}`)}`);
+  }
+
+  const toolRequest = await getToolRequestById(requestId);
+  if (!toolRequest || toolRequest.requesterSellerId !== sellerId) {
+    notFound();
+  }
+  if (toolRequest.status !== "open") {
+    return { error: "모집중인 의뢰만 삭제할 수 있습니다." };
+  }
+
+  const proposalCount = await countToolProposalsForRequest(requestId);
+  if (proposalCount > 0) {
+    return { error: "제안이 있는 의뢰는 삭제할 수 없습니다." };
+  }
+
+  // Blob은 DB 행을 지우기 전에 먼저 지운다 - 순서가 반대면(DB 먼저) Blob
+  // 삭제가 실패했을 때 바로 지금 없애려는 고아 Blob이 남는다.
+  const images = await listToolRequestImages(requestId);
+  for (const image of images) {
+    await del(image.imageUrl);
+  }
+  await deleteToolRequest(requestId);
+
+  redirect("/requests");
+}
+
+// 제안자 본인만, 아직 선택되지 않았고(status='pending') 의뢰자가 이 제안
+// 스레드에 메시지를 하나도 보내지 않았을 때만 삭제할 수 있다(제안자 본인이
+// 쓴 메시지만 있는 경우는 삭제 가능).
+export async function deleteProposalAction(
+  _prevState: DeletePostState,
+  formData: FormData
+): Promise<DeletePostState> {
+  const proposalId = String(formData.get("proposalId") ?? "");
+  const sellerId = await getCurrentSellerId();
+  if (!sellerId) {
+    redirect(`/login?next=${encodeURIComponent("/requests")}`);
+  }
+
+  const proposal = await getToolProposalById(proposalId);
+  if (!proposal || proposal.sellerId !== sellerId) {
+    notFound();
+  }
+  if (proposal.status !== "pending") {
+    return { error: "이미 선택된 제안은 삭제할 수 없습니다." };
+  }
+
+  const hasOtherPartyMessage = await hasMessageFromOtherParty(proposalId, proposal.sellerId);
+  if (hasOtherPartyMessage) {
+    return { error: "의뢰자가 메시지를 보낸 제안은 삭제할 수 없습니다." };
+  }
+
+  await deleteToolProposal(proposalId);
+
+  redirect(`/requests/${proposal.requestId}`);
 }

@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { getCurrentSellerId } from "@/lib/session";
 import {
-  deleteToolRequest,
   getToolRequestById,
   getToolRequestImageById,
   replaceToolRequestImages,
@@ -95,30 +94,7 @@ export async function PATCH(
   return NextResponse.json({ id: requestId, maskedCount, warnings }, { status: 200 });
 }
 
-// 의뢰 삭제. 'open' 상태일 때만 허용한다(제안이 선택된 뒤에는 상대방이
-// 이미 작업을 진행 중일 수 있으므로 삭제를 막는다).
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ requestId: string }> }
-) {
-  const sellerId = await getCurrentSellerId();
-  if (!sellerId) {
-    return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
-  }
-
-  const { requestId } = await params;
-  const toolRequest = await getToolRequestById(requestId);
-  if (!toolRequest) {
-    return NextResponse.json({ error: "의뢰를 찾을 수 없습니다." }, { status: 404 });
-  }
-  if (toolRequest.requesterSellerId !== sellerId) {
-    return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
-  }
-  if (toolRequest.status !== "open") {
-    return NextResponse.json({ error: "모집중인 의뢰만 삭제할 수 있습니다." }, { status: 400 });
-  }
-
-  await deleteToolRequest(requestId);
-
-  return NextResponse.json({ ok: true }, { status: 200 });
-}
+// 의뢰 삭제는 app/requestActions.ts의 deleteToolRequestAction(서버 액션)으로
+// 옮겼다 - 제안 0건 확인 + 첨부 사진 Blob 정리 + notFound()/404 패턴까지
+// 그쪽에서 전부 처리한다. 이 라우트에 있던 예전 DELETE 핸들러는 제안 건수를
+// 확인하지 않아 제안이 붙은 의뢰까지 삭제되는 버그가 있었다.

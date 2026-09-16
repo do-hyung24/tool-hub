@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  countCommunityComments,
   getCommunityPostById,
   getReportedCommentIds,
   hasReportedCommunityPost,
@@ -10,6 +11,7 @@ import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, getProfileImageSrc } from "@/lib/format";
 import { ReportButton } from "../ReportButton";
 import { CommentForm } from "./CommentForm";
+import { DeleteCommunityPostButton } from "./DeleteCommunityPostButton";
 
 function AuthorAvatar({ src, sizeClassName }: { src: string | null; sizeClassName: string }) {
   if (src) {
@@ -34,10 +36,14 @@ export default async function CommunityPostDetailPage(props: PageProps<"/communi
     notFound();
   }
 
-  const [comments, sellerId] = await Promise.all([
+  const [comments, sellerId, commentCount] = await Promise.all([
     listCommunityCommentsForPost(postId),
     getCurrentSellerId(),
+    countCommunityComments(postId),
   ]);
+
+  const isAuthor = sellerId === post.authorSellerId;
+  const canDelete = isAuthor && commentCount === 0;
 
   const [postAlreadyReported, reportedCommentIds] = sellerId
     ? await Promise.all([
@@ -64,7 +70,14 @@ export default async function CommunityPostDetailPage(props: PageProps<"/communi
         <span>{formatDate(post.createdAt)}</span>
       </div>
 
-      <h1 className="mt-2 text-2xl font-bold">{post.title}</h1>
+      <div className="mt-2 flex items-start justify-between gap-4">
+        <h1 className="text-2xl font-bold">{post.title}</h1>
+        {canDelete && (
+          <div className="shrink-0">
+            <DeleteCommunityPostButton postId={post.id} />
+          </div>
+        )}
+      </div>
 
       <div className="mt-3 flex items-center gap-2">
         <AuthorAvatar src={authorImageSrc} sizeClassName="h-6 w-6" />

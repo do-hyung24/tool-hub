@@ -2,13 +2,17 @@
 
 import { notFound, redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import {
+  countPurchasesForListing,
   createDraftListing,
+  deleteListing,
+  getListingDeliveryFileUrlForOwner,
   getListingForOwner,
   getSellerById,
   getSellerSettlementAccount,
   hasConfirmedDeliveryForRequest,
+  isDeliveryDraftListing,
   publishListing,
   saveScanReport,
   updateListingDeliveryFile,
@@ -264,4 +268,40 @@ export async function publishAnywayAction(formData: FormData) {
   }
 
   redirect(`/listings/${listingId}`);
+}
+
+export type DeleteListingState = { error?: string };
+
+export async function deleteListingAction(
+  _prevState: DeleteListingState,
+  formData: FormData
+): Promise<DeleteListingState> {
+  const listingId = String(formData.get("listingId") ?? "");
+  const sellerId = await requireSellerId();
+
+  const listing = await getListingForOwner(listingId, sellerId);
+  if (!listing) {
+    notFound();
+  }
+
+  const purchaseCount = await countPurchasesForListing(listingId);
+  if (purchaseCount > 0) {
+    return { error: "구매 기록이 있는 매물은 삭제할 수 없습니다." };
+  }
+
+  // UI(매물 상세)는 published=true인 매물만 보여주므로 납품용 draft가 이
+  // 화면에 뜰 일이 없지만, 폼 우회(직접 POST)를 막기 위해 서버에서도 다시
+  // 확인한다 - publishListing과 동일한 조건을 재사용한다(새 컬럼 없음).
+  const isDraft = await isDeliveryDraftListing(listingId);
+  if (isDraft) {
+    return { error: "납품용 완성본은 이 화면에서 삭제할 수 없습니다." };
+  }
+
+  const deliveryFileUrl = await getListingDeliveryFileUrlForOwner(listingId, sellerId);
+  if (deliveryFileUrl) {
+    await del(deliveryFileUrl);
+  }
+  await deleteListing(listingId);
+
+  redirect("/listings");
 }

@@ -1,10 +1,17 @@
 import { notFound } from "next/navigation";
-import { getListingById, getPublicScanSummary, getSellerById } from "@/lib/data";
+import {
+  countPurchasesForListing,
+  getListingById,
+  getPublicScanSummary,
+  getSellerById,
+  isDeliveryDraftListing,
+} from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { formatDate, formatPrice } from "@/lib/format";
 import { ScanSummaryCard } from "@/app/_components/ScanSummaryCard";
 import { createPurchaseAction } from "@/app/purchaseActions";
 import type { Seller } from "@/lib/types";
+import { DeleteListingButton } from "./DeleteListingButton";
 
 // contact가 비어 있거나 로그인 이메일과 같은 값이면 로그인 이메일이 그대로
 // 노출되는 것이므로 공개하지 않는다. 판매자가 로그인 이메일과 다른 값을
@@ -34,13 +41,29 @@ export default async function ListingDetailPage(
   const viewerSellerId = await getCurrentSellerId();
   const isOwnListing = viewerSellerId === listing.sellerId;
 
+  // published=true인 매물만 이 페이지에 도달하므로(getListingById가 이미
+  // 필터함) 납품용 draft는 사실상 여기 뜰 수 없지만(publishListing이 draft를
+  // 절대 게시하지 않음), 판정 자체는 서버 액션과 동일한 조건으로 한 번 더
+  // 확인해 UI도 어긋나지 않게 한다.
+  const [purchaseCount, isDraft] = isOwnListing
+    ? await Promise.all([countPurchasesForListing(listing.id), isDeliveryDraftListing(listing.id)])
+    : [0, false];
+  const canDelete = isOwnListing && purchaseCount === 0 && !isDraft;
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
       <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
         {listing.category}
       </span>
 
-      <h1 className="mt-4 text-2xl font-bold">{listing.title}</h1>
+      <div className="mt-4 flex items-start justify-between gap-4">
+        <h1 className="text-2xl font-bold">{listing.title}</h1>
+        {canDelete && (
+          <div className="shrink-0">
+            <DeleteListingButton listingId={listing.id} />
+          </div>
+        )}
+      </div>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         등록일 {formatDate(listing.createdAt)}
       </p>

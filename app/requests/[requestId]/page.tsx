@@ -6,6 +6,7 @@ import {
   getPublicDeliveryScanSummary,
   getSettlementAccountForViewer,
   getToolRequestById,
+  hasMessageFromOtherParty,
   listToolProposalDeliveryProofs,
   listToolProposalMessages,
   listToolProposalsForRequest,
@@ -19,6 +20,7 @@ import { DDayBadge } from "@/app/_components/DDayBadge";
 import { updateRequestDisclosureAction } from "@/app/requestActions";
 import type { ToolProposalMessageWithAuthor, ToolRequestStatus } from "@/lib/types";
 import { ConfirmDeliveryButton } from "./ConfirmDeliveryButton";
+import { DeleteProposalButton } from "./DeleteProposalButton";
 import { DeleteRequestButton } from "./DeleteRequestButton";
 import { ProposalForm } from "./ProposalForm";
 import { ProposalThread } from "./ProposalThread";
@@ -158,6 +160,26 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
 
   const canSubmitDelivery = isSelectedSeller && toolRequest.status === "in_progress";
 
+  // 제안 삭제 버튼 노출 조건: 본인이 낸 제안이고 아직 선택 전이며(pending),
+  // 의뢰자가 이 제안 스레드에 메시지를 하나도 보내지 않았을 때만(본인이 쓴
+  // 메시지만 있는 경우는 허용). 실제 삭제 가능 여부는 서버 액션이 다시
+  // 확인한다 - 여기서는 버튼 노출 여부만 정한다.
+  const ownPendingProposals = sellerId
+    ? proposals.filter((proposal) => proposal.sellerId === sellerId && proposal.status === "pending")
+    : [];
+  const deletableProposalIds = new Set(
+    (
+      await Promise.all(
+        ownPendingProposals.map(async (proposal) => ({
+          id: proposal.id,
+          deletable: !(await hasMessageFromOtherParty(proposal.id, proposal.sellerId)),
+        }))
+      )
+    )
+      .filter((entry) => entry.deletable)
+      .map((entry) => entry.id)
+  );
+
   // 납품 스캔 요약은 의뢰자 본인 또는 선택된 제안의 판매자 본인일 때만 조회한다
   // (그 외 방문자에게는 조회 함수 자체를 호출하지 않는다).
   const deliverySummary =
@@ -199,7 +221,7 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
             >
               수정
             </Link>
-            <DeleteRequestButton requestId={toolRequest.id} />
+            {proposals.length === 0 && <DeleteRequestButton requestId={toolRequest.id} />}
           </div>
         )}
       </div>
@@ -381,6 +403,9 @@ export default async function ToolRequestDetailPage(props: PageProps<"/requests/
                 </p>
                 {canSelectProposals && !isSelected && (
                   <SelectProposalButton requestId={toolRequest.id} proposalId={proposal.id} />
+                )}
+                {deletableProposalIds.has(proposal.id) && (
+                  <DeleteProposalButton proposalId={proposal.id} />
                 )}
                 {isSelected && canAccessThread && (
                   <ProposalThread proposalId={proposal.id} initialMessages={threadMessages} />

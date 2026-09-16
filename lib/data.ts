@@ -831,6 +831,56 @@ export async function publishListing(
   return rows[0] ? rowToListing(rows[0]) : null;
 }
 
+// 삭제 가능 여부 판정 전용 - 어떤 제안의 완성본(delivered_listing_id)이 이
+// 매물을 가리키면 납품용 draft다. publishListing이 이미 같은 조건으로
+// "이 매물은 마켓에 노출되면 안 된다"를 판정하고 있어(위 함수 참고), 삭제
+// 판정에도 새 플래그/컬럼 없이 그대로 재사용한다.
+export async function isDeliveryDraftListing(listingId: string): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT EXISTS (
+      SELECT 1 FROM tool_proposals WHERE delivered_listing_id = ${listingId}
+    ) AS is_draft
+  `) as Array<{ is_draft: boolean }>;
+  return rows[0]?.is_draft ?? false;
+}
+
+// 삭제 가능 여부 판정 전용 - 구매 건이 하나라도 있으면 매물 삭제를 막는다.
+export async function countPurchasesForListing(listingId: string): Promise<number> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT COUNT(*) AS count FROM purchases WHERE listing_id = ${listingId}
+  `) as Array<{ count: string }>;
+  return Number(rows[0]?.count ?? 0);
+}
+
+// 매물 삭제 시 private Blob 정리용 - delivery_file_url은 민감 필드라 일반
+// 조회(getListingForOwner 등)에는 포함하지 않는 기존 원칙(getListingDeliveryFileUrlForPurchase
+// 참고)을 그대로 따라, 소유자 본인 매물의 값만 반환하는 전용 함수로 둔다.
+export async function getListingDeliveryFileUrlForOwner(
+  listingId: string,
+  sellerId: string
+): Promise<string | null> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT delivery_file_url FROM listings WHERE id = ${listingId} AND seller_id = ${sellerId}
+  `) as Array<{ delivery_file_url: string | null }>;
+  return rows[0]?.delivery_file_url ?? null;
+}
+
+// 호출부(deleteListingAction)가 구매 0건·납품용 draft 아님을 이미 확인한
+// 뒤에만 부른다. scan_reports가 유일한 자식 테이블이다(purchases는 이 시점에
+// 0건이 보장됨).
+export async function deleteListing(listingId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`DELETE FROM scan_reports WHERE listing_id = ${listingId}`;
+  await sql`DELETE FROM listings WHERE id = ${listingId}`;
+}
+
 // 회원 탈퇴를 접수한다. 이미 탈퇴가 예약된 계정이면(WHERE ... deletion_requested_at IS NULL)
 // 다시 호출해도 유예 기간 타이머가 재설정되지 않는다 - 버튼을 두 번 눌러도 삭제
 // 예정일이 계속 미뤄지는 일이 없도록 하기 위함이다.
@@ -1246,6 +1296,27 @@ export async function listCommunityCommentsForPost(
   return rows.map(rowToCommunityCommentWithAuthor);
 }
 
+// 삭제 가능 여부 판정 전용 - hidden 여부와 무관하게 전체 댓글 수를 센다.
+// listCommunityCommentsForPost는 hidden=false만 세므로(화면 표시용) 재사용하지
+// 않는다 - 신고 누적으로 숨겨진 댓글만 있는 글도 "다른 사람이 관여한 글"이다.
+export async function countCommunityComments(postId: string): Promise<number> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT COUNT(*) AS count FROM community_comments WHERE post_id = ${postId}
+  `) as Array<{ count: string }>;
+  return Number(rows[0]?.count ?? 0);
+}
+
+// 댓글이 0건일 때만 호출된다(app/communityActions.ts에서 확인) - 그래서 자식
+// 댓글/댓글신고 테이블은 건드릴 게 없고, 이 글에 대한 신고만 먼저 지운다.
+export async function deleteCommunityPost(postId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`DELETE FROM community_post_reports WHERE post_id = ${postId}`;
+  await sql`DELETE FROM community_posts WHERE id = ${postId}`;
+}
+
 export async function hasReportedCommunityPost(
   postId: string,
   reporterSellerId: string
@@ -1644,10 +1715,20 @@ export async function replaceToolRequestImages(requestId: string, imageUrls: str
   }
 }
 
-// 'open' 상태일 때만 호출된다 - 이 상태에서는 선택된 제안이 있을 수 없으므로
-// (selectToolProposal이 상태를 'in_progress'로 바꾸는 것과 원자적으로 묶여
-// 있다) 제안 스레드 메시지도 존재할 수 없지만, FK 순서상 안전하게 자식부터
-// 지운다.
+// 삭제 가능 여부 판정 전용 - 제안이 하나라도 있으면(선택 여부 무관) 의뢰
+// 삭제를 막는다(app/requestActions.ts의 deleteToolRequestAction).
+export async function countToolProposalsForRequest(requestId: string): Promise<number> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT COUNT(*) AS count FROM tool_proposals WHERE request_id = ${requestId}
+  `) as Array<{ count: string }>;
+  return Number(rows[0]?.count ?? 0);
+}
+
+// 호출부(deleteToolRequestAction)가 제안 0건일 때만 호출하므로 tool_proposals/
+// tool_proposal_messages는 실제로 지울 행이 없다 - 그래도 FK 순서상 안전하게
+// 자식부터 지우는 순서는 유지한다(전제가 깨진 경우에도 안전).
 export async function deleteToolRequest(requestId: string): Promise<void> {
   await ensureInitialized();
   const sql = getSql();
@@ -1904,6 +1985,36 @@ export async function selectToolProposal(
   `;
 
   return true;
+}
+
+// 삭제 가능 여부 판정 전용 - 제안자 본인이 아닌 다른 사람(의뢰자)이 이
+// 스레드에 메시지를 하나라도 보냈으면 삭제를 막는다. 제안자 본인이 쓴
+// 메시지만 있는 경우는 걸리지 않는다.
+export async function hasMessageFromOtherParty(
+  proposalId: string,
+  proposalSellerId: string
+): Promise<boolean> {
+  await ensureInitialized();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT EXISTS (
+      SELECT 1 FROM tool_proposal_messages
+      WHERE proposal_id = ${proposalId} AND sender_seller_id != ${proposalSellerId}
+    ) AS has_other
+  `) as Array<{ has_other: boolean }>;
+  return rows[0]?.has_other ?? false;
+}
+
+// 호출부(deleteProposalAction)가 status='pending'이고 의뢰자 메시지가 없음을
+// 이미 확인한 뒤에만 부른다. tool_proposal_delivery_proofs는 납품(선택 이후)
+// 단계에서만 생기므로 이 시점엔 정상적으로 비어 있지만, FK 순서상 안전하게
+// 함께 지운다.
+export async function deleteToolProposal(proposalId: string): Promise<void> {
+  await ensureInitialized();
+  const sql = getSql();
+  await sql`DELETE FROM tool_proposal_delivery_proofs WHERE proposal_id = ${proposalId}`;
+  await sql`DELETE FROM tool_proposal_messages WHERE proposal_id = ${proposalId}`;
+  await sql`DELETE FROM tool_proposals WHERE id = ${proposalId}`;
 }
 
 // ============================================================
