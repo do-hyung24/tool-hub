@@ -38,6 +38,31 @@ function buildRedactedSnippet(file: ScannableFile, lineNumber: number): string {
   return redactSecrets(lines.slice(start, end).join("\n"));
 }
 
+export type LlmErrorSummary = {
+  name: string;
+  status: number | null;
+  errorType: string | null;
+  message: string;
+};
+
+// 검증 전용. 삼켜지는 에러를 진단 라우트가 들여다볼 수 있게 안전한 필드만
+// 골라 요약한다 - 키 값은 에러 객체에 담기지 않고, message는 만약을 위해
+// redactSecrets를 한 번 더 거친다.
+function summarizeLlmError(error: unknown): LlmErrorSummary {
+  if (error instanceof Anthropic.APIError) {
+    return {
+      name: error.name,
+      status: typeof error.status === "number" ? error.status : null,
+      errorType: error.type ?? null,
+      message: redactSecrets(error.message),
+    };
+  }
+  if (error instanceof Error) {
+    return { name: error.name, status: null, errorType: null, message: redactSecrets(error.message) };
+  }
+  return { name: "unknown", status: null, errorType: null, message: "unknown error" };
+}
+
 // 규칙 기반 탐지기가 "문맥 판단이 필요함"으로 표시한 항목만 골라 Claude에게
 // 보강 판단을 요청한다. 애매한 항목이 하나도 없으면 API를 호출하지 않는다
 // (모든 스캔에 매번 LLM을 호출하지 않기 위한 비용 통제).
@@ -50,6 +75,7 @@ export async function reviewAmbiguousFindings(
   // 건드리지 않고, 동시 요청과 섞이지 않게) 읽어가기 위한 용도.
   overrides?: {
     onUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
+    onError?: (error: LlmErrorSummary) => void;
     model?: string;
     timeoutMs?: number;
   }
@@ -84,7 +110,8 @@ export async function reviewAmbiguousFindings(
   let client: Anthropic;
   try {
     client = new Anthropic({ timeout: timeoutMs, maxRetries: LLM_MAX_RETRIES });
-  } catch {
+  } catch (error) {
+    overrides?.onError?.(summarizeLlmError(error));
     return findings;
   }
 
@@ -115,7 +142,8 @@ export async function reviewAmbiguousFindings(
         },
       ],
     });
-  } catch {
+  } catch (error) {
+    overrides?.onError?.(summarizeLlmError(error));
     // LLM 호출이 실패해도 규칙 기반 결과는 이미 유효하므로 그대로 반환한다.
     return findings;
   }

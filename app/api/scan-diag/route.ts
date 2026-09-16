@@ -1,7 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { detectFindings, type RawFinding } from "@/lib/detector";
-import { reviewAmbiguousFindings } from "@/lib/llmReview";
+import { reviewAmbiguousFindings, type LlmErrorSummary } from "@/lib/llmReview";
 import { categoryForType, type CategoryId } from "@/lib/findingCategories";
 import { SEVERITIES } from "@/lib/types";
 import type { ScannableFile } from "@/lib/scannableFile";
@@ -120,6 +120,7 @@ export async function GET(request: Request) {
     const usageHolder: { value: { inputTokens: number; outputTokens: number } | null } = {
       value: null,
     };
+    const errorHolder: { value: LlmErrorSummary | null } = { value: null };
     const hybridStart = Date.now();
     const hybrid = await reviewAmbiguousFindings(raw, fixture.files, {
       model,
@@ -127,8 +128,12 @@ export async function GET(request: Request) {
       onUsage: (u) => {
         usageHolder.value = u;
       },
+      onError: (e) => {
+        errorHolder.value = e;
+      },
     });
     const usage = usageHolder.value;
+    const llmError = errorHolder.value;
     const hybridTimeMs = Date.now() - hybridStart;
     const hybridSummary = summarize(hybrid);
 
@@ -159,6 +164,7 @@ export async function GET(request: Request) {
         falsePositiveCleared,
         inputTokens: usage?.inputTokens ?? null,
         outputTokens: usage?.outputTokens ?? null,
+        error: llmError,
       },
     });
   }
