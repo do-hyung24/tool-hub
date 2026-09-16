@@ -43,7 +43,11 @@ function buildRedactedSnippet(file: ScannableFile, lineNumber: number): string {
 // (모든 스캔에 매번 LLM을 호출하지 않기 위한 비용 통제).
 export async function reviewAmbiguousFindings(
   findings: RawFinding[],
-  files: ScannableFile[]
+  files: ScannableFile[],
+  // 검증 전용 훅. 실제 서비스 호출부(scanEngine.ts)는 이 값을 넘기지 않으므로
+  // 동작에 영향이 없다. app/api/scan-diag/route.ts가 usage 수치를 동시 요청과
+  // 섞이지 않게(전역 console.log를 건드리지 않고) 안전하게 읽어가기 위한 용도.
+  onUsage?: (usage: { inputTokens: number; outputTokens: number }) => void
 ): Promise<RawFinding[]> {
   const ambiguous = findings.filter((finding) => finding.needsLlmReview);
   if (ambiguous.length === 0) return findings;
@@ -113,6 +117,10 @@ export async function reviewAmbiguousFindings(
   console.log("[llmReview] usage", {
     model: LLM_MODEL,
     ambiguousCount: ambiguous.length,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  });
+  onUsage?.({
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
   });
