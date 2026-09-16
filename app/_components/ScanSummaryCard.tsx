@@ -8,7 +8,10 @@ export function ScanSummaryCard({
   disclosureNote,
   className = "",
 }: {
-  groups: PublicFindingGroup[];
+  // null = 스캔 리포트 자체가 없음(검사 항목 체크리스트를 표시하면 안 됨).
+  // 빈 배열 = 스캔했고 발견 0건(체크리스트를 표시하되 전 항목 "해당 없음").
+  // 호출부가 이 구분을 ?? []로 뭉개지 않고 그대로 넘겨야 한다.
+  groups: PublicFindingGroup[] | null;
   disclosureNote?: string | null;
   className?: string;
 }) {
@@ -30,7 +33,7 @@ export function ScanSummaryCard({
         </svg>
         자동 보안 스캔을 거쳤습니다
       </p>
-      {groups.length > 0 && <SecurityScanSummary groups={groups} />}
+      {groups !== null && <SecurityScanSummary groups={groups} />}
       {disclosureNote && (
         <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
           <h3 className="text-xs font-semibold text-zinc-500 dark:text-muted">

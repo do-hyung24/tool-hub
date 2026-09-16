@@ -130,7 +130,7 @@ export default async function ListingDetailPage(
 
       <ScanSummaryCard
         className="mt-8"
-        groups={scanSummary ?? []}
+        groups={scanSummary}
         disclosureNote={listing.disclosureNote}
       />
 

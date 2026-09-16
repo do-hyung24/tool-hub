@@ -2170,7 +2170,7 @@ export async function getToolProposalDeliveryProofById(
 export async function getDeliveryScanSummaryForViewer(
   requestId: string,
   viewerSellerId: string
-): Promise<{ proposal: ToolProposal; listing: Listing; findings: PublicFindingGroup[] } | null> {
+): Promise<{ proposal: ToolProposal; listing: Listing; findings: PublicFindingGroup[] | null } | null> {
   await ensureInitialized();
   const sql = getSql();
 
@@ -2211,7 +2211,10 @@ export async function getDeliveryScanSummaryForViewer(
     LIMIT 1
   `) as Array<{ findings: Finding[] }>;
   const scanReport = scanRows[0];
-  const findings = scanReport ? groupFindingsForBuyer(scanReport.findings) : [];
+  // getPublicScanSummary와 동일하게 "리포트 없음"(null)과 "리포트는 있고
+  // 발견 0건"([])을 구분해 그대로 반환한다 - 호출부가 이 구분을 뭉개면
+  // 안 된다(체크리스트 표시 여부가 여기 달려 있다).
+  const findings = scanReport ? groupFindingsForBuyer(scanReport.findings) : null;
 
   return { proposal, listing, findings };
 }

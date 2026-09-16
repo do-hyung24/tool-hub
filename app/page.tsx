@@ -1,6 +1,12 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { groupFindingsForBuyer, CATEGORY_IDS, CATEGORY_LABELS, getDetectorTypeCount } from "@/lib/findingCategories";
+import {
+  groupFindingsForBuyer,
+  CATEGORY_CHECK_DESCRIPTIONS,
+  CATEGORY_IDS,
+  CATEGORY_LABELS,
+  getDetectorTypeCount,
+} from "@/lib/findingCategories";
 import { filterListingIdsWithScanReport, getListings } from "@/lib/data";
 import { getCurrentSellerId } from "@/lib/session";
 import { COPYRIGHT_POLICY_NOTICE } from "@/lib/constants";
@@ -61,18 +67,6 @@ const PROMISES = [
   { label: "비공개 조율", sentence: "세부 협의는 의뢰자와 선택된 제작자만 봅니다." },
   { label: "결제 시점", sentence: "완성본과 스캔 결과를 확인한 뒤에만 결제합니다." },
 ] as const;
-
-// CATEGORY_LABELS 칩에 호버/탭 시 뜨는 쉬운말 한 줄 설명. EXPERT_LABELS/detector.ts의
-// 카테고리 의미를 그대로 풀어 쓴 것으로, 실제 발견 항목(findings)과는 무관하게 카테고리
-// 자체가 무엇을 뜻하는지 설명한다 - lib/findingCategories.ts의 DEFAULT_EASY_LABELS는
-// "~발견되어 확인이 필요해요" 식으로 실제 스캔 결과 문맥에 쓰이는 문구라 여기엔 맞지 않는다.
-const CATEGORY_TOOLTIPS: Record<string, string> = {
-  "secret-exposure": "비밀번호나 API 키 같은 값이 코드에 그대로 적혀 있는지 확인해요",
-  "dangerous-code-execution": "외부 명령을 실행할 수 있는 위험한 코드가 있는지 확인해요",
-  "insecure-network": "인터넷 통신 시 보안 검증을 건너뛰는 코드가 있는지 확인해요",
-  "insecure-deserialization": "출처를 믿을 수 없는 데이터를 위험하게 불러오는지 확인해요",
-  "data-exfiltration": "내 정보를 외부로 몰래 보낼 수 있는 코드가 있는지 확인해요",
-};
 
 const DIY_ROWS = [
   {
@@ -382,7 +376,7 @@ export default async function Home() {
                 {CATEGORY_LABELS.map((item) => (
                   <span
                     key={item.id}
-                    title={CATEGORY_TOOLTIPS[item.id]}
+                    title={CATEGORY_CHECK_DESCRIPTIONS[item.id]}
                     className="cursor-help break-keep rounded-full bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300 ring-1 ring-white/[0.08]"
                   >
                     {item.label}

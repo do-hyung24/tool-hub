@@ -86,7 +86,7 @@ export function ConfirmDeliveryButton({
   alreadyCompleted,
 }: {
   requestId: string;
-  summary: { proposal: ToolProposal; listing: Listing; findings: PublicFindingGroup[] } | null;
+  summary: { proposal: ToolProposal; listing: Listing; findings: PublicFindingGroup[] | null } | null;
   proofImages: ToolProposalDeliveryProof[];
   settlementAccount: SellerSettlementAccount | null;
   isRequester: boolean;

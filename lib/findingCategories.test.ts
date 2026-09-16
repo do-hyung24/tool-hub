@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryForType, groupFindingsForBuyer } from "./findingCategories";
+import { buildScanChecklist, CATEGORY_IDS, categoryForType, groupFindingsForBuyer } from "./findingCategories";
 import type { Finding } from "./types";
 
 function finding(overrides: Partial<Finding> & { type: string; severity: Finding["severity"] }): Finding {
@@ -107,5 +107,47 @@ describe("groupFindingsForBuyer", () => {
   it("includes a single expert label per category regardless of subtype", () => {
     const groups = groupFindingsForBuyer([finding({ type: "hardcoded-secret", severity: "critical" })]);
     expect(groups[0].expertLabel).toBe("시크릿/자격 증명 노출");
+  });
+
+  it("counts findings per category", () => {
+    const groups = groupFindingsForBuyer([
+      finding({ type: "hardcoded-secret", severity: "critical" }),
+      finding({ type: "high-entropy-literal", severity: "medium" }),
+      finding({ type: "insecure-tls", severity: "low" }),
+    ]);
+    expect(groups.find((g) => g.categoryId === "secret-exposure")?.count).toBe(2);
+    expect(groups.find((g) => g.categoryId === "insecure-network")?.count).toBe(1);
+  });
+});
+
+describe("buildScanChecklist", () => {
+  it("lists every buyer-facing category exactly once, regardless of findings", () => {
+    const checklist = buildScanChecklist([]);
+    expect(checklist.map((item) => item.categoryId)).toEqual(CATEGORY_IDS);
+  });
+
+  it("marks categories without findings as not found, with a neutral check description", () => {
+    const checklist = buildScanChecklist([]);
+    for (const item of checklist) {
+      expect(item.found).toBe(false);
+      expect(item.count).toBe(0);
+      expect(item.severity).toBeNull();
+      expect(item.easyLabel).not.toContain("확인이 필요해요");
+    }
+  });
+
+  it("carries over the group's severity, count, and labels for found categories", () => {
+    const groups = groupFindingsForBuyer([
+      finding({ type: "hardcoded-secret", severity: "critical" }),
+      finding({ type: "hardcoded-secret", severity: "critical" }),
+    ]);
+    const checklist = buildScanChecklist(groups);
+    const secretItem = checklist.find((item) => item.categoryId === "secret-exposure");
+    expect(secretItem).toMatchObject({ found: true, count: 2, severity: "critical" });
+
+    const otherItems = checklist.filter((item) => item.categoryId !== "secret-exposure");
+    for (const item of otherItems) {
+      expect(item.found).toBe(false);
+    }
   });
 });
