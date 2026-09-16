@@ -8,6 +8,18 @@ import { CONFIDENCE_LEVELS, SEVERITIES } from "./types";
 
 const CONTEXT_LINES = 2;
 
+// 오탐 재판정용 모델. 상수로 분리해 opus/haiku 비교 검증 시 한 곳만 바꾸면
+// 되게 한다(2026-09-16 라운드 - opus-5/haiku-4-5 비교 후 결정).
+const LLM_MODEL = "claude-opus-5";
+
+// SDK 기본 타임아웃(10분)·기본 재시도(2회)를 그대로 쓰면, API가 느려질 때
+// 이 함수의 try/catch가 발동하기도 전에 서버리스 함수 자체의 실행 시간
+// 제한에 걸려 매물 등록/완성본 제출 요청 전체가 500으로 실패할 수 있다.
+// 8초·재시도 1회로 짧게 잡아 최악의 경우에도 매물 등록 자체는 항상 완료되게 한다
+// (그 대신 규칙 엔진 결과만 남는다 - 아래 catch가 그 경로다).
+const LLM_TIMEOUT_MS = 8000;
+const LLM_MAX_RETRIES = 1;
+
 const ReviewItemSchema = z.object({
   id: z.string(),
   severity: z.enum(SEVERITIES),
@@ -59,7 +71,7 @@ export async function reviewAmbiguousFindings(
 
   let client: Anthropic;
   try {
-    client = new Anthropic();
+    client = new Anthropic({ timeout: LLM_TIMEOUT_MS, maxRetries: LLM_MAX_RETRIES });
   } catch {
     return findings;
   }
@@ -67,7 +79,7 @@ export async function reviewAmbiguousFindings(
   let response;
   try {
     response = await client.messages.parse({
-      model: "claude-opus-5",
+      model: LLM_MODEL,
       max_tokens: 4096,
       output_config: {
         effort: "medium",
@@ -95,6 +107,15 @@ export async function reviewAmbiguousFindings(
     // LLM 호출이 실패해도 규칙 기반 결과는 이미 유효하므로 그대로 반환한다.
     return findings;
   }
+
+  // 스캔 1회당 실제 토큰 사용량을 서버 로그로 남긴다 - 등록마다 호출되는
+  // 비용이라 관측 없이는 반복 등록으로 새는 비용을 알아챌 방법이 없다.
+  console.log("[llmReview] usage", {
+    model: LLM_MODEL,
+    ambiguousCount: ambiguous.length,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  });
 
   const reviewed = response.parsed_output?.items;
   if (!reviewed) return findings;
