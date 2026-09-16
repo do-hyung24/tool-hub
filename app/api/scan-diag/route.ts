@@ -116,6 +116,9 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
+    // 브랜치 별칭 URL은 항상 최신 배포를 가리키므로, 지금 응답이 어느 커밋의
+    // 빌드인지 호출 쪽에서 바로 확인할 수 있게 남긴다(Vercel이 빌드 시 자동 주입).
+    commitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     enableLlmHybrid: process.env.ENABLE_LLM_HYBRID === "true",
     hasAnthropicKey: Boolean(process.env.ANTHROPIC_API_KEY),
     results,
