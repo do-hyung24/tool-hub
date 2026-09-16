@@ -44,10 +44,15 @@ function buildRedactedSnippet(file: ScannableFile, lineNumber: number): string {
 export async function reviewAmbiguousFindings(
   findings: RawFinding[],
   files: ScannableFile[],
-  // 검증 전용 훅. 실제 서비스 호출부(scanEngine.ts)는 이 값을 넘기지 않으므로
-  // 동작에 영향이 없다. app/api/scan-diag/route.ts가 usage 수치를 동시 요청과
-  // 섞이지 않게(전역 console.log를 건드리지 않고) 안전하게 읽어가기 위한 용도.
-  onUsage?: (usage: { inputTokens: number; outputTokens: number }) => void
+  // 검증 전용 오버라이드. 실제 서비스 호출부(scanEngine.ts)는 이 값을 넘기지
+  // 않으므로 동작에 영향이 없다. app/api/scan-diag/route.ts가 요청 단위로
+  // model/timeout을 바꿔보거나 usage 수치를 안전하게(전역 console.log를
+  // 건드리지 않고, 동시 요청과 섞이지 않게) 읽어가기 위한 용도.
+  overrides?: {
+    onUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
+    model?: string;
+    timeoutMs?: number;
+  }
 ): Promise<RawFinding[]> {
   const ambiguous = findings.filter((finding) => finding.needsLlmReview);
   if (ambiguous.length === 0) return findings;
@@ -55,6 +60,9 @@ export async function reviewAmbiguousFindings(
   // ENABLE_LLM_HYBRID=true로 명시적으로 켜기 전까지는 API를 호출하지 않는다.
   if (process.env.ENABLE_LLM_HYBRID !== "true") return findings;
   if (!process.env.ANTHROPIC_API_KEY) return findings;
+
+  const model = overrides?.model ?? LLM_MODEL;
+  const timeoutMs = overrides?.timeoutMs ?? LLM_TIMEOUT_MS;
 
   const filesByPath = new Map(files.map((file) => [file.path, file]));
 
@@ -75,7 +83,7 @@ export async function reviewAmbiguousFindings(
 
   let client: Anthropic;
   try {
-    client = new Anthropic({ timeout: LLM_TIMEOUT_MS, maxRetries: LLM_MAX_RETRIES });
+    client = new Anthropic({ timeout: timeoutMs, maxRetries: LLM_MAX_RETRIES });
   } catch {
     return findings;
   }
@@ -83,7 +91,7 @@ export async function reviewAmbiguousFindings(
   let response;
   try {
     response = await client.messages.parse({
-      model: LLM_MODEL,
+      model,
       max_tokens: 4096,
       output_config: {
         effort: "medium",
@@ -115,12 +123,12 @@ export async function reviewAmbiguousFindings(
   // 스캔 1회당 실제 토큰 사용량을 서버 로그로 남긴다 - 등록마다 호출되는
   // 비용이라 관측 없이는 반복 등록으로 새는 비용을 알아챌 방법이 없다.
   console.log("[llmReview] usage", {
-    model: LLM_MODEL,
+    model,
     ambiguousCount: ambiguous.length,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
   });
-  onUsage?.({
+  overrides?.onUsage?.({
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
   });
