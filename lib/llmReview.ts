@@ -15,10 +15,15 @@ const LLM_MODEL = "claude-opus-5";
 // SDK 기본 타임아웃(10분)·기본 재시도(2회)를 그대로 쓰면, API가 느려질 때
 // 이 함수의 try/catch가 발동하기도 전에 서버리스 함수 자체의 실행 시간
 // 제한에 걸려 매물 등록/완성본 제출 요청 전체가 500으로 실패할 수 있다.
-// 8초·재시도 1회로 짧게 잡아 최악의 경우에도 매물 등록 자체는 항상 완료되게 한다
+// 8초로 짧게 잡아 최악의 경우에도 매물 등록 자체는 항상 완료되게 한다
 // (그 대신 규칙 엔진 결과만 남는다 - 아래 catch가 그 경로다).
 const LLM_TIMEOUT_MS = 8000;
-const LLM_MAX_RETRIES = 1;
+// 이 프로젝트는 Vercel Hobby 플랜이라 서버리스 함수 실행 시간 제한이 짧다.
+// 재시도 1회를 두면 timeout이 attempt당 적용돼(SDK가 매 attempt마다 새로
+// 타이머를 검) 최악의 경우 8초×2 + 백오프로 약 16.5초까지 늘어나 함수
+// 제한을 넘길 위험이 있다. 재시도로 얻는 복원력보다 500을 안 내는 쪽이
+// 우선이라 0으로 낮춘다 - 최악의 경우도 attempt 1회, 약 8초로 고정된다.
+const LLM_MAX_RETRIES = 0;
 
 const ReviewItemSchema = z.object({
   id: z.string(),
@@ -45,9 +50,11 @@ export type LlmErrorSummary = {
   message: string;
 };
 
-// 검증 전용. 삼켜지는 에러를 진단 라우트가 들여다볼 수 있게 안전한 필드만
-// 골라 요약한다 - 키 값은 에러 객체에 담기지 않고, message는 만약을 위해
-// redactSecrets를 한 번 더 거친다.
+// LLM 호출 실패를 실제 서버 로그(Vercel 함수 로그)에도, 검증 전용 진단
+// 라우트에도 같은 안전한 필드만 골라 넘긴다 - 키 값은 에러 객체에 담기지
+// 않고, message는 만약을 위해 redactSecrets를 한 번 더 거친다. 이전에는
+// 이 catch가 에러를 완전히 삼켜서, 모델명 오타나 키 만료로 하이브리드가
+// 매번 조용히 규칙 엔진으로 폴백돼도 아무 신호가 없었다.
 function summarizeLlmError(error: unknown): LlmErrorSummary {
   if (error instanceof Anthropic.APIError) {
     return {
@@ -111,7 +118,9 @@ export async function reviewAmbiguousFindings(
   try {
     client = new Anthropic({ timeout: timeoutMs, maxRetries: LLM_MAX_RETRIES });
   } catch (error) {
-    overrides?.onError?.(summarizeLlmError(error));
+    const summary = summarizeLlmError(error);
+    console.error("[llmReview] client 생성 실패, 규칙 엔진 결과로 폴백", summary);
+    overrides?.onError?.(summary);
     return findings;
   }
 
@@ -143,8 +152,12 @@ export async function reviewAmbiguousFindings(
       ],
     });
   } catch (error) {
-    overrides?.onError?.(summarizeLlmError(error));
-    // LLM 호출이 실패해도 규칙 기반 결과는 이미 유효하므로 그대로 반환한다.
+    const summary = summarizeLlmError(error);
+    // LLM 호출이 실패해도 규칙 기반 결과는 이미 유효하므로 그대로 반환하지만,
+    // 실패 자체는 반드시 로그로 남긴다 - 이게 없으면 하이브리드가 계속
+    // 실패해도 매물 등록은 정상 동작해 아무도 알아채지 못한다.
+    console.error("[llmReview] LLM 호출 실패, 규칙 엔진 결과로 폴백", summary);
+    overrides?.onError?.(summary);
     return findings;
   }
 
