@@ -85,11 +85,12 @@ export type LlmErrorSummary = {
   message: string;
 };
 
-// LLM 호출 실패를 실제 서버 로그(Vercel 함수 로그)에도, 검증 전용 진단
-// 라우트에도 같은 안전한 필드만 골라 넘긴다 - 키 값은 에러 객체에 담기지
-// 않고, message는 만약을 위해 redactSecrets를 한 번 더 거친다. 이전에는
-// 이 catch가 에러를 완전히 삼켜서, 모델명 오타나 키 만료로 하이브리드가
-// 매번 조용히 규칙 엔진으로 폴백돼도 아무 신호가 없었다.
+// LLM 호출 실패를 실제 서버 로그(Vercel 함수 로그)에 남길 때도, 검증용
+// onError 콜백에 넘길 때도 같은 안전한 필드만 골라 넘긴다 - 키 값은 에러
+// 객체에 담기지 않고, message는 만약을 위해 redactSecrets를 한 번 더
+// 거친다. 이전에는 이 catch가 에러를 완전히 삼켜서, 모델명 오타나 키
+// 만료로 하이브리드가 매번 조용히 규칙 엔진으로 폴백돼도 아무 신호가
+// 없었다.
 function summarizeLlmError(error: unknown): LlmErrorSummary {
   if (error instanceof Anthropic.APIError) {
     return {
@@ -111,10 +112,11 @@ function summarizeLlmError(error: unknown): LlmErrorSummary {
 export async function reviewAmbiguousFindings(
   findings: RawFinding[],
   files: ScannableFile[],
-  // 검증 전용 오버라이드. 실제 서비스 호출부(scanEngine.ts)는 이 값을 넘기지
-  // 않으므로 동작에 영향이 없다. app/api/scan-diag/route.ts가 요청 단위로
-  // model/timeout을 바꿔보거나 usage 수치를 안전하게(전역 console.log를
-  // 건드리지 않고, 동시 요청과 섞이지 않게) 읽어가기 위한 용도.
+  // 검증/관측 전용 오버라이드. 실제 서비스 호출부(scanEngine.ts)는 이 값을
+  // 넘기지 않으므로 동작에 영향이 없다. 요청 단위로 model/timeout을
+  // 바꿔보거나 usage/에러/클램프 발생 사실을 안전하게(전역 console.log를
+  // 건드리지 않고, 동시 요청과 섞이지 않게) 읽어가려는 진단 도구를 위한
+  // 확장 지점.
   overrides?: {
     onUsage?: (usage: { inputTokens: number; outputTokens: number }) => void;
     onError?: (error: LlmErrorSummary) => void;
