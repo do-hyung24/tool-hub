@@ -99,7 +99,7 @@ export function DeliverForm({ requestId, proposalId }: { requestId: string; prop
         disabled={pending}
         className="mt-2 self-start rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
       >
-        {pending ? "제출 중..." : "제출하기"}
+        {pending ? "보안 검사 중..." : "제출하기"}
       </button>
     </form>
   );
