@@ -84,9 +84,10 @@ export function NewListingForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        className="relative mt-2 overflow-hidden rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
       >
-        {pending ? "보안 검사 중..." : "등록하기"}
+        {pending && <span className="scan-progress-bar" aria-hidden="true" />}
+        <span className="relative z-10">{pending ? "보안 검사 중..." : "등록하기"}</span>
       </button>
     </form>
   );

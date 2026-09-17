@@ -105,9 +105,10 @@ export function DeliverRescanForm({
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        className="relative self-start overflow-hidden rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
-        {pending ? "보안 검사 중..." : "다시 스캔하기"}
+        {pending && <span className="scan-progress-bar" aria-hidden="true" />}
+        <span className="relative z-10">{pending ? "보안 검사 중..." : "다시 스캔하기"}</span>
       </button>
     </form>
   );

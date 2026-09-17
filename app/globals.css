@@ -133,4 +133,37 @@ body {
     background-color: var(--lp-hit-bg, transparent);
     border-left-color: var(--lp-hit-border, transparent);
   }
+  .scan-progress-bar {
+    animation: none;
+    width: 90%;
+  }
+}
+
+/* ── 스캔 진행 표시(매물 등록/완성본 제출 버튼 전용) ── */
+
+/* 버튼 안에서 스캔 진행을 시간 기반으로 보여주는 막대. 서버 액션이 진행률을
+   스트리밍하지 않아 실제 값을 모른다 - 그래서 퍼센트 숫자는 절대 표시하지
+   않고, 실측 소요시간(5~7초)에 맞춰 6초 동안 90%까지만 채운 뒤 멈춘다
+   (ease-out: 뒤로 갈수록 느려짐). 응답이 오면 버튼이 사라지거나 페이지가
+   이동하므로 100%까지 채우는 연출은 만들지 않는다. currentColor를 낮은
+   투명도로 써서, 채워진 버튼/테두리만 있는 버튼이나 라이트/다크 모드와
+   무관하게 그 버튼의 글자색에 맞춰 자연스럽게 녹아든다(별도 색 지정 불필요).
+   prefers-reduced-motion 처리는 위 공용 reduce 블록에서 함께 한다. */
+@keyframes scan-progress-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 90%;
+  }
+}
+.scan-progress-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  background-color: currentColor;
+  opacity: 0.16;
+  animation: scan-progress-fill 6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
