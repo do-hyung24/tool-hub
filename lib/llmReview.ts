@@ -12,17 +12,19 @@ const CONTEXT_LINES = 2;
 // 되게 한다(2026-09-16 라운드 - opus-5/haiku-4-5 비교 후 결정).
 const LLM_MODEL = "claude-opus-5";
 
-// SDK 기본 타임아웃(10분)·기본 재시도(2회)를 그대로 쓰면, API가 느려질 때
-// 이 함수의 try/catch가 발동하기도 전에 서버리스 함수 자체의 실행 시간
-// 제한에 걸려 매물 등록/완성본 제출 요청 전체가 500으로 실패할 수 있다.
-// 8초로 짧게 잡아 최악의 경우에도 매물 등록 자체는 항상 완료되게 한다
-// (그 대신 규칙 엔진 결과만 남는다 - 아래 catch가 그 경로다).
+// SDK 기본 타임아웃(10분)을 그대로 쓰면 API가 느려질 때 사용자가 매물 등록
+// 버튼 앞에서 그만큼 기다리게 된다. 8초로 짧게 잡아 최악의 경우에도 대기가
+// 길어지지 않게 한다(그 대신 규칙 엔진 결과만 남는다 - 아래 catch가 그
+// 경로다). 참고: 2026-09-17 확인 결과 이 프로젝트는 Vercel Fluid Compute가
+// 켜져 있고 함수 실행 시간 제한이 300초라 8초는 함수 제한과는 무관하다 -
+// 이 타임아웃은 순전히 사용자 대기시간을 짧게 유지하기 위한 값이다.
 const LLM_TIMEOUT_MS = 8000;
-// 이 프로젝트는 Vercel Hobby 플랜이라 서버리스 함수 실행 시간 제한이 짧다.
-// 재시도 1회를 두면 timeout이 attempt당 적용돼(SDK가 매 attempt마다 새로
-// 타이머를 검) 최악의 경우 8초×2 + 백오프로 약 16.5초까지 늘어나 함수
-// 제한을 넘길 위험이 있다. 재시도로 얻는 복원력보다 500을 안 내는 쪽이
-// 우선이라 0으로 낮춘다 - 최악의 경우도 attempt 1회, 약 8초로 고정된다.
+// SDK 기본 재시도(2회) 대신 0으로 낮춘다. 근거는 함수 실행 시간 제한이
+// 아니다(위 300초 확인 참고, 여유가 충분하다) - timeout이 attempt당
+// 적용되므로(SDK가 매 attempt마다 새로 타이머를 검) 재시도 1회만 둬도
+// 최악 8초×2+백오프≈16.5초를 등록 버튼 앞에서 그대로 기다리게 된다.
+// 실패해도 규칙 엔진 결과로 안전하게 폴백되니, 복원력보다 응답 속도를
+// 우선한다.
 const LLM_MAX_RETRIES = 0;
 
 // BLOCKING_SEVERITIES(critical/high/medium)는 SEVERITIES와 같은 순서(심각한
@@ -130,6 +132,14 @@ export async function reviewAmbiguousFindings(
 
   const model = overrides?.model ?? LLM_MODEL;
   const timeoutMs = overrides?.timeoutMs ?? LLM_TIMEOUT_MS;
+  // haiku-4.5는 output_config.effort를 지원하지 않는다 - 넘기면 400
+  // invalid_request_error("This model does not support the effort
+  // parameter.")로 즉시 거부된다(2026-09-17 haiku 비교 검증에서 확인).
+  // 지원하지 않는 모델이면 이 필드를 아예 빼고 호출한다.
+  const EFFORT_UNSUPPORTED_MODELS = new Set(["claude-haiku-4-5-20251001"]);
+  const outputConfig = EFFORT_UNSUPPORTED_MODELS.has(model)
+    ? { format: zodOutputFormat(LlmReviewSchema) }
+    : { effort: "medium" as const, format: zodOutputFormat(LlmReviewSchema) };
 
   const filesByPath = new Map(files.map((file) => [file.path, file]));
 
@@ -167,10 +177,7 @@ export async function reviewAmbiguousFindings(
     response = await client.messages.parse({
       model,
       max_tokens: 4096,
-      output_config: {
-        effort: "medium",
-        format: zodOutputFormat(LlmReviewSchema),
-      },
+      output_config: outputConfig,
       system:
         "당신은 개인 개발자가 만든 자동화 봇/스크립트 코드를 검수하는 보안 리뷰어입니다. " +
         "규칙 기반 탐지기가 문맥 판단이 필요하다고 표시한 항목들을 검토해, 각 항목의 실제 " +
