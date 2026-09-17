@@ -250,7 +250,7 @@ export default async function Home() {
             자동화 툴 의뢰 플랫폼
           </p>
           <h1 className="mx-auto mt-4 max-w-3xl text-balance font-display text-4xl font-semibold leading-[1.15] tracking-[-0.035em] break-keep sm:text-5xl lg:text-[3.5rem]">
-            글로 설명하면, 검증된 자동화 툴로.
+            설명만 하세요. 만드는 건 개발자가 합니다
           </h1>
           <p className="mx-auto mt-6 max-w-2xl break-keep text-[15px] leading-[1.7] text-muted lg:text-base">
             어려운 개발 용어는 몰라도 괜찮습니다. 평소 하던 일 그대로 편하게 적어보세요.

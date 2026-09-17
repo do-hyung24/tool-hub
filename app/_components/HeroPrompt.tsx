@@ -9,7 +9,7 @@ import { saveLandingDraft } from "@/lib/landingDraft";
 // 따로 뒀으나, 1440px에서도 입력창 폭보다 렌더 폭이 넓어 끝이 잘렸다(실측:
 // 필요 463px vs 입력창 434px). 아래 입력창 밑에 이미 예시 문구가 있어 안내가
 // 부족하지 않으므로, 폭에 안전한 짧은 문구 하나로 통일한다.
-const KEYWORD_PLACEHOLDER = "어떤 일로 시간을 빼앗기고 계신가요?";
+const KEYWORD_PLACEHOLDER = "예: 매일 아침 엑셀 파일 정리하는 일";
 const KEYWORD_MAX_LENGTH = 200;
 const ANSWER_MAX_LENGTH = 200;
 
