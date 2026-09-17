@@ -16,6 +16,7 @@ function toPersistableFinding(raw: RawFinding): Finding {
     location: raw.location,
     maskedEvidence: raw.maskedEvidence,
     description: raw.description,
+    aiFalsePositiveNote: raw.aiFalsePositiveNote ?? null,
   };
 }
 

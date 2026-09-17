@@ -73,6 +73,15 @@ export default async function ListingReviewPage(
                   근거: {finding.maskedEvidence}
                 </p>
               )}
+              {finding.aiFalsePositiveNote && (
+                // AI가 이 항목을 차단선 아래로 낮추자고 제안했지만, 게시
+                // 게이트에는 반영하지 않고(clampSeverity) 여기 판매자 전용
+                // 화면에만 참고 정보로 보여준다. 구매자 화면에는 노출 안 됨
+                // (groupFindingsForBuyer는 이 필드를 읽지 않는다).
+                <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                  {finding.aiFalsePositiveNote}
+                </p>
+              )}
             </li>
           ))}
         </ul>

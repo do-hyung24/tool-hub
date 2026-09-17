@@ -81,6 +81,12 @@ export type Finding = {
   location: string | null;
   maskedEvidence: string | null;
   description: string;
+  // LLM이 이 항목을 차단선(BLOCKING_SEVERITIES) 아래로 낮추려 했지만
+  // clampSeverity가 막은 경우에만 채워진다. 옵션 필드라 기존 Finding 생성
+  // 코드(detector.ts, 테스트 픽스처)를 손댈 필요가 없다. 판매자 전용 review
+  // 화면에만 노출한다 - 구매자 공개 요약(groupFindingsForBuyer)은 이 필드를
+  // 읽지 않는다.
+  aiFalsePositiveNote?: string | null;
 };
 
 export type ScanReport = {

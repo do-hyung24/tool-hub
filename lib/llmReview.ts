@@ -256,6 +256,11 @@ export async function reviewAmbiguousFindings(
       confidence: review.confidence,
       description: review.description,
       needsLlmReview: false,
+      // 게시 게이트에는 반영되지 않지만, LLM의 오탐 판단 자체는 유용하므로
+      // 판매자 전용 review 화면에서만 보여준다(clamped일 때만 채움).
+      aiFalsePositiveNote: clamped
+        ? `AI 재검토: 오탐 가능성 높음 — ${review.description}`
+        : null,
     };
   });
 }
